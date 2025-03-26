@@ -6,6 +6,8 @@ enum class StringResourcesKey(val value: String) {
 
     INVALID_JWT_TITLE("auth_invalid_jwt_title"),
     INVALID_JWT_DESCRIPTION("auth_invalid_jwt_description"),
+    AUTH_REFRESH_TOKEN_INVALID_TITLE("auth_refresh_token_invalid_title"),
+    AUTH_REFRESH_TOKEN_INVALID_DESCRIPTION("auth_refresh_token_invalid_description"),
 
     REGISTER_NAME_INVALID_ERROR("register_name_invalid_error"),
     REGISTER_LAST_NAME_INVALID_ERROR("register_last_name_invalid_error"),

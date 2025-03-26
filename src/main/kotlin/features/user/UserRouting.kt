@@ -11,5 +11,4 @@ fun Route.userRouting() {
             userController.getUserById(call)
         }
     }
-
 }

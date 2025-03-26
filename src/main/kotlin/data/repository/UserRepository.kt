@@ -9,5 +9,6 @@ interface UserRepository {
     suspend fun getUserById(userId: UUID): UserBaseInfo?
     suspend fun isEmailAlreadyRegistered(email: String): Boolean
     suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean
+    suspend fun isEmailVerified(userId: UUID): Boolean
 }
 

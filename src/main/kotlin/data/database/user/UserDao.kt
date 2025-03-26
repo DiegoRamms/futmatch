@@ -65,6 +65,15 @@ class UserDao {
         !UserTable.select(UserTable.phone).where { UserTable.phone eq phone}.limit(1).empty()
     }
 
+    suspend fun isEmailVerified(userId: UUID): Boolean = dbQuery {
+        val isVerified: Boolean = UserTable.select(UserTable.isEmailVerified)
+            .where { UserTable.id eq userId }
+            .mapNotNull { resultRow ->  resultRow[UserTable.isEmailVerified] }
+            .singleOrNull() ?: false
+
+        isVerified
+    }
+
     suspend fun updateUser(id: UUID, updatedUser: User): Boolean = dbQuery {
         val rowsUpdated = UserTable.update({ UserTable.id eq id }) { user ->
             user[name] = updatedUser.name
