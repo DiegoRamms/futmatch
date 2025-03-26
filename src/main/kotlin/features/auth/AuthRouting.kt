@@ -11,5 +11,10 @@ fun Route.authRouting() {
             val jwtConfig = application.getJWTConfig()
             authController.signUp(call, jwtConfig)
         }
+        post("/refresh") {
+            val authController = call.scope.get<AuthController>()
+            val jwtConfig = application.getJWTConfig()
+            authController.refreshJWT(call, jwtConfig)
+        }
     }
 }

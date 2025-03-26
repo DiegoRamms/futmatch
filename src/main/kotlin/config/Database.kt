@@ -1,5 +1,6 @@
 package com.devapplab.config
 
+import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserTable
 import io.ktor.server.application.*
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,7 @@ fun Application.configureDatabase() {
 
     transaction(database){
         SchemaUtils.create(UserTable)
+        SchemaUtils.create(RefreshTokenTable)
         addLogger(StdOutSqlLogger)
     }
 }

@@ -22,4 +22,8 @@ class UserRepositoryImpl(private val userDao: UserDao) : UserRepository {
     override suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean {
         return userDao.isPhoneNumberAlreadyRegistered(phone)
     }
+
+    override suspend fun isEmailVerified(userId: UUID): Boolean {
+        return userDao.isEmailVerified(userId)
+    }
 }
