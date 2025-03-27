@@ -11,7 +11,6 @@ class UserController(private val service: UserService) {
         val id = call.parameters["id"]?.toUUIDOrNull()
         val locale = call.retrieveLocale()
         val result = service.getUserById(id, locale)
-        println(result)
         call.respond(result)
     }
 }

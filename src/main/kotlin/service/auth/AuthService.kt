@@ -58,11 +58,9 @@ class AuthService(
         jwtConfig: JWTConfig
     ): AppResult<AuthResponse> {
         val (userId, deviceId) = refreshJWTRequest
-        println(currentRefreshToken)
         val refreshTokenValidationInfo = refreshTokenDao.getRefreshTokenValidationInfo(deviceId)
             ?: return locale.respondInvalidRefreshTokenError()
 
-        println(refreshTokenValidationInfo)
         val refreshTokenPayload = RefreshTokenPayload(
             plainToken = currentRefreshToken ?: return locale.respondInvalidRefreshTokenError(),
             hashedToken = refreshTokenValidationInfo.token,

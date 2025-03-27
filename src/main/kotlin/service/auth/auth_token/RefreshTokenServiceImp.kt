@@ -37,7 +37,6 @@ class RefreshTokenServiceImp(
     }
 
     override fun isValidRefreshToken(refreshTokenPayload: RefreshTokenPayload): Boolean {
-        println(refreshTokenPayload)
         val isValidToken = hashingService.verify(refreshTokenPayload.plainToken, refreshTokenPayload.hashedToken)
         val isNotExpired = System.currentTimeMillis() < refreshTokenPayload.expiresAt
 
