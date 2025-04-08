@@ -1,24 +1,35 @@
 package com.devapplab.service.auth
 
-import com.devapplab.data.database.refresh_token.RefreshTokenDao
+import com.devapplab.data.repository.AuthRepository
+import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.UserRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.auth.ClaimConfig
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.RefreshTokenPayload
+import com.devapplab.model.auth.UserSignInInfo
+import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.response.AuthCode
 import com.devapplab.model.auth.response.AuthResponse
 import com.devapplab.model.auth.response.AuthTokenResponse
 import com.devapplab.model.auth.response.RefreshJWTRequest
+import com.devapplab.model.user.UserStatus
 import com.devapplab.service.auth.auth_token.AuthTokenService
+import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
+import com.devapplab.utils.REFRESH_TOKEN_TIME
 import com.devapplab.utils.StringResourcesKey
-import com.devapplab.utils.TWO_DAYS_IN_MS
 import com.devapplab.utils.createError
 import io.ktor.http.*
+import model.mfa.MfaChannel
+import model.mfa.MfaCodeRequest
+import model.mfa.MfaCodeVerificationRequest
 import model.user.User
+import service.auth.DeviceService
+import service.email.EmailService
+import utils.MfaUtils
 import java.util.*
 
 class AuthService(
@@ -26,30 +37,97 @@ class AuthService(
     private val hashingService: HashingService,
     private val authTokenService: AuthTokenService,
     private val refreshTokenService: RefreshTokenService,
-    private val refreshTokenDao: RefreshTokenDao,
-    private val deviceService: DeviceService
+    private val deviceService: DeviceService,
+    private val mfaCodeService: MfaCodeService,
+    private val emailService: EmailService,
+    private val authRepository: AuthRepository,
+    private val refreshTokenRepository: RefreshTokenRepository
 ) {
-    suspend fun addUser(user: User, locale: Locale, jwtConfig: JWTConfig): AppResult<AuthResponse> {
+    suspend fun addUser(
+        user: User,
+        locale: Locale,
+        deviceInfo: String?
+    ): AppResult<AuthResponse> {
+        if (deviceInfo.isNullOrBlank()) {
+            return locale.respondDeviceInfoRequired()
+        }
         val isEmailAlreadyRegistered = userRepository.isEmailAlreadyRegistered(user.email)
-        val isPhoneNumberAlreadyRegistered = userRepository.isPhoneNumberAlreadyRegistered(user.phone)
-
         if (isEmailAlreadyRegistered) return locale.respondIsEmailAlreadyRegisteredError()
+
+        val isPhoneNumberAlreadyRegistered = userRepository.isPhoneNumberAlreadyRegistered(user.phone)
         if (isPhoneNumberAlreadyRegistered) return locale.respondIsPhoneAlreadyRegisteredError()
 
         val userWithPasswordHashed = user.copy(password = hashingService.hash(user.password))
-        val userId = userRepository.addUser(userWithPasswordHashed)
-        val claimConfig = ClaimConfig(userId, false)
-        val deviceId = deviceService.generateDeviceId()
-        val token = authTokenService.createAuthToken(claimConfig, jwtConfig)
-        val refreshTokenPayload = refreshTokenService.generateRefreshToken()
 
-        refreshTokenService.saveRefreshToken(userId, deviceId, refreshTokenPayload)
+        val authUserSavedData = authRepository.createUserWithDevice(userWithPasswordHashed, deviceInfo)
 
-        val authTokenResponse = AuthTokenResponse(token, refreshTokenPayload.plainToken, deviceId)
-        val authResponse = AuthResponse(authTokenResponse, authCode = AuthCode.USER_CREATED)
+        val appResponse = AuthResponse(
+            deviceId = authUserSavedData.deviceId,
+            userId = authUserSavedData.userId,
+            authCode = AuthCode.USER_CREATED
+        )
 
-        return AppResult.Success(authResponse)
+        return AppResult.Success(appResponse)
     }
+
+    suspend fun signIn(
+        locale: Locale,
+        signInRequest: SignInRequest,
+        jwtConfig: JWTConfig,
+        deviceInfo: String?,
+    ): AppResult<AuthResponse> {
+
+        if (deviceInfo.isNullOrBlank()) {
+            return locale.respondDeviceInfoRequired()
+        }
+
+        val user = userRepository.getUserSignInInfo(signInRequest.email)
+            ?: return locale.respondInvalidSignInCredentialsError()
+
+        if (!hashingService.verify(signInRequest.password, user.password)) {
+            return locale.respondInvalidSignInCredentialsError()
+        }
+
+        return when (user.status) {
+            UserStatus.BLOCKED -> locale.respondSignInBlockedUserError()
+            UserStatus.SUSPENDED -> locale.respondSignInSuspendedUserError()
+            UserStatus.ACTIVE -> handleSuccessfulSignIn(user, signInRequest, jwtConfig, locale, deviceInfo)
+        }
+    }
+
+    suspend fun sendMFACode(locale: Locale, mfaCodeRequest: MfaCodeRequest): AppResult<Boolean> {
+        val userInfo = userRepository.getUserById(mfaCodeRequest.userId) ?: return locale.respondUserNotFoundError()
+        val code = MfaUtils.generateCode()
+        val expiresAt = MfaUtils.calculateExpiration(5)
+        val hashedMfaCode = hashingService.hash(code)
+
+        mfaCodeService.createMfaCode(
+            mfaCodeRequest.userId, mfaCodeRequest.deviceId, hashedMfaCode, MfaChannel.EMAIL, expiresAt
+        )
+
+        emailService.sendMfaCodeEmail(userInfo.email, code)
+
+        return AppResult.Success(true)
+    }
+
+    suspend fun verifyMfaCode(
+        locale: Locale,
+        mfaCodeVerificationRequest: MfaCodeVerificationRequest,
+        jwtConfig: JWTConfig
+    ): AppResult<AuthResponse> {
+        val (userId, deviceId, code) = mfaCodeVerificationRequest
+
+        val latestCode = mfaCodeService.getLatestValidMfaCode(userId, deviceId)
+            ?: return locale.respondInvalidMfaCodeError()
+
+        val isValid = hashingService.verify(code, latestCode.hashedCode)
+        if (!isValid) return locale.respondInvalidMfaCodeError()
+
+        authRepository.completeMfaVerification(userId, deviceId, latestCode.id)
+
+        return generateAuthenticatedResponse(userId, deviceId, jwtConfig)
+    }
+
 
     suspend fun refreshJwtToken(
         locale: Locale,
@@ -58,7 +136,7 @@ class AuthService(
         jwtConfig: JWTConfig
     ): AppResult<AuthResponse> {
         val (userId, deviceId) = refreshJWTRequest
-        val refreshTokenValidationInfo = refreshTokenDao.getRefreshTokenValidationInfo(deviceId)
+        val refreshTokenValidationInfo = refreshTokenRepository.getValidationInfo(deviceId)
             ?: return locale.respondInvalidRefreshTokenError()
 
         val refreshTokenPayload = RefreshTokenPayload(
@@ -70,16 +148,14 @@ class AuthService(
         val isRefreshTokenValid = refreshTokenService.isValidRefreshToken(refreshTokenPayload)
         if (!isRefreshTokenValid) return locale.respondInvalidRefreshTokenError()
 
-        val isEmailVerified = userRepository.isEmailVerified(userId)
-        val claimConfig = ClaimConfig(userId, isEmailVerified)
+        val claimConfig = ClaimConfig(userId)
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
 
-        val expiresSoon = refreshTokenValidationInfo.expiresAt - System.currentTimeMillis() < TWO_DAYS_IN_MS
+        val expiresSoon = refreshTokenValidationInfo.expiresAt - System.currentTimeMillis() < REFRESH_TOKEN_TIME
 
         val (refreshToken, authCode) = if (expiresSoon) {
             val newPayload = refreshTokenService.generateRefreshToken()
-            refreshTokenService.saveRefreshToken(userId, deviceId, newPayload)
-            refreshTokenService.revokeRefreshToken(deviceId)
+            authRepository.rotateRefreshToken(userId, deviceId, newPayload)
             newPayload.plainToken to AuthCode.REFRESHED_BOTH_TOKENS
         } else {
             null to AuthCode.REFRESHED_JWT
@@ -92,6 +168,101 @@ class AuthService(
 
         return AppResult.Success(authResponse)
     }
+
+    private suspend fun handleSuccessfulSignIn(
+        user: UserSignInInfo,
+        signInRequest: SignInRequest,
+        jwtConfig: JWTConfig,
+        locale: Locale,
+        deviceInfo: String
+    ): AppResult<AuthResponse> {
+        if (!user.isEmailVerified) {
+            return locale.respondSignInEmailNotVerifiedError()
+        }
+
+        val providedDeviceId = signInRequest.deviceId
+        val isKnownDevice = isKnownDeviceForUser(providedDeviceId, user.userId)
+        val isDeviceTrusted = providedDeviceId?.let { deviceService.isTrustedDeviceIdForUser(providedDeviceId, user.userId) } ?: false
+        val currentDeviceId = resolveDeviceId(providedDeviceId, isKnownDevice, deviceInfo, user.userId)
+
+        if (!isKnownDevice || !isDeviceTrusted) {
+            return respondMFARequired(currentDeviceId, user.userId)
+        }
+
+        return generateAuthenticatedResponse(user.userId, currentDeviceId, jwtConfig)
+    }
+
+    private suspend fun isKnownDeviceForUser(deviceId: UUID?, userId: UUID): Boolean {
+        return deviceId?.let {
+            deviceService.isValidDeviceIdForUser(it, userId)
+        } ?: false
+    }
+
+    private suspend fun resolveDeviceId(
+        providedDeviceId: UUID?,
+        isKnownDevice: Boolean,
+        deviceInfo: String,
+        userId: UUID,
+    ): UUID {
+        return when {
+            isKnownDevice -> checkNotNull(providedDeviceId)
+            providedDeviceId != null -> providedDeviceId
+            else -> authRepository.createDevice(userId, deviceInfo)
+        }
+    }
+
+    private fun respondMFARequired(deviceId: UUID, userId: UUID): AppResult<AuthResponse> {
+        return AppResult.Success(
+            AuthResponse(
+                userId = userId,
+                deviceId = deviceId,
+                authCode = AuthCode.SUCCESS_NEED_MFA
+            )
+        )
+    }
+
+    private suspend fun generateAuthenticatedResponse(
+        userId: UUID,
+        deviceId: UUID,
+        jwtConfig: JWTConfig
+    ): AppResult<AuthResponse> {
+        val claimConfig = ClaimConfig(userId)
+        val token = authTokenService.createAuthToken(claimConfig, jwtConfig)
+        val refreshTokenPayload = refreshTokenService.generateRefreshToken()
+
+        authRepository.rotateRefreshToken(userId, deviceId, refreshTokenPayload)
+
+        return AppResult.Success(
+            AuthResponse(
+                authTokenResponse = AuthTokenResponse(
+                    accessToken = token,
+                    refreshToken = refreshTokenPayload.plainToken
+                ),
+                deviceId = deviceId,
+                authCode = AuthCode.SUCCESS
+            )
+        )
+    }
+
+    private fun Locale.respondUserNotFoundError(): AppResult.Failure =
+        createError(
+            StringResourcesKey.AUTH_USER_NOT_FOUND_TITLE,
+            StringResourcesKey.AUTH_USER_NOT_FOUND_DESCRIPTION,
+            status = HttpStatusCode.NotFound
+        )
+
+    private fun Locale.respondInvalidMfaCodeError(): AppResult.Failure =
+        createError(
+            titleKey = StringResourcesKey.MFA_CODE_INVALID_TITLE,
+            descriptionKey = StringResourcesKey.MFA_CODE_INVALID_DESCRIPTION,
+            status = HttpStatusCode.Unauthorized
+        )
+
+    private fun Locale.respondDeviceInfoRequired(): AppResult.Failure = createError(
+        StringResourcesKey.AUTH_DEVICE_INFO_REQUIRED_TITLE,
+        StringResourcesKey.AUTH_DEVICE_INFO_REQUIRED_DESCRIPTION,
+        status = HttpStatusCode.BadRequest
+    )
 
     private fun Locale.respondIsEmailAlreadyRegisteredError(): AppResult.Failure =
         createError(
@@ -114,4 +285,36 @@ class AuthService(
             status = HttpStatusCode.Unauthorized,
             errorCode = ErrorCode.AUTH_NEED_LOGIN
         )
+
+    private fun Locale.respondInvalidSignInCredentialsError(): AppResult.Failure =
+        createError(
+            StringResourcesKey.AUTH_INVALID_SIGN_IN_TITLE,
+            StringResourcesKey.AUTH_INVALID_SIGN_IN_DESCRIPTION,
+            status = HttpStatusCode.Unauthorized
+        )
+
+    private fun Locale.respondSignInBlockedUserError(): AppResult.Failure =
+        createError(
+            StringResourcesKey.AUTH_SIGN_IN_BLOCKED_TITLE,
+            StringResourcesKey.AUTH_SIGN_IN_BLOCKED_DESCRIPTION,
+            status = HttpStatusCode.Forbidden,
+            errorCode = ErrorCode.AUTH_USER_BLOCKED
+        )
+
+    private fun Locale.respondSignInSuspendedUserError(): AppResult.Failure =
+        createError(
+            StringResourcesKey.AUTH_SIGN_IN_SUSPENDED_TITLE,
+            StringResourcesKey.AUTH_SIGN_IN_SUSPENDED_DESCRIPTION,
+            status = HttpStatusCode.Forbidden,
+            errorCode = ErrorCode.AUTH_USER_SUSPENDED
+        )
+
+    private fun Locale.respondSignInEmailNotVerifiedError(): AppResult.Failure =
+        createError(
+            StringResourcesKey.AUTH_SIGN_IN_EMAIL_NOT_VERIFIED_TITLE,
+            StringResourcesKey.AUTH_SIGN_IN_EMAIL_NOT_VERIFIED_DESCRIPTION,
+            status = HttpStatusCode.Forbidden,
+            errorCode = ErrorCode.AUTH_EMAIL_NOT_VERIFIED
+        )
+
 }

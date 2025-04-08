@@ -1,4 +1,4 @@
-package com.devapplab.features.auth
+package com.devapplab.features.auth.validation
 
 import io.ktor.server.plugins.requestvalidation.*
 import com.devapplab.model.auth.request.RegisterUserRequest

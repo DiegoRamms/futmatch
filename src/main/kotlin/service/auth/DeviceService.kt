@@ -1,7 +1,16 @@
-package com.devapplab.service.auth
+package service.auth
 
+import com.devapplab.data.repository.DeviceRepository
 import java.util.*
 
-interface DeviceService {
-    fun generateDeviceId(): UUID
+class DeviceService(
+    private val deviceRepository: DeviceRepository,
+) {
+    suspend fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
+        return deviceRepository.isValidDeviceIdForUser(deviceId, userId)
+    }
+
+    suspend fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
+        return deviceRepository.isTrustedDeviceIdForUser(deviceId, userId)
+    }
 }
