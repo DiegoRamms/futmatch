@@ -1,6 +1,7 @@
 package com.devapplab.data.database.user
 
 import com.devapplab.model.user.*
+import model.user.Gender
 import org.jetbrains.exposed.sql.Table
 
 object UserTable : Table("user") {
@@ -13,6 +14,7 @@ object UserTable : Table("user") {
     val status = enumerationByName("status", USER_STATUS_MAX_LENGTH, UserStatus::class)
     val country = varchar("country", USER_COUNTRY_MAX_LENGTH)
     val birthDate = long("birth_date") // Timestamp
+    val gender = enumerationByName("gender", 10, Gender::class)
     val playerPosition = enumerationByName("player_position", USER_PLAYER_POSITION_MAX_LENGTH, PlayerPosition::class)
     val profilePic = text("profile_pic").nullable()
     val level = enumerationByName("level", USER_PLAYER_LEVEL_MAX_LENGTH, PlayerLevel::class)

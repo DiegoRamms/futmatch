@@ -12,6 +12,7 @@ data class User(
     val password: String,
     val phone: String,
     val status: UserStatus,
+    val gender: Gender,
     val country: String,
     val birthDate: Long,
     val playerPosition: PlayerPosition,

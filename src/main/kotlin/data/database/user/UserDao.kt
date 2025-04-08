@@ -19,6 +19,7 @@ class UserDao {
             it[password] = user.password
             it[phone] = user.phone
             it[status] = user.status
+            it[gender] = user.gender
             it[country] = user.country
             it[birthDate] = user.birthDate
             it[playerPosition] = user.playerPosition
@@ -130,6 +131,7 @@ class UserDao {
         profilePic = row[UserTable.profilePic],
         level = row[UserTable.level],
         createdAt = row[UserTable.createdAt],
+        gender = row[UserTable.gender],
         updatedAt = row[UserTable.updatedAt]
     )
 

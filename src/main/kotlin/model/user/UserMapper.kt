@@ -12,6 +12,7 @@ fun RegisterUserRequest.toUser(): User {
         password = password,
         phone = this.phone,
         status = UserStatus.ACTIVE,
+        gender = gender,
         country = this.country,
         birthDate = this.birthDate,
         playerPosition = this.playerPosition,
