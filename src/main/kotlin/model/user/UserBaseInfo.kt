@@ -1,7 +1,5 @@
 package com.devapplab.model.user
 
-import com.devapplab.utils.UUIDSerializer
-import kotlinx.serialization.Serializable
 import java.util.*
 
 data class UserBaseInfo(

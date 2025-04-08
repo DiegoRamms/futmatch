@@ -7,3 +7,7 @@ fun ApplicationCall.getAuthorizationHeader(): String? {
         ?.removePrefix("Bearer ")
         ?.trim()
 }
+
+fun ApplicationCall.getUserAgentHeader(): String? {
+    return request.headers["User-Agent"]
+}

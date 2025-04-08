@@ -1,15 +1,13 @@
 package data.repository
 
+import com.devapplab.config.dbQuery
 import com.devapplab.data.database.user.UserDao
 import com.devapplab.data.repository.UserRepository
+import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.user.UserBaseInfo
-import model.user.User
 import java.util.*
 
 class UserRepositoryImpl(private val userDao: UserDao) : UserRepository {
-    override suspend fun addUser(user: User): UUID {
-        return userDao.addUser(user)
-    }
 
     override suspend fun getUserById(userId: UUID): UserBaseInfo? {
         return userDao.getUserById(userId)
@@ -25,5 +23,9 @@ class UserRepositoryImpl(private val userDao: UserDao) : UserRepository {
 
     override suspend fun isEmailVerified(userId: UUID): Boolean {
         return userDao.isEmailVerified(userId)
+    }
+
+    override suspend fun getUserSignInInfo(email: String): UserSignInInfo? = dbQuery {
+        userDao.getUserSignInInfo(email)
     }
 }

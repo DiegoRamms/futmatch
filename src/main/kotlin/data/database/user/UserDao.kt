@@ -1,6 +1,7 @@
 package com.devapplab.data.database.user
 
 import com.devapplab.config.dbQuery
+import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.user.UserBaseInfo
 import model.user.User
 import org.jetbrains.exposed.sql.*
@@ -10,7 +11,7 @@ import java.util.*
 
 class UserDao {
 
-    suspend fun addUser(user: User): UUID = dbQuery {
+    fun addUser(user: User): UUID {
         val result = UserTable.insert {
             it[name] = user.name
             it[lastName] = user.lastName
@@ -26,7 +27,7 @@ class UserDao {
             it[createdAt] = user.createdAt
             it[updatedAt] = user.updatedAt
         }
-        result[UserTable.id]
+        return result[UserTable.id]
     }
 
     suspend fun getUserById(id: UUID): UserBaseInfo? = dbQuery {
@@ -58,20 +59,34 @@ class UserDao {
     }
 
     suspend fun isEmailAlreadyRegistered(email: String): Boolean = dbQuery {
-        !UserTable.select(UserTable.email).where { UserTable.email eq email}.limit(1).empty()
+        !UserTable.select(UserTable.email).where { UserTable.email eq email }.limit(1).empty()
     }
 
     suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean = dbQuery {
-        !UserTable.select(UserTable.phone).where { UserTable.phone eq phone}.limit(1).empty()
+        !UserTable.select(UserTable.phone).where { UserTable.phone eq phone }.limit(1).empty()
     }
 
     suspend fun isEmailVerified(userId: UUID): Boolean = dbQuery {
         val isVerified: Boolean = UserTable.select(UserTable.isEmailVerified)
             .where { UserTable.id eq userId }
-            .mapNotNull { resultRow ->  resultRow[UserTable.isEmailVerified] }
+            .mapNotNull { resultRow -> resultRow[UserTable.isEmailVerified] }
             .singleOrNull() ?: false
 
         isVerified
+    }
+
+    fun getUserSignInInfo(email: String): UserSignInInfo? {
+        val user = UserTable.select(UserTable.id, UserTable.password, UserTable.status, UserTable.isEmailVerified)
+            .where { UserTable.email eq email }.limit(1)
+            .mapNotNull { resultRow ->
+                UserSignInInfo(
+                    resultRow[UserTable.id],
+                    resultRow[UserTable.password],
+                    resultRow[UserTable.status],
+                    resultRow[UserTable.isEmailVerified]
+                )
+            }.singleOrNull()
+        return user
     }
 
     suspend fun updateUser(id: UUID, updatedUser: User): Boolean = dbQuery {
@@ -91,6 +106,12 @@ class UserDao {
         }
         rowsUpdated > 0
     }
+
+    fun markEmailAsVerified(userId: UUID): Boolean =
+        UserTable.update({ UserTable.id eq userId }) {
+            it[isEmailVerified] = true
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
 
     suspend fun deleteUser(id: UUID): Boolean = newSuspendedTransaction {
         UserTable.deleteWhere { UserTable.id eq id } > 0

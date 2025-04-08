@@ -2,6 +2,8 @@ package com.devapplab.config
 
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserTable
+import data.database.device.DeviceTable
+import data.database.mfa.MfaCodeTable
 import io.ktor.server.application.*
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.Database
@@ -22,7 +24,10 @@ fun Application.configureDatabase() {
 
     transaction(database){
         SchemaUtils.create(UserTable)
+        SchemaUtils.create(DeviceTable)
+        SchemaUtils.create(MfaCodeTable)
         SchemaUtils.create(RefreshTokenTable)
+
         addLogger(StdOutSqlLogger)
     }
 }

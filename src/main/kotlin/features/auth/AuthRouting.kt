@@ -8,13 +8,26 @@ fun Route.authRouting() {
     route("/auth") {
         post("/signUp") {
             val authController = call.scope.get<AuthController>()
-            val jwtConfig = application.getJWTConfig()
-            authController.signUp(call, jwtConfig)
+            authController.signUp(call)
         }
         post("/refresh") {
             val authController = call.scope.get<AuthController>()
             val jwtConfig = application.getJWTConfig()
             authController.refreshJWT(call, jwtConfig)
+        }
+        post("/signIn") {
+            val authController = call.scope.get<AuthController>()
+            val jwtConfig = application.getJWTConfig()
+            authController.signIn(call, jwtConfig)
+        }
+        post("/mfa/send"){
+            val authController = call.scope.get<AuthController>()
+            authController.sendMfaCode(call)
+        }
+        post("/mfa/verify"){
+            val authController = call.scope.get<AuthController>()
+            val jwtConfig = application.getJWTConfig()
+            authController.verifyMfaCode(call, jwtConfig)
         }
     }
 }

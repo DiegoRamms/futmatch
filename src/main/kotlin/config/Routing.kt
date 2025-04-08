@@ -19,12 +19,13 @@ fun Application.configureRouting() {
     install(StatusPages) {
         exception<Throwable> { call, cause ->
             val locale = call.retrieveLocale()
-            if (environment == "development") {
+            if (environment == "Development") {
                 call.respond(
                     message = ErrorResponse("Error", cause.message ?: "Error App"),
                     status = HttpStatusCode.BadRequest
                 )
-            } else call.respond(locale.createError())
+                call.respond<ErrorResponse>(locale.createError())
+            }else  call.respond<ErrorResponse>(locale.createError())
         }
 
         exception<RequestValidationException> { call, cause ->
