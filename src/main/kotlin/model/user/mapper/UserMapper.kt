@@ -7,14 +7,16 @@ fun UserBaseInfo.toUserResponse(): UserResponse {
     return UserResponse(
         id = id,
         name = name,
-        email = email,
         lastName = lastName,
+        email = email,
         phone = phone,
+        status = status,
+        country = country,
+        birthDate = birthDate,
+        gender = gender,
         playerPosition = playerPosition,
         profilePic = profilePic,
-        status = status,
         level = level,
-        birthDate = birthDate,
-        country = country
+        isEmailVerified = isEmailVerified
     )
 }

@@ -6,6 +6,7 @@ import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserStatus
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
+import model.user.Gender
 import java.util.*
 
 @Serializable
@@ -19,7 +20,9 @@ data class UserResponse(
     val status: UserStatus,
     val country: String,
     val birthDate: Long,
+    val gender: Gender,
     val playerPosition: PlayerPosition,
     val profilePic: String?,
-    val level: PlayerLevel
+    val level: PlayerLevel,
+    val isEmailVerified: Boolean
 )

@@ -46,7 +46,9 @@ class UserDao {
                 UserTable.profilePic,
                 UserTable.level,
                 UserTable.createdAt,
-                UserTable.updatedAt
+                UserTable.updatedAt,
+                UserTable.gender,
+                UserTable.isEmailVerified
             )
             .where { UserTable.id eq id }
             .mapNotNull(::rowToUserResponse)
@@ -149,7 +151,9 @@ class UserDao {
             profilePic = row[UserTable.profilePic],
             level = row[UserTable.level],
             createdAt = row[UserTable.createdAt],
-            updatedAt = row[UserTable.updatedAt]
+            updatedAt = row[UserTable.updatedAt],
+            gender = row[UserTable.gender],
+            isEmailVerified = row[UserTable.isEmailVerified]
         )
     }
 }

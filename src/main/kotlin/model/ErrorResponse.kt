@@ -10,6 +10,7 @@ data class ErrorResponse(
     val errorCode: ErrorCode = ErrorCode.GENERAL_ERROR
 )
 
+@Serializable
 enum class ErrorCode(val code: String) {
     GENERAL_ERROR("GENERAL_ERROR"),
     AUTH_USER_BLOCKED("AUTH_USER_BLOCKED"),

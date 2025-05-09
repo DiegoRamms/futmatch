@@ -5,10 +5,7 @@ import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.response.RefreshJWTRequest
 import com.devapplab.service.auth.AuthService
-import com.devapplab.utils.getAuthorizationHeader
-import com.devapplab.utils.getUserAgentHeader
-import com.devapplab.utils.respond
-import com.devapplab.utils.retrieveLocale
+import com.devapplab.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import model.mfa.MfaCodeRequest
@@ -35,7 +32,7 @@ class AuthController(private val authService: AuthService) {
 
     suspend fun refreshJWT(call: ApplicationCall, jwtConfig: JWTConfig) {
         val locale: Locale = call.retrieveLocale()
-        val refreshToken = call.getAuthorizationHeader()
+        val refreshToken = call.getRefreshToken()
         val refreshJWTRequest = call.receive<RefreshJWTRequest>()
         val result = authService.refreshJwtToken(locale, refreshToken, refreshJWTRequest, jwtConfig)
         call.respond(result)

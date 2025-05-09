@@ -19,9 +19,9 @@ import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
-import com.devapplab.utils.REFRESH_TOKEN_TIME
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
+import com.devapplab.utils.refreshTokenRotationThreshold
 import io.ktor.http.*
 import model.mfa.MfaChannel
 import model.mfa.MfaCodeRequest
@@ -91,7 +91,7 @@ class AuthService(
         return when (user.status) {
             UserStatus.BLOCKED -> locale.respondSignInBlockedUserError()
             UserStatus.SUSPENDED -> locale.respondSignInSuspendedUserError()
-            UserStatus.ACTIVE -> handleSuccessfulSignIn(user, signInRequest, jwtConfig, locale, deviceInfo)
+            UserStatus.ACTIVE -> handleSuccessfulSignIn(user, signInRequest, jwtConfig, deviceInfo)
         }
     }
 
@@ -151,7 +151,8 @@ class AuthService(
         val claimConfig = ClaimConfig(userId)
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
 
-        val expiresSoon = refreshTokenValidationInfo.expiresAt - System.currentTimeMillis() < REFRESH_TOKEN_TIME
+        val expiresSoon =
+            refreshTokenValidationInfo.expiresAt - System.currentTimeMillis() < refreshTokenRotationThreshold
 
         val (refreshToken, authCode) = if (expiresSoon) {
             val newPayload = refreshTokenService.generateRefreshToken()
@@ -173,19 +174,18 @@ class AuthService(
         user: UserSignInInfo,
         signInRequest: SignInRequest,
         jwtConfig: JWTConfig,
-        locale: Locale,
         deviceInfo: String
     ): AppResult<AuthResponse> {
-        if (!user.isEmailVerified) {
-            return locale.respondSignInEmailNotVerifiedError()
-        }
 
         val providedDeviceId = signInRequest.deviceId
         val isKnownDevice = isKnownDeviceForUser(providedDeviceId, user.userId)
-        val isDeviceTrusted = providedDeviceId?.let { deviceService.isTrustedDeviceIdForUser(providedDeviceId, user.userId) } ?: false
+        val isDeviceTrusted =
+            providedDeviceId?.let { deviceService.isTrustedDeviceIdForUser(providedDeviceId, user.userId) } ?: false
         val currentDeviceId = resolveDeviceId(providedDeviceId, isKnownDevice, deviceInfo, user.userId)
 
-        if (!isKnownDevice || !isDeviceTrusted) {
+        val needsMFA = !isKnownDevice || !isDeviceTrusted || !user.isEmailVerified
+
+        if (needsMFA) {
             return respondMFARequired(currentDeviceId, user.userId)
         }
 
@@ -202,11 +202,10 @@ class AuthService(
         providedDeviceId: UUID?,
         isKnownDevice: Boolean,
         deviceInfo: String,
-        userId: UUID,
+        userId: UUID
     ): UUID {
         return when {
-            isKnownDevice -> checkNotNull(providedDeviceId)
-            providedDeviceId != null -> providedDeviceId
+            isKnownDevice && providedDeviceId != null -> providedDeviceId
             else -> authRepository.createDevice(userId, deviceInfo)
         }
     }
@@ -238,6 +237,7 @@ class AuthService(
                     accessToken = token,
                     refreshToken = refreshTokenPayload.plainToken
                 ),
+                userId = userId,
                 deviceId = deviceId,
                 authCode = AuthCode.SUCCESS
             )
@@ -290,6 +290,7 @@ class AuthService(
         createError(
             StringResourcesKey.AUTH_INVALID_SIGN_IN_TITLE,
             StringResourcesKey.AUTH_INVALID_SIGN_IN_DESCRIPTION,
+            errorCode = ErrorCode.GENERAL_ERROR,
             status = HttpStatusCode.Unauthorized
         )
 
@@ -308,13 +309,4 @@ class AuthService(
             status = HttpStatusCode.Forbidden,
             errorCode = ErrorCode.AUTH_USER_SUSPENDED
         )
-
-    private fun Locale.respondSignInEmailNotVerifiedError(): AppResult.Failure =
-        createError(
-            StringResourcesKey.AUTH_SIGN_IN_EMAIL_NOT_VERIFIED_TITLE,
-            StringResourcesKey.AUTH_SIGN_IN_EMAIL_NOT_VERIFIED_DESCRIPTION,
-            status = HttpStatusCode.Forbidden,
-            errorCode = ErrorCode.AUTH_EMAIL_NOT_VERIFIED
-        )
-
 }

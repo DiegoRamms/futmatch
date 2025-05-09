@@ -2,6 +2,7 @@ package com.devapplab.config
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.devapplab.model.AppResult
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.utils.StringResourcesKey
@@ -72,10 +73,18 @@ fun JWTConfig.loadECPublicKey(): ECPublicKey {
 
 private suspend fun respondJWTError(call: ApplicationCall) {
     val locale = call.retrieveLocale()
-    val failure = locale.createError(
+    val failure : AppResult<String> = locale.createError(
         StringResourcesKey.INVALID_JWT_TITLE,
         StringResourcesKey.INVALID_JWT_DESCRIPTION,
         status = HttpStatusCode.Unauthorized
     )
     call.respond(failure)
+}
+
+fun ApplicationCall.getIdentifier(claimType: ClaimType): UUID {
+    val principal = principal<JWTPrincipal>()
+    val uuid = principal?.payload?.getClaim(claimType.value)?.asString()?.let {
+        UUID.fromString(it)
+    }
+    return uuid ?: throw Exception("Token Error")
 }

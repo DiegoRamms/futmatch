@@ -17,7 +17,7 @@ class DeviceDao {
             it[lastUsedAt] = System.currentTimeMillis()
             it[createdAt] = System.currentTimeMillis()
         }
-        return  result[DeviceTable.id]
+        return result[DeviceTable.id]
     }
 
     suspend fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean = dbQuery {

@@ -9,6 +9,7 @@ fun main(args: Array<String>) {
 
 fun Application.module() {
     configureKoin()
+    configureRateLimit()
     configureAdministration()
     configureSerialization()
     configureDatabase()

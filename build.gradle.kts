@@ -38,6 +38,7 @@ dependencies {
     implementation(libs.ktor.server.auth.jwt)
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.status.pages)
+    implementation(libs.ktor.server.rate.limit)
     implementation(libs.brcypt)
     implementation(libs.logback.classic)
     testImplementation(libs.ktor.server.test.host)

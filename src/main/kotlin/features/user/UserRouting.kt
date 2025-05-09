@@ -6,7 +6,7 @@ import org.koin.ktor.plugin.scope
 
 fun Route.userRouting() {
     route("/user") {
-        get("/{id}") {
+        get {
             val userController = call.scope.get<UserController>()
             userController.getUserById(call)
         }
