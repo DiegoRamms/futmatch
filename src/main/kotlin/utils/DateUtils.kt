@@ -7,7 +7,7 @@ import java.time.ZoneId
 
 
 private const val twoDaysMillis = 2L * 24 * 60 * 60 * 1000
-private const val oneWeekMills =7L * 24L * 60L * 60L * 1000L
+private const val oneWeekMills = 7L * 24L * 60L * 60L * 1000L
 const val refreshTokenRotationThreshold = 2L * 24 * 60 * 60 * 1000L
 
 const val ACCESS_TOKEN_TIME = twoDaysMillis
