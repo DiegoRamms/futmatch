@@ -18,6 +18,7 @@ fun RegisterUserRequest.toUser(): User {
         playerPosition = this.playerPosition,
         profilePic = this.profilePic,
         level = this.level,
+        role = this.userRole,
         createdAt = System.currentTimeMillis(),
         updatedAt = System.currentTimeMillis()
     )

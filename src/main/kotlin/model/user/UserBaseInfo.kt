@@ -1,6 +1,9 @@
 package com.devapplab.model.user
 
 import model.user.Gender
+import model.user.PlayerLevel
+import model.user.PlayerPosition
+import model.user.UserRole
 import java.util.*
 
 data class UserBaseInfo(
@@ -16,6 +19,7 @@ data class UserBaseInfo(
     val playerPosition: PlayerPosition,
     val profilePic: String?,
     val level: PlayerLevel,
+    val userRole: UserRole,
     val isEmailVerified: Boolean,
     val createdAt: Long,
     val updatedAt: Long

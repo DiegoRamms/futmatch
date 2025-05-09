@@ -2,6 +2,9 @@ package com.devapplab.data.database.user
 
 import com.devapplab.model.user.*
 import model.user.Gender
+import model.user.PlayerLevel
+import model.user.PlayerPosition
+import model.user.UserRole
 import org.jetbrains.exposed.sql.Table
 
 object UserTable : Table("user") {
@@ -19,6 +22,7 @@ object UserTable : Table("user") {
     val profilePic = text("profile_pic").nullable()
     val level = enumerationByName("level", USER_PLAYER_LEVEL_MAX_LENGTH, PlayerLevel::class)
     val isEmailVerified = bool("is_email_verified").default(false)
+    val role = enumerationByName("role", USER_ROLE_MAX_LENGTH, UserRole::class)
     val createdAt = long("created_at").default(System.currentTimeMillis())
     val updatedAt = long("updated_at").default(System.currentTimeMillis())
 

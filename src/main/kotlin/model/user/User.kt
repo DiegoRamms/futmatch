@@ -1,9 +1,7 @@
 package model.user
 
-import com.devapplab.model.user.PlayerLevel
-import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserStatus
-import java.util.*
+
 
 data class User(
     val name: String,
@@ -19,5 +17,6 @@ data class User(
     val profilePic: String?,
     val level: PlayerLevel,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val role: UserRole,
 )

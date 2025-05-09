@@ -1,9 +1,10 @@
 package com.devapplab.model.auth.request
 
-import com.devapplab.model.user.PlayerLevel
-import com.devapplab.model.user.PlayerPosition
 import kotlinx.serialization.Serializable
 import model.user.Gender
+import model.user.PlayerLevel
+import model.user.PlayerPosition
+import model.user.UserRole
 
 @Serializable
 data class RegisterUserRequest(
@@ -17,5 +18,6 @@ data class RegisterUserRequest(
     val playerPosition: PlayerPosition,
     val gender: Gender,
     val profilePic: String?,
-    val level: PlayerLevel
+    val level: PlayerLevel,
+    val userRole: UserRole = UserRole.PLAYER
 )

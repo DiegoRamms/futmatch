@@ -27,6 +27,7 @@ class UserDao {
             it[level] = user.level
             it[createdAt] = user.createdAt
             it[updatedAt] = user.updatedAt
+            it[role] = user.role
         }
         return result[UserTable.id]
     }
@@ -48,7 +49,8 @@ class UserDao {
                 UserTable.createdAt,
                 UserTable.updatedAt,
                 UserTable.gender,
-                UserTable.isEmailVerified
+                UserTable.isEmailVerified,
+                UserTable.role
             )
             .where { UserTable.id eq id }
             .mapNotNull(::rowToUserResponse)
@@ -134,7 +136,8 @@ class UserDao {
         level = row[UserTable.level],
         createdAt = row[UserTable.createdAt],
         gender = row[UserTable.gender],
-        updatedAt = row[UserTable.updatedAt]
+        updatedAt = row[UserTable.updatedAt],
+        role = row[UserTable.role]
     )
 
     fun rowToUserResponse(row: ResultRow): UserBaseInfo {
@@ -153,7 +156,8 @@ class UserDao {
             createdAt = row[UserTable.createdAt],
             updatedAt = row[UserTable.updatedAt],
             gender = row[UserTable.gender],
-            isEmailVerified = row[UserTable.isEmailVerified]
+            isEmailVerified = row[UserTable.isEmailVerified],
+            userRole = row[UserTable.role]
         )
     }
 }

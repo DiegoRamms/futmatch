@@ -1,12 +1,13 @@
 
 package model.user.response
 
-import com.devapplab.model.user.PlayerLevel
-import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserStatus
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
 import model.user.Gender
+import model.user.PlayerLevel
+import model.user.PlayerPosition
+import model.user.UserRole
 import java.util.*
 
 @Serializable
@@ -24,5 +25,6 @@ data class UserResponse(
     val playerPosition: PlayerPosition,
     val profilePic: String?,
     val level: PlayerLevel,
+    val userRole: UserRole,
     val isEmailVerified: Boolean
 )

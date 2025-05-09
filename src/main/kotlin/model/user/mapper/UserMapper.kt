@@ -17,6 +17,7 @@ fun UserBaseInfo.toUserResponse(): UserResponse {
         playerPosition = playerPosition,
         profilePic = profilePic,
         level = level,
-        isEmailVerified = isEmailVerified
+        isEmailVerified = isEmailVerified,
+        userRole = userRole
     )
 }
