@@ -33,3 +33,19 @@ fun Locale.createError(
         appStatus = status
     )
 }
+
+fun Locale.createAlreadyExistsError(
+    value: String
+): AppResult.Failure {
+    return AppResult.Failure(
+        ErrorResponse(
+            title = getString(StringResourcesKey.ALREADY_EXISTS_TITLE),
+            message = getString(
+                StringResourcesKey.ALREADY_EXISTS_DESCRIPTION,
+                placeholders = mapOf("value" to value)
+            ),
+            errorCode = ErrorCode.ALREADY_EXISTS
+        ),
+        appStatus = HttpStatusCode.Conflict
+    )
+}

@@ -1,8 +1,7 @@
 package model.user
 
-import com.devapplab.model.user.UserStatus
 import com.devapplab.model.auth.request.RegisterUserRequest
-import java.util.*
+import com.devapplab.model.user.UserStatus
 
 fun RegisterUserRequest.toUser(): User {
     return User(
@@ -19,7 +18,6 @@ fun RegisterUserRequest.toUser(): User {
         profilePic = this.profilePic,
         level = this.level,
         role = this.userRole,
-        createdAt = System.currentTimeMillis(),
         updatedAt = System.currentTimeMillis()
     )
 }

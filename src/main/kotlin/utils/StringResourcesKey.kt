@@ -34,7 +34,13 @@ enum class StringResourcesKey(val value: String) {
     REGISTER_EMAIL_ALREADY_EXISTS_TITLE("register_email_already_exists_title"),
     REGISTER_EMAIL_ALREADY_EXISTS_DESCRIPTION("register_email_already_exists_description"),
     REGISTER_PHONE_ALREADY_EXISTS_TITLE("register_phone_already_exists_title"),
-    REGISTER_PHONE_ALREADY_EXISTS_DESCRIPTION("register_phone_already_exists_description");
+    REGISTER_PHONE_ALREADY_EXISTS_DESCRIPTION("register_phone_already_exists_description"),
+
+    ACCESS_DENIED_TITLE("access_denied_title"),
+    ACCESS_DENIED_DESCRIPTION("access_denied_description"),
+
+    ALREADY_EXISTS_TITLE("already_exists_title"),
+    ALREADY_EXISTS_DESCRIPTION("already_exists_description");
 
     companion object {
         fun getStringResourcesKey(value: String): StringResourcesKey? {

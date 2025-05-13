@@ -7,6 +7,7 @@ import com.devapplab.service.auth.auth_token.JWTService
 import com.devapplab.service.auth.auth_token.RefreshTokenServiceImp
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
+import com.devapplab.service.field.FieldService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.hashing.HashingServiceImpl
 import org.koin.core.module.dsl.bind
@@ -25,4 +26,5 @@ val serviceModule = module {
     singleOf(::DeviceService)
     singleOf(::MfaCodeService)
     singleOf(::EmailServiceImpl) { bind<EmailService>() }
+    singleOf(::FieldService)
 }

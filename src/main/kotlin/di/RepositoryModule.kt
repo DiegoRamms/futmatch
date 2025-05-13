@@ -15,4 +15,5 @@ val repositoryModule = module {
     singleOf(::DeviceRepositoryImpl) { bind<DeviceRepository>() }
     singleOf(::MfaCodeRepositoryImpl) { bind<MfaCodeRepository>() }
     singleOf(::AuthRepositoryImpl) { bind<AuthRepository>() }
+    singleOf(::FieldRepositoryImp) { bind<FieldRepository>() }
 }

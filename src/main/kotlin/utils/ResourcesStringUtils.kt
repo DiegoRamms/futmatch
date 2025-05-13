@@ -12,3 +12,19 @@ fun ApplicationCall.retrieveLocale(): Locale {
 
 fun Locale.getString(key: StringResourcesKey): String =
     ResourceBundle.getBundle("app_strings", this).getString(key.value)
+
+fun Locale.getString(
+    key: StringResourcesKey,
+    placeholders: Map<String, String> = emptyMap()
+): String {
+    val bundle = ResourceBundle.getBundle("app_strings", this)
+    val text = try {
+        bundle.getString(key.value)
+    } catch (e: MissingResourceException) {
+        "[missing: ${key.value}]"
+    }
+
+    return placeholders.entries.fold(text) { acc, (placeholder, value) ->
+        acc.replace("{$placeholder}", value)
+    }
+}

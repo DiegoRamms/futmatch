@@ -5,14 +5,13 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.devapplab.model.AppResult
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.auth.JWTConfig
-import com.devapplab.utils.StringResourcesKey
-import com.devapplab.utils.createError
-import com.devapplab.utils.respond
-import com.devapplab.utils.retrieveLocale
+import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
+import io.ktor.util.pipeline.*
+import model.user.UserRole
 import java.security.KeyFactory
 import java.security.interfaces.ECPrivateKey
 import java.security.interfaces.ECPublicKey
@@ -34,7 +33,10 @@ fun Application.configureSecurity() {
                     .build()
             )
             validate { credential ->
-                if (!credential.payload.getClaim(ClaimType.USER_IDENTIFIER.value).asString().isNullOrEmpty()) {
+                if (!credential.payload.getClaim(ClaimType.USER_IDENTIFIER.value).asString()
+                        .isNullOrEmpty() && !credential.payload.getClaim(ClaimType.USER_ROLE.value).asString()
+                        .isNullOrEmpty()
+                ) {
                     JWTPrincipal(credential.payload)
                 } else {
                     null
@@ -73,7 +75,7 @@ fun JWTConfig.loadECPublicKey(): ECPublicKey {
 
 private suspend fun respondJWTError(call: ApplicationCall) {
     val locale = call.retrieveLocale()
-    val failure : AppResult<String> = locale.createError(
+    val failure: AppResult<String> = locale.createError(
         StringResourcesKey.INVALID_JWT_TITLE,
         StringResourcesKey.INVALID_JWT_DESCRIPTION,
         status = HttpStatusCode.Unauthorized
@@ -87,4 +89,19 @@ fun ApplicationCall.getIdentifier(claimType: ClaimType): UUID {
         UUID.fromString(it)
     }
     return uuid ?: throw Exception("Token Error")
+}
+
+fun ApplicationCall.getRole(): UserRole {
+    val principal = principal<JWTPrincipal>()
+    val role = principal?.payload?.getClaim(ClaimType.USER_ROLE.value)?.asString()
+        ?.let { runCatching { UserRole.valueOf(it) }.getOrNull() }
+    return role ?: throw InvalidTokenException()
+}
+
+fun ApplicationCall.requireRole(vararg allowedRoles: UserRole) {
+    val role = getRole()
+    println("Current role: $role | Allowed roles: ${allowedRoles.joinToString(", ")}")
+    if (!allowedRoles.contains(role)) {
+        throw AccessDeniedException()
+    }
 }

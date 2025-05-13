@@ -27,6 +27,7 @@ import model.mfa.MfaChannel
 import model.mfa.MfaCodeRequest
 import model.mfa.MfaCodeVerificationRequest
 import model.user.User
+import model.user.UserRole
 import service.auth.DeviceService
 import service.email.EmailService
 import utils.MfaUtils
@@ -123,9 +124,11 @@ class AuthService(
         val isValid = hashingService.verify(code, latestCode.hashedCode)
         if (!isValid) return locale.respondInvalidMfaCodeError()
 
+        val userRole = userRepository.getUserById(userId)?.userRole ?: UserRole.PLAYER
+
         authRepository.completeMfaVerification(userId, deviceId, latestCode.id)
 
-        return generateAuthenticatedResponse(userId, deviceId, jwtConfig)
+        return generateAuthenticatedResponse(userId, deviceId,userRole,  jwtConfig)
     }
 
 
@@ -148,7 +151,9 @@ class AuthService(
         val isRefreshTokenValid = refreshTokenService.isValidRefreshToken(refreshTokenPayload)
         if (!isRefreshTokenValid) return locale.respondInvalidRefreshTokenError()
 
-        val claimConfig = ClaimConfig(userId)
+        val userRole = userRepository.getUserById(userId)?.userRole ?: UserRole.PLAYER
+
+        val claimConfig = ClaimConfig(userId, userRole)
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
 
         val expiresSoon =
@@ -189,7 +194,7 @@ class AuthService(
             return respondMFARequired(currentDeviceId, user.userId)
         }
 
-        return generateAuthenticatedResponse(user.userId, currentDeviceId, jwtConfig)
+        return generateAuthenticatedResponse(user.userId, currentDeviceId,user.userRole, jwtConfig)
     }
 
     private suspend fun isKnownDeviceForUser(deviceId: UUID?, userId: UUID): Boolean {
@@ -223,9 +228,10 @@ class AuthService(
     private suspend fun generateAuthenticatedResponse(
         userId: UUID,
         deviceId: UUID,
+        userRole: UserRole,
         jwtConfig: JWTConfig
     ): AppResult<AuthResponse> {
-        val claimConfig = ClaimConfig(userId)
+        val claimConfig = ClaimConfig(userId, userRole)
         val token = authTokenService.createAuthToken(claimConfig, jwtConfig)
         val refreshTokenPayload = refreshTokenService.generateRefreshToken()
 

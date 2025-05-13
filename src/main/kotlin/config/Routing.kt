@@ -1,12 +1,12 @@
 package com.devapplab.config
 
 import com.devapplab.features.auth.authRouting
+import com.devapplab.features.field.fieldRouting
 import com.devapplab.features.user.userRouting
+import com.devapplab.model.AppResult
+import com.devapplab.model.ErrorCode
 import com.devapplab.model.ErrorResponse
-import com.devapplab.utils.StringResourcesKey
-import com.devapplab.utils.createError
-import com.devapplab.utils.respond
-import com.devapplab.utils.retrieveLocale
+import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -24,19 +24,11 @@ fun Application.configureRouting() {
     install(StatusPages) {
 
         status(HttpStatusCode.TooManyRequests) { call, status ->
-            val retryAfter = call.response.headers["Retry-After"]
-            call.respondText(text = "429: Too many requests. Wait for $retryAfter seconds.", status = status)
-        }
-
-        exception<Throwable> { call, cause ->
-            val locale = call.retrieveLocale()
-            if (environment == "Development") {
-                call.respond(
-                    message = ErrorResponse("Error", cause.message ?: "Error App"),
-                    status = HttpStatusCode.BadRequest
-                )
-                call.respond<ErrorResponse>(locale.createError())
-            }else  call.respond<ErrorResponse>(locale.createError())
+            val retryAfter = call.response.headers["Retry-After"] ?: "unknown"
+            call.respondText(
+                text = "429: Too many requests. Wait for $retryAfter seconds.",
+                status = status
+            )
         }
 
         exception<RequestValidationException> { call, cause ->
@@ -45,6 +37,51 @@ fun Application.configureRouting() {
                 cause.reasons.firstOrNull()?.let { reason -> StringResourcesKey.getStringResourcesKey(reason) }
             call.respond<ErrorResponse>(locale.createError(descriptionKey = descriptionKey))
         }
+
+        exception<ValueAlreadyExistsException> { call, cause ->
+            val locale = call.retrieveLocale()
+            call.respond<ErrorResponse>(
+                locale.createAlreadyExistsError(value = cause.value)
+            )
+        }
+
+        exception<AccessDeniedException> { call, cause ->
+            println("[AccessDenied] ${cause.message}")
+            val locale = call.retrieveLocale()
+            call.respond<ErrorResponse>(
+                locale.createError(
+                    titleKey = StringResourcesKey.ACCESS_DENIED_TITLE,
+                    descriptionKey = StringResourcesKey.ACCESS_DENIED_DESCRIPTION,
+                    status = HttpStatusCode.Forbidden,
+                    errorCode = ErrorCode.ACCESS_DENIED
+                )
+            )
+        }
+
+
+        exception<Throwable> { call, cause ->
+            val locale = call.retrieveLocale()
+
+            val error = if (environment == "Development") {
+                AppResult.Failure(
+                    ErrorResponse(
+                        title = "Unexpected error",
+                        message = cause.message ?: "An unexpected error occurred",
+                        errorCode = ErrorCode.GENERAL_ERROR
+                    ),
+                    appStatus = HttpStatusCode.InternalServerError
+                )
+            } else {
+                locale.createError(
+                    status = HttpStatusCode.InternalServerError,
+                    errorCode = ErrorCode.GENERAL_ERROR
+                )
+            }
+
+            call.respond<ErrorResponse>(error.appStatus, error.errorResponse)
+        }
+
+
     }
 
     routing {
@@ -53,8 +90,9 @@ fun Application.configureRouting() {
         rateLimit(RateLimitName(RateLimitType.PUBLIC.value)) {
             authRouting()
         }
-        authenticate("auth-jwt"){
+        authenticate("auth-jwt") {
             userRouting()
+            fieldRouting()
         }
     }
 }

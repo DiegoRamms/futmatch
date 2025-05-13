@@ -19,6 +19,7 @@ class JWTService : AuthTokenService {
                 .withIssuer(issuer)
                 .withAudience(audience)
                 .withClaim(ClaimType.USER_IDENTIFIER.value, claimConfig.userId.toString())
+                .withClaim(ClaimType.USER_ROLE.value, claimConfig.userRole.toString())
                 .withExpiresAt(Date(now + ACCESS_TOKEN_TIME))
                 .sign(algorithm)
             return token

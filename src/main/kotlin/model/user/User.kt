@@ -16,7 +16,7 @@ data class User(
     val playerPosition: PlayerPosition,
     val profilePic: String?,
     val level: PlayerLevel,
-    val createdAt: Long,
-    val updatedAt: Long,
+    val createdAt: Long? = null,
+    val updatedAt: Long? = null,
     val role: UserRole,
 )

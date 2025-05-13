@@ -25,8 +25,6 @@ class UserDao {
             it[playerPosition] = user.playerPosition
             it[profilePic] = user.profilePic
             it[level] = user.level
-            it[createdAt] = user.createdAt
-            it[updatedAt] = user.updatedAt
             it[role] = user.role
         }
         return result[UserTable.id]
@@ -81,11 +79,12 @@ class UserDao {
     }
 
     fun getUserSignInInfo(email: String): UserSignInInfo? {
-        val user = UserTable.select(UserTable.id, UserTable.password, UserTable.status, UserTable.isEmailVerified)
+        val user = UserTable.select(UserTable.id, UserTable.role, UserTable.password, UserTable.status, UserTable.isEmailVerified)
             .where { UserTable.email eq email }.limit(1)
             .mapNotNull { resultRow ->
                 UserSignInInfo(
                     resultRow[UserTable.id],
+                    resultRow[UserTable.role],
                     resultRow[UserTable.password],
                     resultRow[UserTable.status],
                     resultRow[UserTable.isEmailVerified]
