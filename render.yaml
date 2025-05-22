@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ktor-api
+    env: java
+    plan: free
+    buildCommand: ./gradlew installDist
+    startCommand: ./build/install/futmatch/bin/futmatch
+    envVars:
+      - key: PORT
+        value: 8080
