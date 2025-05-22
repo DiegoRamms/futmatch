@@ -11,7 +11,7 @@ class RefreshTokenServiceImp(
     private val hashingService: HashingService
 ) : RefreshTokenService {
 
-    override fun generateRefreshToken(): RefreshTokenPayload {
+    override suspend fun generateRefreshToken(): RefreshTokenPayload {
         val random = SecureRandom()
         val bytes = ByteArray(32)
         random.nextBytes(bytes)
@@ -21,7 +21,7 @@ class RefreshTokenServiceImp(
         return RefreshTokenPayload(plainToken = token, hashedToken = hashedToken, expiresAt = expiresAt)
     }
 
-    override fun isValidRefreshToken(refreshTokenPayload: RefreshTokenPayload): Boolean {
+    override suspend fun isValidRefreshToken(refreshTokenPayload: RefreshTokenPayload): Boolean {
         val isValidToken = hashingService.verify(refreshTokenPayload.plainToken, refreshTokenPayload.hashedToken)
         val isNotExpired = System.currentTimeMillis() < refreshTokenPayload.expiresAt
 
