@@ -6,13 +6,13 @@ import model.user.UserRole
 import org.koin.ktor.plugin.scope
 
 fun Route.fieldRouting() {
-    route("field") {
+    route("fields") {
         post("create") {
             call.requireRole(UserRole.ADMIN, UserRole.BOTH)
             val fieldController = call.scope.get<FieldController>()
             fieldController.createField(call)
         }
-        get("fields/admin") {
+        get("by-admin") {
             call.requireRole(UserRole.ADMIN, UserRole.BOTH)
             val fieldController = call.scope.get<FieldController>()
             fieldController.getFieldsByAdmin(call)

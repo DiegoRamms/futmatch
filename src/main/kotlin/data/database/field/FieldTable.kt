@@ -1,7 +1,7 @@
 package data.database.field
 
 import com.devapplab.data.database.user.UserTable
-import com.devapplab.model.field.FIELD_NAME_MAX_LENGTH
+import com.devapplab.model.user.FIELD_NAME_MAX_LENGTH
 import org.jetbrains.exposed.sql.ReferenceOption
 import org.jetbrains.exposed.sql.Table
 

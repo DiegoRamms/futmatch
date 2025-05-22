@@ -40,7 +40,14 @@ enum class StringResourcesKey(val value: String) {
     ACCESS_DENIED_DESCRIPTION("access_denied_description"),
 
     ALREADY_EXISTS_TITLE("already_exists_title"),
-    ALREADY_EXISTS_DESCRIPTION("already_exists_description");
+    ALREADY_EXISTS_DESCRIPTION("already_exists_description"),
+
+    FIELD_NAME_INVALID_ERROR("field_name_invalid_error"),
+    FIELD_LOCATION_INVALID_ERROR("field_location_invalid_error"),
+    FIELD_PRICE_INVALID_ERROR("field_price_invalid_error"),
+    FIELD_CAPACITY_INVALID_ERROR("field_capacity_invalid_error"),
+    FIELD_DESCRIPTION_INVALID_ERROR("field_description_invalid_error"),
+    FIELD_RULES_INVALID_ERROR("field_rules_invalid_error");
 
     companion object {
         fun getStringResourcesKey(value: String): StringResourcesKey? {

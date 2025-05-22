@@ -47,9 +47,8 @@ class FieldController(
     }
 
     suspend fun getFieldsByAdmin(call: ApplicationCall) {
-        val locale: Locale = call.retrieveLocale()
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val fields = fieldService.getFieldsByAdminId(locale, adminId)
+        val fields = fieldService.getFieldsByAdminId(adminId)
         call.respond(fields)
     }
 

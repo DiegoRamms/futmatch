@@ -7,6 +7,7 @@ import com.devapplab.model.field.FieldWithImagesBaseInfo
 import com.devapplab.model.field.mapper.toResponse
 import model.field.Field
 import model.field.response.FieldResponse
+import model.field.response.FieldWithImagesResponse
 import java.util.*
 
 class FieldService(
@@ -34,8 +35,8 @@ class FieldService(
         return AppResult.Success("Field deleted")
     }
 
-    suspend fun getFieldsByAdminId(locale: Locale, adminId: UUID): AppResult<List<FieldWithImagesBaseInfo>> {
-        val fields = fieldRepository.getFieldsByAdminId(adminId)
+    suspend fun getFieldsByAdminId(adminId: UUID): AppResult<List<FieldWithImagesResponse>> {
+        val fields = fieldRepository.getFieldsByAdminId(adminId).map { it.toResponse() }
         return AppResult.Success(fields)
     }
 
@@ -43,7 +44,6 @@ class FieldService(
         val fields = fieldRepository.getFields()
         return AppResult.Success(fields)
     }
-
 
 
 }

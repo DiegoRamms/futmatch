@@ -3,6 +3,7 @@ package com.devapplab.config
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserTable
 import data.database.device.DeviceTable
+import data.database.field.FieldImagesTable
 import data.database.field.FieldTable
 import data.database.mfa.MfaCodeTable
 import io.ktor.server.application.*
@@ -29,6 +30,7 @@ fun Application.configureDatabase() {
         SchemaUtils.create(MfaCodeTable)
         SchemaUtils.create(RefreshTokenTable)
         SchemaUtils.create(FieldTable)
+        SchemaUtils.create(FieldImagesTable)
 
         addLogger(StdOutSqlLogger)
     }
