@@ -5,6 +5,7 @@ import com.devapplab.data.database.user.UserTable
 import data.database.device.DeviceTable
 import data.database.field.FieldImagesTable
 import data.database.field.FieldTable
+import data.database.match.MatchTable
 import data.database.mfa.MfaCodeTable
 import io.ktor.server.application.*
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +32,7 @@ fun Application.configureDatabase() {
         SchemaUtils.create(RefreshTokenTable)
         SchemaUtils.create(FieldTable)
         SchemaUtils.create(FieldImagesTable)
+        SchemaUtils.create(MatchTable)
 
         addLogger(StdOutSqlLogger)
     }

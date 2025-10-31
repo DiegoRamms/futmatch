@@ -2,6 +2,7 @@ package com.devapplab.config
 
 import com.devapplab.features.auth.authRouting
 import com.devapplab.features.field.fieldRouting
+import com.devapplab.features.match.matchRouting
 import com.devapplab.features.user.userRouting
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
@@ -10,11 +11,14 @@ import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
+import io.ktor.server.http.content.*
+import io.ktor.server.plugins.*
 import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.plugins.requestvalidation.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import java.io.File
 
 
 fun Application.configureRouting() {
@@ -43,6 +47,11 @@ fun Application.configureRouting() {
             call.respond<ErrorResponse>(
                 locale.createAlreadyExistsError(value = cause.value)
             )
+        }
+
+        exception<NotFoundException> { call, _ ->
+            val locale = call.retrieveLocale()
+            call.respond<ErrorResponse>(locale.createNotFoundError())
         }
 
         exception<AccessDeniedException> { call, cause ->
@@ -86,13 +95,14 @@ fun Application.configureRouting() {
 
     routing {
         //TODO Validate rate limit with Client
-
+        staticFiles("/uploads", File("uploads"))
         rateLimit(RateLimitName(RateLimitType.PUBLIC.value)) {
             authRouting()
         }
         authenticate("auth-jwt") {
             userRouting()
             fieldRouting()
+            matchRouting()
         }
     }
 }

@@ -3,15 +3,15 @@ package com.devapplab.features.field
 import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.field.mapper.toField
-import com.devapplab.model.field.mapper.toFieldImage
-import com.devapplab.model.field.request.CreateFieldImageRequest
 import com.devapplab.model.field.request.CreateFieldRequest
 import com.devapplab.service.field.FieldService
 import com.devapplab.utils.respond
+import com.devapplab.utils.respondImage
 import com.devapplab.utils.retrieveLocale
+import com.devapplab.utils.toUUIDOrNull
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import io.ktor.server.response.*
+import model.field.request.UpdateFieldRequest
 import java.util.*
 
 class FieldController(
@@ -26,24 +26,39 @@ class FieldController(
 
     suspend fun addFieldImage(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
-        val request = call.receive<CreateFieldImageRequest>()
-        val imageId = fieldService.createFieldImage(locale, request.toFieldImage())
-        call.respond(imageId)
+        //val request: CreateFieldImageRequest = call.receive<CreateFieldImageRequest>()
+        val fieldId = UUID.fromString(call.parameters["fieldId"])
+        val position = (call.parameters["position"])?.toInt() ?: 0
+        val multipart = call.receiveMultipart()
+        val appResult = fieldService.saveFieldImage(locale, fieldId, position, multipart)
+        call.respond(appResult)
+    }
+
+    suspend fun getImage(call: ApplicationCall) {
+        val locale: Locale = call.retrieveLocale()
+        val imageName = call.parameters["imageName"]
+        val fieldId = call.parameters["fieldId"]
+
+        println("imageName: $imageName")
+        val appResult = fieldService.getImage(locale, fieldId?.toUUIDOrNull(), imageName)
+
+        call.respondImage(appResult)
     }
 
     suspend fun updateField(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val request = call.receive<CreateFieldRequest>()
-        val updatedId = fieldService.updateField(locale, request.toField(adminId))
+        val request = call.receive<UpdateFieldRequest>()
+        val updatedId = fieldService.updateField(locale, request.toField(adminId), adminId)
         call.respond(updatedId)
     }
 
     suspend fun deleteField(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
+        val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val fieldId = UUID.fromString(call.parameters["fieldId"])
-        fieldService.deleteField(locale, fieldId)
-        call.respond("Field deleted")
+        val deleted = fieldService.deleteField(locale, fieldId, adminId)
+        call.respond(deleted)
     }
 
     suspend fun getFieldsByAdmin(call: ApplicationCall) {

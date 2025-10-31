@@ -1,16 +1,15 @@
 package com.devapplab.model.field.mapper
 
-import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.FieldWithImagesBaseInfo
-import com.devapplab.model.field.request.CreateFieldImageRequest
 import com.devapplab.model.field.request.CreateFieldRequest
 import model.field.Field
 import model.field.FieldBaseInfo
 import model.field.FieldImageBaseInfo
+import model.field.request.UpdateFieldRequest
 import model.field.response.FieldImageResponse
 import model.field.response.FieldResponse
 import model.field.response.FieldWithImagesResponse
-import java.util.UUID
+import java.util.*
 
 fun CreateFieldRequest.toField(adminId: UUID): Field {
     return Field(
@@ -36,14 +35,6 @@ fun FieldBaseInfo.toResponse(): FieldResponse {
     )
 }
 
-fun CreateFieldImageRequest.toFieldImage(): FieldImage {
-    return FieldImage(
-        fieldId = fieldId,
-        imagePath = imagePath,
-        position = position,
-    )
-}
-
 fun FieldImageBaseInfo.toResponse(): FieldImageResponse {
     return FieldImageResponse(
         id = id,
@@ -57,5 +48,18 @@ fun FieldWithImagesBaseInfo.toResponse(): FieldWithImagesResponse {
     return FieldWithImagesResponse(
         field = this.field.toResponse(),
         images = this.images.map { it.toResponse() }
+    )
+}
+
+fun UpdateFieldRequest.toField(adminId: UUID): Field {
+    return Field(
+        id =  fieldId,
+        name = name,
+        adminId = adminId,
+        location = location,
+        price = price,
+        description = description,
+        capacity = capacity,
+        rules = rules
     )
 }

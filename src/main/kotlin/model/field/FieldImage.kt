@@ -1,11 +1,18 @@
 package com.devapplab.model.field
 
-import java.util.UUID
+import java.util.*
 
 data class FieldImage(
+    val imageId: UUID? = null,
     val fieldId: UUID,
-    val imagePath: String,
+    val key: String,
     val position: Int,
-    val createdAt: Long? = null
+    val mime: String? = null,
+    val sizeBytes: Long? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val isPrimary: Boolean = false,
+    val createdAt: Long? = null,
+    val updatedAt: Long? = null
 )
 

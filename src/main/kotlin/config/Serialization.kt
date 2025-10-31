@@ -1,11 +1,13 @@
 package com.devapplab.config
 
+import com.devapplab.utils.BigDecimalSerializer
 import com.devapplab.utils.UUIDSerializer
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.contentnegotiation.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
+import java.math.BigDecimal
 import java.util.*
 
 fun Application.configureSerialization() {
@@ -17,6 +19,7 @@ fun Application.configureSerialization() {
             isLenient = true
             serializersModule = SerializersModule {
                 contextual(UUID::class, UUIDSerializer)
+                contextual(BigDecimal::class, BigDecimalSerializer)
             }
             ignoreUnknownKeys = true
         })
