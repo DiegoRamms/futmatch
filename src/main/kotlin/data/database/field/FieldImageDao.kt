@@ -10,18 +10,40 @@ import java.util.*
 
 class FieldImageDao {
 
-    suspend fun addFieldImage(fieldImage: FieldImage): UUID? = dbQuery {
-        val imageCount = FieldImagesTable
-            .selectAll().where { FieldImagesTable.fieldId eq fieldImage.fieldId }
-            .count()
-
-        if (imageCount >= 4) return@dbQuery null
+    suspend fun addFieldImage(fieldImage: FieldImage): UUID = dbQuery {
         val result = FieldImagesTable.insert {
             it[fieldId] = fieldImage.fieldId
-            it[imageUrl] = fieldImage.imagePath
+            it[key] = fieldImage.key
             it[position] = fieldImage.position
+            it[mime] = fieldImage.mime
+            it[sizeBytes] = fieldImage.sizeBytes ?: 0
+            it[width] = fieldImage.width
+            it[height] = fieldImage.height
+            it[isPrimary] = fieldImage.isPrimary
+            it[createdAt] = fieldImage.createdAt ?: System.currentTimeMillis()
+            it[updatedAt] = fieldImage.updatedAt ?: System.currentTimeMillis()
+
         }
          result[FieldImagesTable.id]
+    }
+
+    suspend fun updateFieldImage(fieldImage: FieldImage, imageId: UUID): Boolean = dbQuery {
+        FieldImagesTable.update({ FieldImagesTable.id eq imageId}) {
+            it[key] = fieldImage.key
+            it[mime] = fieldImage.mime
+            it[sizeBytes] = fieldImage.sizeBytes ?: 0
+            it[width] = fieldImage.width
+            it[height] = fieldImage.height
+            it[updatedAt] = fieldImage.updatedAt ?: System.currentTimeMillis()
+        } > 0
+    }
+
+    suspend fun getImagesCountByField(fieldId: UUID): Int = dbQuery{
+        val imageCount = FieldImagesTable
+            .selectAll().where { FieldImagesTable.fieldId eq fieldId }
+            .count()
+
+        imageCount.toInt() ?: 0
     }
 
     suspend fun getImagesByField(fieldId: UUID): List<FieldImageBaseInfo> = dbQuery {
@@ -44,7 +66,7 @@ class FieldImageDao {
     private fun rowToFieldImage(row: ResultRow) = FieldImageBaseInfo(
         id = row[FieldImagesTable.id],
         fieldId = row[FieldImagesTable.fieldId],
-        imagePath = row[FieldImagesTable.imageUrl],
+        imagePath = row[FieldImagesTable.key],
         position = row[FieldImagesTable.position]
     )
 

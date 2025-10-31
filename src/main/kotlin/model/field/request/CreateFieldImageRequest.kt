@@ -8,6 +8,5 @@ import java.util.*
 data class CreateFieldImageRequest(
     @Serializable(with = UUIDSerializer::class)
     val fieldId: UUID,
-    val imagePath: String,
     val position: Int
 )

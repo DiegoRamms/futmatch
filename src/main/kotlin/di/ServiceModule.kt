@@ -10,12 +10,15 @@ import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.field.FieldService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.hashing.HashingServiceImpl
+import com.devapplab.service.image.ImageServiceImp
+import com.devapplab.service.match.MatchService
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 import service.auth.DeviceService
 import service.email.EmailService
 import service.email.EmailServiceImpl
+import service.image.ImageService
 
 val serviceModule = module {
     singleOf(::UserService)
@@ -27,4 +30,6 @@ val serviceModule = module {
     singleOf(::MfaCodeService)
     singleOf(::EmailServiceImpl) { bind<EmailService>() }
     singleOf(::FieldService)
+    singleOf(::MatchService)
+    singleOf(::ImageServiceImp) { bind<ImageService>()}
 }

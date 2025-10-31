@@ -1,6 +1,8 @@
 package com.devapplab.di
 
 import com.devapplab.data.repository.*
+import com.devapplab.data.repository.match.MatchRepository
+import com.devapplab.data.repository.match.MatchRepositoryImp
 import data.repository.DeviceRepositoryImpl
 import data.repository.MfaCodeRepositoryImpl
 import data.repository.RefreshTokenRepositoryImp
@@ -16,4 +18,5 @@ val repositoryModule = module {
     singleOf(::MfaCodeRepositoryImpl) { bind<MfaCodeRepository>() }
     singleOf(::AuthRepositoryImpl) { bind<AuthRepository>() }
     singleOf(::FieldRepositoryImp) { bind<FieldRepository>() }
+    singleOf(::MatchRepositoryImp) { bind<MatchRepository>() }
 }

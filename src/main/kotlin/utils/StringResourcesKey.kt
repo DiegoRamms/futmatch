@@ -42,12 +42,32 @@ enum class StringResourcesKey(val value: String) {
     ALREADY_EXISTS_TITLE("already_exists_title"),
     ALREADY_EXISTS_DESCRIPTION("already_exists_description"),
 
+    NOT_FOUND_TITLE("not_found_title"),
+    NOT_FOUND_DESCRIPTION("not_found_description"),
+
     FIELD_NAME_INVALID_ERROR("field_name_invalid_error"),
     FIELD_LOCATION_INVALID_ERROR("field_location_invalid_error"),
     FIELD_PRICE_INVALID_ERROR("field_price_invalid_error"),
     FIELD_CAPACITY_INVALID_ERROR("field_capacity_invalid_error"),
     FIELD_DESCRIPTION_INVALID_ERROR("field_description_invalid_error"),
-    FIELD_RULES_INVALID_ERROR("field_rules_invalid_error");
+    FIELD_RULES_INVALID_ERROR("field_rules_invalid_error"),
+    FIELD_DELETE_SUCCESS_MESSAGE("field_delete_success_message"),
+    FIELD_DELETE_ACCESS_DENIED_TITLE("field_delete_access_denied_title"),
+    FIELD_DELETE_ACCESS_DENIED_DESCRIPTION("field_delete_access_denied_description"),
+    FIELD_MAX_IMAGES_REACHED_TITLE("field_max_images_reached_title"),
+    FIELD_MAX_IMAGES_REACHED_DESCRIPTION("field_max_images_reached_description"),
+
+    FIELD_IMAGE_NOT_FOUND_TITLE("field_image_not_found_title"),
+    FIELD_IMAGE_NOT_FOUND_DESCRIPTION("field_image_not_found_description"),
+    FIELD_IMAGE_FILE_MISSING_TITLE("field_image_file_missing_title"),
+    FIELD_IMAGE_FILE_MISSING_DESCRIPTION("field_image_file_missing_description"),
+
+    MATCH_DATE_TIME_INVALID_ERROR("match_date_time_invalid_error"),
+    MATCH_DATE_TIME_END_INVALID_ERROR("match_date_time_end_invalid_error"),
+    MATCH_MAX_PLAYERS_INVALID_ERROR("match_max_players_invalid_error"),
+    MATCH_MIN_PLAYERS_INVALID_ERROR("match_min_players_invalid_error"),
+    MATCH_PRICE_INVALID_ERROR("match_price_invalid_error"),
+    MATCH_DISCOUNT_INVALID_ERROR("match_discount_invalid_error");
 
     companion object {
         fun getStringResourcesKey(value: String): StringResourcesKey? {

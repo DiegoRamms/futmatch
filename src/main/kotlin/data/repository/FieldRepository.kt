@@ -8,9 +8,12 @@ import java.util.UUID
 
 interface FieldRepository {
     suspend fun createField(field: Field): FieldBaseInfo
-    suspend fun createImageField(fieldImage: FieldImage): UUID?
-    suspend fun updateField(field: Field): UUID
-    suspend fun deleteField(fieldId: UUID)
+    suspend fun createImageField(fieldImage: FieldImage): UUID
+    suspend fun updateImageField(fieldImage: FieldImage, imageId: UUID): Boolean
+    suspend fun getImageByKey(key: String): FieldImage?
+    suspend fun getImagesCountByField(fieldId: UUID): Int
+    suspend fun updateField(field: Field, adminId: UUID): Boolean
+    suspend fun deleteField(fieldId: UUID, adminId: UUID): Boolean
     suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo>
     suspend fun getFields(): List<FieldWithImagesBaseInfo>
 }

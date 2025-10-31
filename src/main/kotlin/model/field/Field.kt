@@ -3,6 +3,7 @@ package model.field
 import java.util.UUID
 
 data class Field(
+    val id: UUID? = null,
     val name: String,
     val location: String,
     val price: Double,
