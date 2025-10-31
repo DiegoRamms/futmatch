@@ -1,8 +1,6 @@
 package com.devapplab.model.field.mapper
 
-import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.FieldWithImagesBaseInfo
-import com.devapplab.model.field.request.CreateFieldImageRequest
 import com.devapplab.model.field.request.CreateFieldRequest
 import model.field.Field
 import model.field.FieldBaseInfo
@@ -11,7 +9,7 @@ import model.field.request.UpdateFieldRequest
 import model.field.response.FieldImageResponse
 import model.field.response.FieldResponse
 import model.field.response.FieldWithImagesResponse
-import java.util.UUID
+import java.util.*
 
 fun CreateFieldRequest.toField(adminId: UUID): Field {
     return Field(
