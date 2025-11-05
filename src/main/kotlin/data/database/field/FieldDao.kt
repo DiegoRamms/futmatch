@@ -56,7 +56,13 @@ class FieldDao {
         } > 0
     }
 
-
+    suspend fun getImageByKey(key: String): FieldImage? = dbQuery {
+        FieldImagesTable
+            .selectAll().where { FieldImagesTable.key eq key }
+            .limit(1)
+            .map { it.toFieldImage() }
+            .singleOrNull()
+    }
 
     suspend fun getBaseFieldById(fieldId: UUID): FieldBaseInfo? = dbQuery {
         FieldTable.selectAll().where { FieldTable.id eq fieldId }
