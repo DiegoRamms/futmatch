@@ -42,7 +42,11 @@ class FieldRepositoryImp(private val fieldDao: FieldDao, private val fieldImageD
     }
 
     override suspend fun getImageByKey(key: String): FieldImage? {
-        return fieldDao.getImageByKey(key)
+        return fieldImageDao.getImageByKey(key)
+    }
+
+    override suspend fun getImageById(id: UUID): FieldImage? {
+        return fieldImageDao.getImageById(id)
     }
 
     override suspend fun getImagesCountByField(fieldId: UUID): Int {
