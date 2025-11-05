@@ -26,7 +26,6 @@ class FieldController(
 
     suspend fun addFieldImage(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
-        //val request: CreateFieldImageRequest = call.receive<CreateFieldImageRequest>()
         val fieldId = UUID.fromString(call.parameters["fieldId"])
         val position = (call.parameters["position"])?.toInt() ?: 0
         val multipart = call.receiveMultipart()
