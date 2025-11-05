@@ -1,21 +1,12 @@
 package com.devapplab.features.field
 
 import com.devapplab.config.requireRole
-import com.devapplab.utils.extractImageMeta
 import io.ktor.http.*
-import io.ktor.http.content.*
-import io.ktor.server.auth.*
-import io.ktor.server.auth.jwt.*
-import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.util.cio.*
-import io.ktor.utils.io.*
 import model.user.UserRole
 import org.koin.ktor.plugin.scope
 import java.io.File
-import java.util.UUID
-import kotlin.io.use
 
 fun Route.fieldRouting() {
     route("fields") {
@@ -34,6 +25,11 @@ fun Route.fieldRouting() {
         get("image/{fieldId}/{imageName}") {
             val fieldController = call.scope.get<FieldController>()
             fieldController.getImage(call)
+        }
+
+        post("/image/{imageId}") {
+            val fieldController = call.scope.get<FieldController>()
+            fieldController.updateFieldImage(call)
         }
 
         delete("/fields/{fieldId}/images/{imageName}") {

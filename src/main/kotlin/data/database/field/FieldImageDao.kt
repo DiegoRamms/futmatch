@@ -43,7 +43,22 @@ class FieldImageDao {
             .selectAll().where { FieldImagesTable.fieldId eq fieldId }
             .count()
 
-        imageCount.toInt() ?: 0
+        imageCount.toInt()
+    }
+
+    suspend fun getImageByKey(key: String): FieldImage? = dbQuery {
+        FieldImagesTable
+            .selectAll().where { FieldImagesTable.key eq key }
+            .limit(1)
+            .map { it.toFieldImage() }
+            .singleOrNull()
+    }
+
+    suspend fun getImageById(id: UUID): FieldImage? = dbQuery {
+        FieldImagesTable
+            .selectAll().where { FieldImagesTable.id eq  id }
+            .map { it.toFieldImage() }
+            .singleOrNull()
     }
 
     suspend fun getImagesByField(fieldId: UUID): List<FieldImageBaseInfo> = dbQuery {
@@ -69,5 +84,21 @@ class FieldImageDao {
         imagePath = row[FieldImagesTable.key],
         position = row[FieldImagesTable.position]
     )
+
+    private fun ResultRow.toFieldImage(): FieldImage =
+        FieldImage(
+            imageId = this[FieldImagesTable.id],
+            fieldId = this[FieldImagesTable.fieldId],
+            key = this[FieldImagesTable.key],
+            position = this[FieldImagesTable.position],
+            mime = this[FieldImagesTable.mime],
+            sizeBytes = this[FieldImagesTable.sizeBytes],
+            width = this[FieldImagesTable.width],
+            height = this[FieldImagesTable.height],
+            isPrimary = this[FieldImagesTable.isPrimary],
+            createdAt = this[FieldImagesTable.createdAt],
+            updatedAt = this[FieldImagesTable.updatedAt]
+        )
+
 
 }

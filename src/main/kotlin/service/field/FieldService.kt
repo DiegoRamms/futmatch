@@ -98,22 +98,22 @@ class FieldService(
     suspend fun updateFieldImage(
         locale: Locale,
         imageId: UUID,
-        fieldId: UUID,
-        position: Int,
         multiPartData: MultiPartData,
-        currentImageName: String
     ): AppResult<UUID> {
 
-        val filePath = "uploads/fields/$fieldId/images/$currentImageName"
+
+        val currentFieldImage = fieldRepository.getImageById(imageId) ?: return locale.createError()
+
+        val filePath =  getFileFromImageMeta(currentFieldImage.fieldId, currentFieldImage.key, currentFieldImage.mime)// "uploads/fields/${currentFieldImage.fieldId}/images/${currentFieldImage.key}"
 
 
-        val imageSaved = imageService.saveImages(multiPartData, "uploads/fields/${fieldId}/images").first()
+        val imageSaved = imageService.saveImages(multiPartData, "uploads/fields/${currentFieldImage.fieldId}/images").first()
 
         val fieldImage = FieldImage(
             imageId = imageId,
-            fieldId = fieldId,
+            fieldId = currentFieldImage.fieldId,
             key = imageSaved.imageName,
-            position = position,
+            position = currentFieldImage.position,
             mime = imageSaved.imageMeta.mime,
             sizeBytes = imageSaved.imageMeta.sizeBytes,
             width = imageSaved.imageMeta.width,
@@ -123,7 +123,7 @@ class FieldService(
         val updated = fieldRepository.updateImageField(fieldImage, imageId)
 
         if (updated) {
-            imageService.deleteImages(filePath)
+            imageService.deleteImages(filePath.absolutePath)
         }
 
         return AppResult.Success(imageId, appStatus = HttpStatusCode.Created)

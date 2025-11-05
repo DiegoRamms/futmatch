@@ -34,6 +34,14 @@ class FieldController(
         call.respond(appResult)
     }
 
+    suspend fun updateFieldImage(call: ApplicationCall){
+        val locale: Locale = call.retrieveLocale()
+        val imageId = UUID.fromString(call.parameters["imageId"])
+        val multipart = call.receiveMultipart()
+        val appResult = fieldService.updateFieldImage(locale,imageId, multipart)
+        call.respond(appResult)
+    }
+
     suspend fun getImage(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
         val imageName = call.parameters["imageName"]

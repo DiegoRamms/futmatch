@@ -11,6 +11,7 @@ interface FieldRepository {
     suspend fun createImageField(fieldImage: FieldImage): UUID
     suspend fun updateImageField(fieldImage: FieldImage, imageId: UUID): Boolean
     suspend fun getImageByKey(key: String): FieldImage?
+    suspend fun getImageById(id: UUID): FieldImage?
     suspend fun getImagesCountByField(fieldId: UUID): Int
     suspend fun updateField(field: Field, adminId: UUID): Boolean
     suspend fun deleteField(fieldId: UUID, adminId: UUID): Boolean
