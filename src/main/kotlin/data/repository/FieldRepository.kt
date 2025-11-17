@@ -10,11 +10,14 @@ interface FieldRepository {
     suspend fun createField(field: Field): FieldBaseInfo
     suspend fun createImageField(fieldImage: FieldImage): UUID
     suspend fun updateImageField(fieldImage: FieldImage, imageId: UUID): Boolean
+    suspend fun deleteImageField(imageId: UUID): Boolean
     suspend fun getImageByKey(key: String): FieldImage?
     suspend fun getImageById(id: UUID): FieldImage?
     suspend fun getImagesCountByField(fieldId: UUID): Int
-    suspend fun updateField(field: Field, adminId: UUID): Boolean
-    suspend fun deleteField(fieldId: UUID, adminId: UUID): Boolean
+    suspend fun existsFieldImageAtPosition(fieldId: UUID, position: Int): Boolean
+    suspend fun isAdminAssignedToField(adminId: UUID, fieldId: UUID): Boolean
+    suspend fun updateField(field: Field): Boolean
+    suspend fun deleteField(fieldId: UUID): Boolean
     suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo>
     suspend fun getFields(): List<FieldWithImagesBaseInfo>
 }

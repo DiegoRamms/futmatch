@@ -10,7 +10,6 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
-import io.ktor.util.pipeline.*
 import model.user.UserRole
 import java.security.KeyFactory
 import java.security.interfaces.ECPrivateKey
@@ -98,10 +97,11 @@ fun ApplicationCall.getRole(): UserRole {
     return role ?: throw InvalidTokenException()
 }
 
-fun ApplicationCall.requireRole(vararg allowedRoles: UserRole) {
+fun ApplicationCall.requireRole(vararg allowedRoles: UserRole): UserRole {
     val role = getRole()
     println("Current role: $role | Allowed roles: ${allowedRoles.joinToString(", ")}")
     if (!allowedRoles.contains(role)) {
         throw AccessDeniedException()
     }
+    return role
 }

@@ -3,7 +3,6 @@ package com.devapplab.data.database.field
 import com.devapplab.config.dbQuery
 import com.devapplab.model.field.FieldImage
 import data.database.field.FieldImagesTable
-import model.field.FieldImageBaseInfo
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import java.util.*
@@ -61,29 +60,18 @@ class FieldImageDao {
             .singleOrNull()
     }
 
-    suspend fun getImagesByField(fieldId: UUID): List<FieldImageBaseInfo> = dbQuery {
+    suspend fun existsFieldImageAtPosition(fieldId: UUID, position: Int): Boolean = dbQuery {
         FieldImagesTable
-            .selectAll().where { FieldImagesTable.fieldId eq fieldId }
-            .orderBy(FieldImagesTable.position to SortOrder.ASC)
-            .mapNotNull(::rowToFieldImage)
+            .select(FieldImagesTable.position).where{
+                (FieldImagesTable.fieldId eq fieldId) and (FieldImagesTable.position eq position)
+            }
+            .limit(1)
+            .any()
     }
 
-    suspend fun getFieldImages(): List<FieldImageBaseInfo> = dbQuery {
-        FieldImagesTable
-            .selectAll()
-            .map(::rowToFieldImage)
+    suspend fun deleteImageField(imageId: UUID): Boolean = dbQuery {
+        FieldImagesTable.deleteWhere { id eq imageId } > 0
     }
-
-    suspend fun deleteImagesByField(fieldId: UUID): Unit = dbQuery {
-        FieldImagesTable.deleteWhere { FieldImagesTable.fieldId eq fieldId } > 0
-    }
-
-    private fun rowToFieldImage(row: ResultRow) = FieldImageBaseInfo(
-        id = row[FieldImagesTable.id],
-        fieldId = row[FieldImagesTable.fieldId],
-        imagePath = row[FieldImagesTable.key],
-        position = row[FieldImagesTable.position]
-    )
 
     private fun ResultRow.toFieldImage(): FieldImage =
         FieldImage(
@@ -99,6 +87,4 @@ class FieldImageDao {
             createdAt = this[FieldImagesTable.createdAt],
             updatedAt = this[FieldImagesTable.updatedAt]
         )
-
-
 }

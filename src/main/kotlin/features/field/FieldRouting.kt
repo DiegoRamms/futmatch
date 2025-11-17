@@ -1,12 +1,9 @@
 package com.devapplab.features.field
 
 import com.devapplab.config.requireRole
-import io.ktor.http.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import model.user.UserRole
 import org.koin.ktor.plugin.scope
-import java.io.File
 
 fun Route.fieldRouting() {
     route("fields") {
@@ -16,8 +13,8 @@ fun Route.fieldRouting() {
             fieldController.createField(call)
         }
 
-
         post("/{fieldId}/{position}/images") {
+            call.requireRole(UserRole.ADMIN, UserRole.BOTH)
             val fieldController = call.scope.get<FieldController>()
             fieldController.addFieldImage(call)
         }
@@ -27,28 +24,16 @@ fun Route.fieldRouting() {
             fieldController.getImage(call)
         }
 
-        post("/image/{imageId}") {
+        post("/image/{fieldId}/{imageId}") {
+            call.requireRole(UserRole.ADMIN, UserRole.BOTH)
             val fieldController = call.scope.get<FieldController>()
             fieldController.updateFieldImage(call)
         }
 
-        delete("/fields/{fieldId}/images/{imageName}") {
-            val fieldId = call.parameters["fieldId"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            val imageName = call.parameters["imageName"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
-
-            println("imageName: $imageName")
-            val filePath = "uploads/fields/$fieldId/images/$imageName"
-            val file = File(filePath)
-
-            if (file.exists()) {
-                if (file.delete()) {
-                    call.respond(HttpStatusCode.OK, "Archivo eliminado correctamente")
-                } else {
-                    call.respond(HttpStatusCode.InternalServerError, "No se pudo eliminar el archivo")
-                }
-            } else {
-                call.respond(HttpStatusCode.NotFound, "Archivo no encontrado")
-            }
+        delete("/delete/image/{fieldId}/{imageId}") {
+            call.requireRole(UserRole.ADMIN, UserRole.BOTH)
+            val fieldController = call.scope.get<FieldController>()
+            fieldController.deleteFieldImage(call)
         }
 
         get("by-admin") {
@@ -63,7 +48,7 @@ fun Route.fieldRouting() {
             fieldController.updateField(call)
         }
 
-        post("delete/{fieldId}") {
+        delete ("delete/{fieldId}") {
             call.requireRole(UserRole.ADMIN, UserRole.BOTH)
             val fieldController = call.scope.get<FieldController>()
             fieldController.deleteField(call)

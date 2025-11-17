@@ -46,3 +46,12 @@ fun getFileFromImageMeta(fieldId: UUID?, imageName: String?, mime: String?): Fil
 
     return File("$baseDir/fields/$fieldId/images/$imageName.$ext")
 }
+
+fun createImagePath(fieldId: UUID): String{
+    return "uploads/fields/${fieldId}/images"
+}
+
+fun getFieldDirectory(fieldId: UUID): File {
+    val baseDir = System.getenv("UPLOAD_DIR") ?: "uploads"
+    return File("$baseDir/fields/$fieldId")
+}

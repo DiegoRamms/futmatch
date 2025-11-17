@@ -19,17 +19,32 @@ suspend inline fun <reified T : Any> ApplicationCall.respond(appResult: AppResul
     this.respond(status = appResult.status, message = response)
 }
 
-suspend inline fun ApplicationCall.respondImage(appResult: AppResult<ImageFileInfo>) {
-    val response = when (appResult) {
-        is AppResult.Failure -> AppResponse(error = appResult.errorResponse)
-        is AppResult.Success -> AppResponse(data = appResult.data)
+suspend fun ApplicationCall.respondImage(appResult: AppResult<ImageFileInfo>) {
+    when (appResult) {
+        is AppResult.Failure -> {
+            val response: AppResponse<ErrorResponse> = AppResponse(
+                data = null,
+                error = appResult.errorResponse
+            )
+            this.respond(status = appResult.status, message = response)
+        }
+
+        is AppResult.Success -> {
+            val file = appResult.data.file
+            if (file.exists()) {
+                this.respondFile(file)
+            } else {
+                val response: AppResponse<String> = AppResponse(
+                    data = null,
+                    error = ErrorResponse(
+                        title = "Image not found",
+                        message = "Image not found"
+                    )
+                )
+                this.respond(status = HttpStatusCode.NotFound, message = response)
+            }
+        }
     }
-
-    val file = response.data?.file
-    if (file != null) {
-        this.respondFile(file)
-    } else this.respond(AppResponse<ImageFileInfo>(error = ErrorResponse("Image not found", "Image not found")))
-
 }
 
 fun Locale.createError(

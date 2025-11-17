@@ -2,11 +2,13 @@ package com.devapplab.data.database.field
 
 import com.devapplab.config.dbQuery
 import com.devapplab.model.field.FieldImage
+import com.devapplab.model.field.FieldWithImagesBaseInfo
 import com.devapplab.utils.ValueAlreadyExistsException
 import data.database.field.FieldImagesTable
 import data.database.field.FieldTable
 import model.field.Field
 import model.field.FieldBaseInfo
+import model.field.FieldImageBaseInfo
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 
@@ -56,21 +58,6 @@ class FieldDao {
         } > 0
     }
 
-    suspend fun getImageByKey(key: String): FieldImage? = dbQuery {
-        FieldImagesTable
-            .selectAll().where { FieldImagesTable.key eq key }
-            .limit(1)
-            .map { it.toFieldImage() }
-            .singleOrNull()
-    }
-
-    suspend fun getBaseFieldById(fieldId: UUID): FieldBaseInfo? = dbQuery {
-        FieldTable.selectAll().where { FieldTable.id eq fieldId }
-            .limit(1)
-            .mapNotNull(::rowToBaseField)
-            .singleOrNull()
-    }
-
     suspend fun getFieldById(fieldId: UUID): Field? = dbQuery {
         FieldTable.selectAll().where { FieldTable.id eq fieldId }
             .limit(1)
@@ -78,19 +65,75 @@ class FieldDao {
             .singleOrNull()
     }
 
-    fun getFieldsByAdminId(adminId: UUID): List<FieldBaseInfo> {
-        return FieldTable.selectAll().where { FieldTable.adminId eq adminId }
-            .mapNotNull(::rowToBaseField)
+    suspend fun getFieldsWithImagesByAdminId(
+        adminId: UUID
+    ): List<FieldWithImagesBaseInfo> = dbQuery {
+        FieldTable
+            .leftJoin(FieldAdminsTable, { id }, { fieldId })
+            .leftJoin(FieldImagesTable, { FieldTable.id }, { fieldId })
+            .selectAll().where {
+                (FieldTable.adminId eq adminId) or (FieldAdminsTable.adminId eq adminId)
+            }
+            .map { row ->
+                val field = rowToBaseField(row)
+
+                val image = row.getOrNull(FieldImagesTable.id)?.let {
+                    rowToFieldImageBaseInfo(row)
+                }
+
+                field to image
+            }
+            .groupBy { it.first }
+            .map { (field, pairs) ->
+                val images = pairs.mapNotNull { it.second }
+                FieldWithImagesBaseInfo(
+                    field = field,
+                    images = images
+                )
+            }
     }
 
-    suspend fun getAllFields(): List<FieldBaseInfo> = dbQuery {
-        FieldTable.selectAll()
-            .orderBy(FieldTable.createdAt, SortOrder.DESC)
-            .map(::rowToBaseField)
+    suspend fun getFieldsWithImages(): List<FieldWithImagesBaseInfo> = dbQuery {
+        FieldTable
+            .leftJoin(FieldImagesTable, { id }, { fieldId })
+            .selectAll()
+            .map { row ->
+                val field = rowToBaseField(row)
+
+                val image = row.getOrNull(FieldImagesTable.id)?.let {
+                    rowToFieldImageBaseInfo(row)
+                }
+
+                field to image
+            }
+            .groupBy { it.first }
+            .map { (field, pairs) ->
+                val images = pairs.mapNotNull { it.second }
+                FieldWithImagesBaseInfo(
+                    field = field,
+                    images = images
+                )
+            }
     }
 
     suspend fun deleteFieldById(id: UUID): Boolean = dbQuery {
         FieldTable.deleteWhere { FieldTable.id eq id } > 0
+    }
+
+    suspend fun isAdminAssignedToField(
+        adminId: UUID,
+        fieldId: UUID
+    ): Boolean = dbQuery {
+        FieldTable
+            .leftJoin(FieldAdminsTable, { id }, { FieldAdminsTable.fieldId })
+            .selectAll().where {
+                (FieldTable.id eq fieldId) and (
+                        (FieldTable.adminId eq adminId) or
+                                (FieldAdminsTable.adminId eq adminId)
+                        )
+            }
+            .limit(1)
+            .any()
     }
 
     private fun rowToBaseField(row: ResultRow): FieldBaseInfo = FieldBaseInfo(
@@ -113,6 +156,7 @@ class FieldDao {
         adminId = row[FieldTable.adminId]
     )
 
+    @Suppress("Unused")
     private fun ResultRow.toFieldImage(): FieldImage =
         FieldImage(
             imageId = this[FieldImagesTable.id],
@@ -128,5 +172,12 @@ class FieldDao {
             updatedAt = this[FieldImagesTable.updatedAt]
         )
 
+
+    private fun rowToFieldImageBaseInfo(row: ResultRow): FieldImageBaseInfo = FieldImageBaseInfo(
+        id = row[FieldImagesTable.id],
+        fieldId = row[FieldImagesTable.fieldId],
+        imagePath = row[FieldImagesTable.key],
+        position = row[FieldImagesTable.position]
+    )
 
 }

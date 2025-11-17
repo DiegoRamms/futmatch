@@ -51,9 +51,14 @@ enum class StringResourcesKey(val value: String) {
     FIELD_CAPACITY_INVALID_ERROR("field_capacity_invalid_error"),
     FIELD_DESCRIPTION_INVALID_ERROR("field_description_invalid_error"),
     FIELD_RULES_INVALID_ERROR("field_rules_invalid_error"),
+
+    FIELD_UPDATE_FAILED_TITLE("field_update_failed_title"),
+    FIELD_UPDATE_FAILED_DESCRIPTION("field_update_failed_description"),
+
     FIELD_DELETE_SUCCESS_MESSAGE("field_delete_success_message"),
     FIELD_DELETE_ACCESS_DENIED_TITLE("field_delete_access_denied_title"),
     FIELD_DELETE_ACCESS_DENIED_DESCRIPTION("field_delete_access_denied_description"),
+
     FIELD_MAX_IMAGES_REACHED_TITLE("field_max_images_reached_title"),
     FIELD_MAX_IMAGES_REACHED_DESCRIPTION("field_max_images_reached_description"),
 
@@ -61,6 +66,14 @@ enum class StringResourcesKey(val value: String) {
     FIELD_IMAGE_NOT_FOUND_DESCRIPTION("field_image_not_found_description"),
     FIELD_IMAGE_FILE_MISSING_TITLE("field_image_file_missing_title"),
     FIELD_IMAGE_FILE_MISSING_DESCRIPTION("field_image_file_missing_description"),
+    FIELD_IMAGE_POSITION_EXISTS_TITLE("field_image_position_exists_title"),
+    FIELD_IMAGE_POSITION_EXISTS_DESCRIPTION("field_image_position_exists_description"),
+
+    IMAGE_NOT_FOUND_TITLE("image_not_found_title"),
+    IMAGE_NOT_FOUND_DESCRIPTION("image_not_found_description"),
+    IMAGE_DELETE_FAILED_TITLE("image_delete_failed_title"),
+    IMAGE_DELETE_FAILED_DESCRIPTION("image_delete_failed_description"),
+    IMAGE_DELETE_SUCCESS_MESSAGE("image_delete_success_message"),
 
     MATCH_DATE_TIME_INVALID_ERROR("match_date_time_invalid_error"),
     MATCH_DATE_TIME_END_INVALID_ERROR("match_date_time_end_invalid_error"),

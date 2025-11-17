@@ -1,11 +1,9 @@
 package com.devapplab.data.repository
 
-import com.devapplab.config.dbQuery
 import com.devapplab.data.database.field.FieldDao
 import com.devapplab.data.database.field.FieldImageDao
 import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.FieldWithImagesBaseInfo
-import io.ktor.server.plugins.*
 import model.field.Field
 import model.field.FieldBaseInfo
 import java.util.*
@@ -15,21 +13,15 @@ class FieldRepositoryImp(private val fieldDao: FieldDao, private val fieldImageD
         return fieldDao.createField(field)
     }
 
-    override suspend fun updateField(field: Field, adminId: UUID): Boolean {
-        val existingField = field.id?.let { fieldDao.getFieldById(it) }
-            ?: throw NotFoundException("Field not found")
+    override suspend fun updateField(field: Field): Boolean {
+        val fieldId = field.id ?: return false
+        fieldDao.getFieldById(fieldId) ?: return false
 
-        if (existingField.adminId != adminId) {
-            throw NotFoundException("You cannot modify this field")
-        }
-
-        val updatedRows = fieldDao.updateField(field.id, field)
-        return updatedRows
+        val updated = fieldDao.updateField(fieldId, field)
+        return updated
     }
 
-    override suspend fun deleteField(fieldId: UUID, adminId: UUID): Boolean  {
-        val field = fieldDao.getFieldById(fieldId)
-        if (field?.adminId != adminId) return false
+    override suspend fun deleteField(fieldId: UUID): Boolean {
         return fieldDao.deleteFieldById(fieldId)
     }
 
@@ -41,6 +33,10 @@ class FieldRepositoryImp(private val fieldDao: FieldDao, private val fieldImageD
         return fieldImageDao.updateFieldImage(fieldImage, imageId)
     }
 
+    override suspend fun deleteImageField(imageId: UUID): Boolean {
+        return fieldImageDao.deleteImageField(imageId)
+    }
+
     override suspend fun getImageByKey(key: String): FieldImage? {
         return fieldImageDao.getImageByKey(key)
     }
@@ -50,20 +46,22 @@ class FieldRepositoryImp(private val fieldDao: FieldDao, private val fieldImageD
     }
 
     override suspend fun getImagesCountByField(fieldId: UUID): Int {
-        return  fieldImageDao.getImagesCountByField(fieldId)
+        return fieldImageDao.getImagesCountByField(fieldId)
     }
 
-    override suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo> = dbQuery {
-         fieldDao.getFieldsByAdminId(adminId).map { field ->
-             val images  = fieldImageDao.getFieldImages().filter { field.id == it.fieldId }
-             FieldWithImagesBaseInfo(
-                 field = field,
-                 images = images
-             )
-         }
+    override suspend fun existsFieldImageAtPosition(fieldId: UUID, position: Int): Boolean {
+        return fieldImageDao.existsFieldImageAtPosition(fieldId, position)
+    }
+
+    override suspend fun isAdminAssignedToField(adminId: UUID, fieldId: UUID): Boolean {
+        return fieldDao.isAdminAssignedToField(adminId, fieldId)
+    }
+
+    override suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo> {
+        return fieldDao.getFieldsWithImagesByAdminId(adminId)
     }
 
     override suspend fun getFields(): List<FieldWithImagesBaseInfo> {
-        TODO("Not yet implemented")
+        return fieldDao.getFieldsWithImages()
     }
 }
