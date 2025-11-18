@@ -32,6 +32,8 @@ import service.auth.DeviceService
 import service.email.EmailService
 import utils.MfaUtils
 import java.util.*
+import org.slf4j.LoggerFactory
+
 
 class AuthService(
     private val userRepository: UserRepository,
@@ -44,6 +46,9 @@ class AuthService(
     private val authRepository: AuthRepository,
     private val refreshTokenRepository: RefreshTokenRepository
 ) {
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     suspend fun addUser(
         user: User,
         locale: Locale,
@@ -80,32 +85,32 @@ class AuthService(
         val startTime = System.currentTimeMillis()
 
         if (deviceInfo.isNullOrBlank()) {
-            println("❌ signIn - Missing device info (Took ${System.currentTimeMillis() - startTime} ms)")
+            logger.error("❌ signIn - Missing device info (Took ${System.currentTimeMillis() - startTime} ms)")
             return locale.respondDeviceInfoRequired()
         }
 
         val user = userRepository.getUserSignInInfo(signInRequest.email)
             ?: run {
-                println("❌ signIn - Invalid credentials (Took ${System.currentTimeMillis() - startTime} ms)")
+                logger.error("❌ signIn - Invalid credentials (Took ${System.currentTimeMillis() - startTime} ms)")
                 return locale.respondInvalidSignInCredentialsError()
             }
 
         if (!hashingService.verify(signInRequest.password, user.password)) {
-            println("❌ signIn - Invalid credentials (Took ${System.currentTimeMillis() - startTime} ms)")
+            logger.error("❌ signIn - Invalid credentials (Took ${System.currentTimeMillis() - startTime} ms)")
             return locale.respondInvalidSignInCredentialsError()
         }
 
         return when (user.status) {
             UserStatus.BLOCKED -> {
-                println("❌ signIn - User is blocked (Took ${System.currentTimeMillis() - startTime} ms)")
+                logger.error("❌ signIn - User is blocked (Took ${System.currentTimeMillis() - startTime} ms)")
                 locale.respondSignInBlockedUserError()
             }
             UserStatus.SUSPENDED -> {
-                println("❌ signIn - User is suspended (Took ${System.currentTimeMillis() - startTime} ms)")
+                logger.error("❌ signIn - User is suspended (Took ${System.currentTimeMillis() - startTime} ms)")
                 locale.respondSignInSuspendedUserError()
             }
             UserStatus.ACTIVE -> {
-                println("✅ signIn - Credentials verified, continuing to handleSuccessfulSignIn (Took ${System.currentTimeMillis() - startTime} ms)")
+                logger.error("✅ signIn - Credentials verified, continuing to handleSuccessfulSignIn (Took ${System.currentTimeMillis() - startTime} ms)")
                 handleSuccessfulSignIn(user, signInRequest, jwtConfig, deviceInfo)
             }
         }
@@ -199,25 +204,25 @@ class AuthService(
         val startTime = System.currentTimeMillis()
 
         val providedDeviceId = signInRequest.deviceId
-        println("🔐 SignIn - Provided device ID: $providedDeviceId")
+        logger.info("🔐 SignIn - Provided device ID: $providedDeviceId")
         val isKnownDevice = isKnownDeviceForUser(providedDeviceId, user.userId)
         val isDeviceTrusted =
             providedDeviceId?.let { deviceService.isTrustedDeviceIdForUser(providedDeviceId, user.userId) } ?: false
-        println("🔐 SignIn - Is known device: $isKnownDevice, Is trusted device: $isDeviceTrusted")
+        logger.info("🔐 SignIn - Is known device: $isKnownDevice, Is trusted device: $isDeviceTrusted")
         val currentDeviceId = resolveDeviceId(providedDeviceId, isKnownDevice, deviceInfo, user.userId)
-        println("🔐 SignIn - Resolved device ID: $currentDeviceId")
+        logger.info("🔐 SignIn - Resolved device ID: $currentDeviceId")
 
         val needsMFA = !isKnownDevice || !isDeviceTrusted || !user.isEmailVerified
-        println("🔐 SignIn - Needs MFA: $needsMFA (Email Verified: ${user.isEmailVerified})")
+        logger.info("🔐 SignIn - Needs MFA: $needsMFA (Email Verified: ${user.isEmailVerified})")
 
         if (needsMFA) {
             val duration = System.currentTimeMillis() - startTime
-            println("🛡️ SignIn - MFA required, returning challenge (Took $duration ms)")
+            logger.info("🛡️ SignIn - MFA required, returning challenge (Took $duration ms)")
             return respondMFARequired(currentDeviceId, user.userId)
         }
 
         val duration = System.currentTimeMillis() - startTime
-        println("✅ SignIn - Authenticated without MFA (Took $duration ms)")
+        logger.info("✅ SignIn - Authenticated without MFA (Took $duration ms)")
         return generateAuthenticatedResponse(user.userId, currentDeviceId, user.userRole, jwtConfig)
     }
 
@@ -263,7 +268,7 @@ class AuthService(
         authRepository.rotateRefreshToken(userId, deviceId, refreshTokenPayload)
 
         val duration = System.currentTimeMillis() - start
-        println("✅ JWT + RefreshToken generated in $duration ms")
+        logger.info("✅ JWT + RefreshToken generated in $duration ms")
         return AppResult.Success(
             AuthResponse(
                 authTokenResponse = AuthTokenResponse(

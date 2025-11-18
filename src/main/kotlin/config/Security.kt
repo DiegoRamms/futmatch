@@ -99,7 +99,7 @@ fun ApplicationCall.getRole(): UserRole {
 
 fun ApplicationCall.requireRole(vararg allowedRoles: UserRole): UserRole {
     val role = getRole()
-    println("Current role: $role | Allowed roles: ${allowedRoles.joinToString(", ")}")
+    this.application.log.info("Current role: $role | Allowed roles: ${allowedRoles.joinToString(", ")}")
     if (!allowedRoles.contains(role)) {
         throw AccessDeniedException()
     }

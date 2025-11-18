@@ -18,9 +18,6 @@ class ImageServiceImp : ImageService {
             val uploadDir = File(path).apply { mkdirs() }
 
             multiPartData.forEachPart { part ->
-                println("Part ->  $part")
-                println("Part ->  ${part.name}")
-                println("Part ->  ${part.contentType}")
                 if (part is PartData.FileItem && part.name == "image") {
                     var extension = File(part.originalFileName ?: "").extension.ifEmpty { "jpg" }
                     if (extension == "jpeg") extension = "jpg"
@@ -35,10 +32,7 @@ class ImageServiceImp : ImageService {
 
                     part.dispose()
                 } else part.dispose()
-
             }
-
-            println(imagesData)
             imagesData
         } catch (e: Exception) {
             emptyList()

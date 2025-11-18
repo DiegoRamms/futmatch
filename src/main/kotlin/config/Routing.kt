@@ -56,7 +56,7 @@ fun Application.configureRouting() {
         }
 
         exception<AccessDeniedException> { call, cause ->
-            println("[AccessDenied] ${cause.message}")
+            this@configureRouting.log.error("[AccessDenied]${call.request.path()}", cause)
             val locale = call.retrieveLocale()
             call.respond<ErrorResponse>(
                 locale.createError(

@@ -12,7 +12,6 @@ import java.util.*
 
 class MatchDao {
     suspend fun createMatch(match: Match): MatchBaseInfo = dbQuery {
-        println(match)
         val result = MatchTable.insert {
             it[fieldId] = match.fieldId
             it[adminId] = match.adminId
