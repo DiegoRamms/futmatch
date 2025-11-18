@@ -87,7 +87,7 @@ fun ApplicationCall.getIdentifier(claimType: ClaimType): UUID {
     val uuid = principal?.payload?.getClaim(claimType.value)?.asString()?.let {
         UUID.fromString(it)
     }
-    return uuid ?: throw Exception("Token Error")
+    return uuid ?: throw InvalidTokenException("Token Error")
 }
 
 fun ApplicationCall.getRole(): UserRole {
