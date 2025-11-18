@@ -16,7 +16,7 @@ class RefreshTokenServiceImp(
         val bytes = ByteArray(32)
         random.nextBytes(bytes)
         val token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
-        val hashedToken = hashingService.hash(token)
+        val hashedToken = hashingService.hashOpaqueToken(token)
         val expiresAt = System.currentTimeMillis() + REFRESH_TOKEN_TIME
         return RefreshTokenPayload(plainToken = token, hashedToken = hashedToken, expiresAt = expiresAt)
     }

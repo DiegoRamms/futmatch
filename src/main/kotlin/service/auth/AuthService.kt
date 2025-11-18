@@ -120,7 +120,7 @@ class AuthService(
         val userInfo = userRepository.getUserById(mfaCodeRequest.userId) ?: return locale.respondUserNotFoundError()
         val code = MfaUtils.generateCode()
         val expiresAt = MfaUtils.calculateExpiration(5)
-        val hashedMfaCode = hashingService.hash(code)
+        val hashedMfaCode = hashingService.hashOpaqueToken(code)
 
         mfaCodeService.createMfaCode(
             mfaCodeRequest.userId, mfaCodeRequest.deviceId, hashedMfaCode, MfaChannel.EMAIL, expiresAt
