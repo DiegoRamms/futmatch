@@ -10,6 +10,9 @@ fun main(args: Array<String>) {
 fun Application.module() {
     configureKoin()
     configureRateLimit()
+    configureLogger()
+    configureRequestId()
+    configureMicrometerMetrics()
     configureAdministration()
     configureSerialization()
     configureDatabase()

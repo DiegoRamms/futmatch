@@ -41,6 +41,10 @@ dependencies {
     implementation(libs.ktor.server.rate.limit)
     implementation(libs.brcypt)
     implementation(libs.logback.classic)
+    implementation(libs.call.logging)
+    implementation(libs.ktor.server.call.id)
+    implementation(libs.ktor.server.metrics.micrometer)
+    implementation(libs.micrometer.registry.prometheus)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }

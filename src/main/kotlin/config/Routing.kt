@@ -16,6 +16,7 @@ import io.ktor.server.plugins.*
 import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.plugins.requestvalidation.*
 import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.io.File
@@ -70,7 +71,7 @@ fun Application.configureRouting() {
 
         exception<Throwable> { call, cause ->
             val locale = call.retrieveLocale()
-
+            this@configureRouting.log.error("Unhandled exception on ${call.request.path()}", cause)
             val error = if (environment == "Development") {
                 AppResult.Failure(
                     ErrorResponse(

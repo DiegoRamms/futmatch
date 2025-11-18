@@ -4,9 +4,10 @@ h2-version = "2.3.232"
 koin-version = "4.1.0-Beta5"
 kotlin-version = "2.1.20"
 ktor-version = "3.1.1"
-logback-version = "1.5.13"
+logback-version = "1.5.21"
 postgres-version = "42.7.7"
 bcrypt = "0.10.2"
+micrometer = "1.6.13"
 
 [libraries]
 ktor-server-rate-limiting = { module = "io.github.flaxoos:ktor-server-rate-limiting", version = "2.1.2" }
@@ -29,6 +30,10 @@ ktor-server-rate-limit = { module = "io.ktor:ktor-server-rate-limit", version.re
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor-version" }
 brcypt = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback-version" }
+call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor-version" }
+ktor-server-call-id = { module = "io.ktor:ktor-server-call-id", version.ref = "ktor-version" }
+ktor-server-metrics-micrometer = { module = "io.ktor:ktor-server-metrics-micrometer", version.ref = "ktor-version" }
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor-version" }
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin-version" }
 
