@@ -22,9 +22,11 @@ class RefreshTokenServiceImp(
     }
 
     override suspend fun isValidRefreshToken(refreshTokenPayload: RefreshTokenPayload): Boolean {
-        val isValidToken = hashingService.verify(refreshTokenPayload.plainToken, refreshTokenPayload.hashedToken)
+        val hashedInput = hashingService.hashOpaqueToken(refreshTokenPayload.plainToken)
+
+        val matches = hashedInput == refreshTokenPayload.hashedToken
         val isNotExpired = System.currentTimeMillis() < refreshTokenPayload.expiresAt
 
-        return isValidToken && isNotExpired
+        return matches && isNotExpired
     }
 }

@@ -27,15 +27,19 @@ fun Route.authRouting() {
             authController.signIn(call, jwtConfig)
         }
 
-        post("/mfa/send"){
-            val authController = call.scope.get<AuthController>()
-            authController.sendMfaCode(call)
+        rateLimit (configuration = RateLimitName(RateLimitType.MFA_SEND.value)){
+            post("/mfa/send"){
+                val authController = call.scope.get<AuthController>()
+                authController.sendMfaCode(call)
+            }
         }
 
-        post("/mfa/verify"){
-            val authController = call.scope.get<AuthController>()
-            val jwtConfig = application.getJWTConfig()
-            authController.verifyMfaCode(call, jwtConfig)
+        rateLimit (configuration = RateLimitName(RateLimitType.MFA_VERIFY.value)){
+            post("/mfa/verify"){
+                val authController = call.scope.get<AuthController>()
+                val jwtConfig = application.getJWTConfig()
+                authController.verifyMfaCode(call, jwtConfig)
+            }
         }
     }
 }

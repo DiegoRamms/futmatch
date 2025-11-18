@@ -5,10 +5,11 @@ import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.plugins.ratelimit.*
 import java.util.*
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-fun Application.configureRateLimit(){
-    install(RateLimit){
+fun Application.configureRateLimit() {
+    install(RateLimit) {
         register(RateLimitName(RateLimitType.PUBLIC.value)) {
             rateLimiter(limit = 10, refillPeriod = 60.seconds)
             requestKey { call ->
@@ -51,11 +52,30 @@ fun Application.configureRateLimit(){
             }
         }
 
+        register(RateLimitName(RateLimitType.MFA_SEND.value)) {
+            rateLimiter(limit = 3, refillPeriod = 5.minutes)
+            requestKey { call ->
+                call.request.headers["X-Forwarded-For"]?.split(",")?.first()?.trim()
+                    ?: call.request.origin.remoteHost
+            }
+        }
+
+        register(RateLimitName(RateLimitType.MFA_VERIFY.value)) {
+            rateLimiter(limit = 10, refillPeriod = 5.minutes)
+
+            requestKey { call ->
+                call.request.headers["X-Forwarded-For"]?.split(",")?.first()?.trim()
+                    ?: call.request.origin.remoteHost
+
+            }
+        }
     }
 }
 
-enum class RateLimitType(val value: String){
+enum class RateLimitType(val value: String) {
     PROTECTED("protected"),
     PUBLIC("public"),
     REFRESH_TOKEN("refresh_token"),
+    MFA_SEND("mfa_send"),
+    MFA_VERIFY("mfa_verify")
 }

@@ -141,14 +141,18 @@ class AuthService(
         val latestCode = mfaCodeService.getLatestValidMfaCode(userId, deviceId)
             ?: return locale.respondInvalidMfaCodeError()
 
-        val isValid = hashingService.verify(code, latestCode.hashedCode)
-        if (!isValid) return locale.respondInvalidMfaCodeError()
+        val hashedInput = hashingService.hashOpaqueToken(code)
+
+        val isValid = hashedInput == latestCode.hashedCode
+        if (!isValid) {
+            return locale.respondInvalidMfaCodeError()
+        }
 
         val userRole = userRepository.getUserById(userId)?.userRole ?: UserRole.PLAYER
 
         authRepository.completeMfaVerification(userId, deviceId, latestCode.id)
 
-        return generateAuthenticatedResponse(userId, deviceId,userRole,  jwtConfig)
+        return generateAuthenticatedResponse(userId, deviceId, userRole, jwtConfig)
     }
 
 
