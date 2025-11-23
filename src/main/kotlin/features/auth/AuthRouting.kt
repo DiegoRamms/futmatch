@@ -41,5 +41,10 @@ fun Route.authRouting() {
                 authController.verifyMfaCode(call, jwtConfig)
             }
         }
+
+        post("/signOut"){
+            val authController = call.scope.get<AuthController>()
+            authController.signOut(call)
+        }
     }
 }

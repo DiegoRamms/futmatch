@@ -6,10 +6,10 @@ import com.devapplab.config.loadECPrivateKey
 import com.devapplab.model.auth.ClaimConfig
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.auth.JWTConfig
-import com.devapplab.utils.ACCESS_TOKEN_TIME
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
+import kotlin.time.Duration.Companion.minutes
 
 class JWTService : AuthTokenService {
     override suspend fun createAuthToken(claimConfig: ClaimConfig, jwtConfig: JWTConfig): String {
@@ -22,8 +22,8 @@ class JWTService : AuthTokenService {
                     .withIssuer(it.issuer)
                     .withAudience(it.audience)
                     .withClaim(ClaimType.USER_IDENTIFIER.value, claimConfig.userId.toString())
-                    .withClaim(ClaimType.USER_ROLE.value, claimConfig.userRole.toString())
-                    .withExpiresAt(Date(now + ACCESS_TOKEN_TIME))
+                    .withClaim(ClaimType.USER_ROLE.value, claimConfig.userRole.name)
+                    .withExpiresAt(Date(now + jwtConfig.accessTokenLifetime.minutes.inWholeMilliseconds))
                     .sign(algorithm)
 
                 token

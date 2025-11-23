@@ -49,14 +49,29 @@ fun Application.configureSecurity() {
 }
 
 fun Application.getJWTConfig(): JWTConfig {
-    val private = environment.config.property("jwt.private").getString()
-    val public = environment.config.property("jwt.public").getString()
-    val issuer = environment.config.property("jwt.issuer").getString()
-    val audience = environment.config.property("jwt.audience").getString()
-    val realm = environment.config.property("jwt.realm").getString()
-    val algorithm = environment.config.property("jwt.algorithm").getString()
+    with(environment.config){
+        val private = property("jwt.private").getString()
+        val public = property("jwt.public").getString()
+        val issuer = property("jwt.issuer").getString()
+        val audience = property("jwt.audience").getString()
+        val realm = property("jwt.realm").getString()
+        val algorithm = property("jwt.algorithm").getString()
+        val accessTokenLifetime = property("jwt.access_token_minutes").getString().toInt()
+        val refreshTokenLifetime = property("jwt.refresh_token_days").getString().toInt()
+        val refreshTokenRotationThreshold = property("jwt.refresh_token_rotation_time").getString().toInt()
 
-    return JWTConfig(audience, issuer, realm, private, public, algorithm)
+        return JWTConfig(
+            audience,
+            issuer,
+            realm,
+            private,
+            public,
+            algorithm,
+            accessTokenLifetime,
+            refreshTokenLifetime,
+            refreshTokenRotationThreshold
+        )
+    }
 }
 
 fun JWTConfig.loadECPrivateKey(): ECPrivateKey {

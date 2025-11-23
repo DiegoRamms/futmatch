@@ -66,14 +66,14 @@ class RefreshTokenDao {
             .singleOrNull()
     }
 
-    suspend fun revokeToken(deviceId: UUID): Boolean = dbQuery {
+    fun revokeToken(deviceId: UUID): Boolean {
         val lastTokenId = RefreshTokenTable
             .select(RefreshTokenTable.id)
             .where { RefreshTokenTable.deviceId eq deviceId and (RefreshTokenTable.revoked eq false) }
             .orderBy(RefreshTokenTable.createdAt, SortOrder.DESC)
             .limit(1)
             .map { it[RefreshTokenTable.id] }
-            .singleOrNull() ?: return@dbQuery false
+            .singleOrNull() ?: return false
 
 
         val updated = RefreshTokenTable.update({
@@ -84,6 +84,15 @@ class RefreshTokenDao {
             it[revoked] = true
         }
 
+        return updated > 0
+    }
+
+    suspend fun revokeCurrentToken(deviceId: UUID): Boolean = dbQuery {
+        val updated = RefreshTokenTable.update({
+            (RefreshTokenTable.deviceId eq deviceId) and (RefreshTokenTable.revoked eq false)
+        }) {
+            it[revoked] = true
+        }
         return@dbQuery updated > 0
     }
 }

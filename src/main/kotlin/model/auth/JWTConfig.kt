@@ -6,5 +6,8 @@ data class JWTConfig(
     val realm: String,
     val private: String,
     val public: String,
-    val algorithm: String
+    val algorithm: String,
+    val accessTokenLifetime: Int,
+    val refreshTokenLifetime: Int,
+    val refreshTokenRotationThreshold: Int
 )

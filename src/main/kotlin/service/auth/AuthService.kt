@@ -10,10 +10,7 @@ import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.RefreshTokenPayload
 import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.auth.request.SignInRequest
-import com.devapplab.model.auth.response.AuthCode
-import com.devapplab.model.auth.response.AuthResponse
-import com.devapplab.model.auth.response.AuthTokenResponse
-import com.devapplab.model.auth.response.RefreshJWTRequest
+import com.devapplab.model.auth.response.*
 import com.devapplab.model.user.UserStatus
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.mfa.MfaCodeService
@@ -21,18 +18,19 @@ import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
-import com.devapplab.utils.refreshTokenRotationThreshold
+import com.devapplab.utils.getString
 import io.ktor.http.*
 import model.mfa.MfaChannel
 import model.mfa.MfaCodeRequest
 import model.mfa.MfaCodeVerificationRequest
 import model.user.User
 import model.user.UserRole
+import org.slf4j.LoggerFactory
 import service.auth.DeviceService
 import service.email.EmailService
 import utils.MfaUtils
 import java.util.*
-import org.slf4j.LoggerFactory
+import kotlin.time.Duration.Companion.days
 
 
 class AuthService(
@@ -105,10 +103,12 @@ class AuthService(
                 logger.error("❌ signIn - User is blocked (Took ${System.currentTimeMillis() - startTime} ms)")
                 locale.respondSignInBlockedUserError()
             }
+
             UserStatus.SUSPENDED -> {
                 logger.error("❌ signIn - User is suspended (Took ${System.currentTimeMillis() - startTime} ms)")
                 locale.respondSignInSuspendedUserError()
             }
+
             UserStatus.ACTIVE -> {
                 logger.error("✅ signIn - Credentials verified, continuing to handleSuccessfulSignIn (Took ${System.currentTimeMillis() - startTime} ms)")
                 handleSuccessfulSignIn(user, signInRequest, jwtConfig, deviceInfo)
@@ -162,6 +162,7 @@ class AuthService(
         refreshJWTRequest: RefreshJWTRequest,
         jwtConfig: JWTConfig
     ): AppResult<AuthResponse> {
+
         val (userId, deviceId) = refreshJWTRequest
         val refreshTokenValidationInfo = refreshTokenRepository.getValidationInfo(deviceId)
             ?: return locale.respondInvalidRefreshTokenError()
@@ -181,10 +182,10 @@ class AuthService(
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
 
         val expiresSoon =
-            refreshTokenValidationInfo.expiresAt - System.currentTimeMillis() < refreshTokenRotationThreshold
+            refreshTokenValidationInfo.expiresAt - System.currentTimeMillis() < jwtConfig.refreshTokenRotationThreshold.days.inWholeMilliseconds
 
         val (refreshToken, authCode) = if (expiresSoon) {
-            val newPayload = refreshTokenService.generateRefreshToken()
+            val newPayload = refreshTokenService.generateRefreshToken(jwtConfig.refreshTokenLifetime)
             authRepository.rotateRefreshToken(userId, deviceId, newPayload)
             newPayload.plainToken to AuthCode.REFRESHED_BOTH_TOKENS
         } else {
@@ -197,6 +198,18 @@ class AuthService(
         )
 
         return AppResult.Success(authResponse)
+    }
+
+    suspend fun signOut(locale: Locale, deviceId: UUID): AppResult<SignOutResponse> {
+        val wasRevoke = authRepository.revokeRefreshToken(deviceId)
+        return if (wasRevoke) {
+            AppResult.Success(
+                SignOutResponse(
+                    success = true,
+                    message = locale.getString(StringResourcesKey.AUTH_SIGN_OUT_SUCCESS_MESSAGE)
+                )
+            )
+        } else locale.respondSignOutError()
     }
 
     private suspend fun handleSuccessfulSignIn(
@@ -267,7 +280,7 @@ class AuthService(
         val start = System.currentTimeMillis()
         val claimConfig = ClaimConfig(userId, userRole)
         val token = authTokenService.createAuthToken(claimConfig, jwtConfig)
-        val refreshTokenPayload = refreshTokenService.generateRefreshToken()
+        val refreshTokenPayload = refreshTokenService.generateRefreshToken(jwtConfig.refreshTokenLifetime)
 
         authRepository.rotateRefreshToken(userId, deviceId, refreshTokenPayload)
 
@@ -351,4 +364,12 @@ class AuthService(
             status = HttpStatusCode.Forbidden,
             errorCode = ErrorCode.AUTH_USER_SUSPENDED
         )
+
+    private fun Locale.respondSignOutError(): AppResult.Failure = createError(
+        StringResourcesKey.AUTH_SIGN_OUT_FAILED_TITLE,
+        StringResourcesKey.AUTH_SIGN_OUT_FAILED_DESCRIPTION,
+        status = HttpStatusCode.InternalServerError,
+        errorCode = ErrorCode.GENERAL_ERROR
+    )
+
 }

@@ -24,6 +24,9 @@ enum class StringResourcesKey(val value: String) {
     AUTH_USER_NOT_FOUND_DESCRIPTION("auth_user_not_found_description"),
     MFA_CODE_INVALID_TITLE("mfa_code_invalid_title"),
     MFA_CODE_INVALID_DESCRIPTION("mfa_code_invalid_description"),
+    AUTH_SIGN_OUT_SUCCESS_MESSAGE("auth_sign_out_success_message"),
+    AUTH_SIGN_OUT_FAILED_TITLE("auth_sign_out_failed_title"),
+    AUTH_SIGN_OUT_FAILED_DESCRIPTION("auth_sign_out_failed_description"),
 
     REGISTER_NAME_INVALID_ERROR("register_name_invalid_error"),
     REGISTER_LAST_NAME_INVALID_ERROR("register_last_name_invalid_error"),
