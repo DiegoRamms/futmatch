@@ -14,6 +14,6 @@ interface MfaCodeRepository {
     ): UUID
 
     suspend fun getLatestMfaCode(userId: UUID, deviceId: UUID): MfaData?
-
+    suspend fun deleteExpiredMfaCodes(): Boolean
 }
 

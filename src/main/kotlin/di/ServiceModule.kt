@@ -7,6 +7,7 @@ import com.devapplab.service.auth.auth_token.JWTService
 import com.devapplab.service.auth.auth_token.RefreshTokenServiceImp
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
+import com.devapplab.service.clean.CleanupDataService
 import com.devapplab.service.field.FieldService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.hashing.HashingServiceImpl
@@ -32,4 +33,5 @@ val serviceModule = module {
     singleOf(::FieldService)
     singleOf(::MatchService)
     singleOf(::ImageServiceImp) { bind<ImageService>()}
+    singleOf(::CleanupDataService)
 }

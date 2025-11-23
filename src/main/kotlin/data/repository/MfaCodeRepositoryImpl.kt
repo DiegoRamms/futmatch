@@ -26,4 +26,8 @@ class MfaCodeRepositoryImpl(
         return dbQuery { mfaCodeDao.getLatestMfaCode(userId, deviceId) }
     }
 
+    override suspend fun deleteExpiredMfaCodes(): Boolean {
+        return mfaCodeDao.deleteExpiredMFACodes()
+    }
+
 }

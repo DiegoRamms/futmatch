@@ -20,4 +20,7 @@ fun Application.module() {
     configureSecurity()
     configureRequestValidation()
     configureRouting()
+
+    //RemoveTokens
+    scheduleCleanUp()
 }

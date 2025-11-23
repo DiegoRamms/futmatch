@@ -5,6 +5,7 @@ import com.devapplab.data.database.user.UserTable
 import model.auth.RefreshTokenRecord
 import model.auth.RefreshTokenValidationInfo
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import java.util.*
 
 class RefreshTokenDao {
@@ -94,5 +95,9 @@ class RefreshTokenDao {
             it[revoked] = true
         }
         return@dbQuery updated > 0
+    }
+
+    suspend fun deleteRevokedTokens(): Boolean = dbQuery {
+        RefreshTokenTable.deleteWhere { revoked eq true } > 0
     }
 }

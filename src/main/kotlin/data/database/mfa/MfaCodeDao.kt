@@ -5,7 +5,7 @@ import com.devapplab.model.mfa.MfaData
 import model.mfa.MfaChannel
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import java.util.*
 
 class MfaCodeDao {
@@ -47,12 +47,11 @@ class MfaCodeDao {
             it[verifiedAt] = System.currentTimeMillis()
         } > 0
 
-
-    suspend fun deleteOlderCodes(userId: UUID, deviceId: UUID, excludeId: UUID): Int = dbQuery {
-        MfaCodeTable.deleteWhere {
-            (MfaCodeTable.userId eq userId) and
-                    (MfaCodeTable.deviceId eq deviceId) and
-                    (id neq excludeId)
+    suspend fun deleteExpiredMFACodes():Boolean {
+       return dbQuery {
+            MfaCodeTable.deleteWhere {
+                expiresAt less System.currentTimeMillis() or (verified eq true)
+            } > 0
         }
     }
 

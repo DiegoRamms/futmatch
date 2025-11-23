@@ -28,4 +28,8 @@ class RefreshTokenRepositoryImp(private val refreshTokenDao: RefreshTokenDao) : 
         refreshTokenDao.getRefreshTokenValidationInfo(deviceId)
     }
 
+    override suspend fun deleteRevokedTokens(): Boolean = dbQuery {
+        refreshTokenDao.deleteRevokedTokens()
+    }
+
 }
