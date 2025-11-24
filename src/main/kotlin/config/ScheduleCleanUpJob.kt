@@ -12,10 +12,10 @@ import kotlin.time.Duration.Companion.days
 fun Application.scheduleCleanUp(){
      monitor.subscribe(ApplicationStarted) {
          val cleanupDataService  by inject<CleanupDataService>()
-         exposedLogger.info("Cleanup Data Service started 🧹")
         launch {
             while (isActive){
                 delay(1.days)
+                exposedLogger.info("Cleanup Data Service started 🧹")
                 cleanupDataService.cleanupData()
                 exposedLogger.info("Cleanup Data Service ran successfully. ✅")
             }

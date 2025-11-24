@@ -94,7 +94,7 @@ class RefreshTokenDao {
         }) {
             it[revoked] = true
         }
-        return@dbQuery updated > 0
+        updated > 0
     }
 
     suspend fun deleteRevokedTokens(): Boolean = dbQuery {
