@@ -1,15 +1,14 @@
+package com.devapplab.service.password_reset
+
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
-import com.devapplab.model.AppResult
 import com.devapplab.service.hashing.HashingService
-import com.devapplab.utils.StringResourcesKey
-import com.devapplab.utils.createError
-import model.auth.AuthUserSavedData
 import java.security.SecureRandom
 import java.util.*
+import kotlin.time.Duration.Companion.minutes
 
 interface PasswordResetTokenService {
-    suspend fun createAndSaveResetToken(user: AuthUserSavedData): String
-    suspend fun verifyResetToken(token: String, locale: Locale): AppResult<UUID>
+    suspend fun createAndSaveResetToken(userId: UUID): String
+    suspend fun verifyResetToken(token: String, locale: Locale): Boolean
     suspend fun invalidateToken(token: String)
 }
 
@@ -20,35 +19,29 @@ class PasswordResetTokenServiceImpl(
 
     private val secureRandom = SecureRandom()
 
-    override suspend fun createAndSaveResetToken(user: AuthUserSavedData): String {
+    override suspend fun createAndSaveResetToken(userId: UUID): String {
         val bytes = ByteArray(32)
         secureRandom.nextBytes(bytes)
         val plainToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
 
         val hashedToken = hashingService.hashOpaqueToken(plainToken)
-        val expiresAt = System.currentTimeMillis() + 10 * 60 * 1000 // 10 minutes
+        val expiresAt = System.currentTimeMillis() + 10.minutes.inWholeMilliseconds// 10 minutes
 
-        repository.create(hashedToken, user.userId, expiresAt)
+        repository.create(hashedToken, userId, expiresAt)
         return plainToken
     }
 
-    override suspend fun verifyResetToken(token: String, locale: Locale): AppResult<UUID> {
+    override suspend fun verifyResetToken(token: String, locale: Locale): Boolean {
         val hashedInputToken = hashingService.hashOpaqueToken(token)
         val record = repository.findByToken(hashedInputToken)
 
         return when {
-            record == null -> locale.createError(
-                titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_TITLE,
-                descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_DESCRIPTION
-            )
+            record == null -> false
             record.expiresAt < System.currentTimeMillis() -> {
                 repository.delete(hashedInputToken) // Delete expired token
-                locale.createError(
-                    titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_TITLE,
-                    descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION
-                )
+                false
             }
-            else -> AppResult.Success(record.userId)
+            else -> true
         }
     }
 

@@ -1,7 +1,5 @@
 package com.devapplab.di
 
-import PasswordResetTokenService
-import PasswordResetTokenServiceImpl
 import com.devapplab.service.UserService
 import com.devapplab.service.auth.AuthService
 import com.devapplab.service.auth.auth_token.AuthTokenService
@@ -15,6 +13,8 @@ import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.hashing.HashingServiceImpl
 import com.devapplab.service.image.ImageServiceImp
 import com.devapplab.service.match.MatchService
+import com.devapplab.service.password_reset.PasswordResetTokenService
+import com.devapplab.service.password_reset.PasswordResetTokenServiceImpl
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -42,5 +42,5 @@ val serviceModule = module {
     singleOf(::MatchService)
     singleOf(::ImageServiceImp) { bind<ImageService>()}
     singleOf(::CleanupDataService)
-    singleOf(::PasswordResetTokenServiceImpl){ bind<PasswordResetTokenService>()}
+    singleOf(::PasswordResetTokenServiceImpl){ bind<PasswordResetTokenService>() }
 }

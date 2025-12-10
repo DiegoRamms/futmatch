@@ -18,6 +18,7 @@ import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
+import com.devapplab.service.password_reset.PasswordResetTokenService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.getString
@@ -38,6 +39,7 @@ class AuthService(
     private val hashingService: HashingService,
     private val authTokenService: AuthTokenService,
     private val refreshTokenService: RefreshTokenService,
+    private val passwordResetTokenService: PasswordResetTokenService,
     private val deviceService: DeviceService,
     private val mfaCodeService: MfaCodeService,
     private val emailService: EmailService,
@@ -244,9 +246,9 @@ class AuthService(
 
     suspend fun verifyForgotPasswordMfaCode(
         locale: Locale,
-        mfaCodeForgotPasswordVerificationRequest: MfaCodeForgotPasswordVerificationRequest,
+        verifyResetMfaRequest: VerifyResetMfaRequest,
     ): AppResult<VerifyResetMfaResponse> {
-        val (userId, code) = mfaCodeForgotPasswordVerificationRequest
+        val (userId, code) = verifyResetMfaRequest
 
         val latestCode = mfaCodeService.getLatestValidMfaCode(userId, null, MfaPurpose.PASSWORD_RESET)
             ?: return locale.respondInvalidMfaCodeError()
@@ -257,8 +259,6 @@ class AuthService(
         if (!isValid) {
             return locale.respondInvalidMfaCodeError()
         }
-
-
 
         authRepository.completeForgotPasswordMfaVerification(latestCode.id)
 
@@ -356,7 +356,8 @@ class AuthService(
     private suspend fun generateResetPasswordTokenResponse(
         userId: UUID,
     ): AppResult<VerifyResetMfaResponse> {
-        //TODO Complete
+        val resetToken = passwordResetTokenService.createAndSaveResetToken(userId)
+        return AppResult.Success(VerifyResetMfaResponse(resetToken))
     }
 
 
