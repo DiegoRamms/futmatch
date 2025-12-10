@@ -1,6 +1,7 @@
 package utils
 
 import java.security.SecureRandom
+import kotlin.time.Duration.Companion.seconds
 
 object MfaUtils {
     fun generateCode(): String {
@@ -9,7 +10,7 @@ object MfaUtils {
         return String.format("%06d", code)
     }
 
-    fun calculateExpiration(minutes: Long = 5): Long {
-        return System.currentTimeMillis() + minutes * 60 * 1000
+    fun calculateExpiration(seconds: Long = 60): Long {
+        return System.currentTimeMillis() + seconds.seconds.inWholeMilliseconds
     }
 }

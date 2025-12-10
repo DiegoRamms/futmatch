@@ -1,6 +1,7 @@
 package com.devapplab.config
 
 import com.devapplab.data.database.field.FieldAdminsTable
+import com.devapplab.data.database.password_reset.PasswordResetTokensTable
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserTable
 import data.database.device.DeviceTable
@@ -35,6 +36,7 @@ fun Application.configureDatabase() {
         SchemaUtils.create(FieldImagesTable)
         SchemaUtils.create(FieldAdminsTable)
         SchemaUtils.create(MatchTable)
+        SchemaUtils.create(PasswordResetTokensTable)
 
         addLogger(StdOutSqlLogger)
     }

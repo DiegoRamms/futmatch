@@ -1,5 +1,7 @@
 package com.devapplab.di
 
+import PasswordResetTokenService
+import PasswordResetTokenServiceImpl
 import com.devapplab.service.UserService
 import com.devapplab.service.auth.AuthService
 import com.devapplab.service.auth.auth_token.AuthTokenService
@@ -22,7 +24,13 @@ import service.email.EmailServiceImpl
 import service.image.ImageService
 
 val serviceModule = module {
-    singleOf(::UserService)
+    single {
+        UserService(
+            userRepository = get(),
+            passwordResetTokenService = get(),
+            hashingService = get()
+        )
+    }
     singleOf(::AuthService)
     singleOf(::HashingServiceImpl) { bind<HashingService>() }
     singleOf(::JWTService) { bind<AuthTokenService>() }
@@ -34,4 +42,5 @@ val serviceModule = module {
     singleOf(::MatchService)
     singleOf(::ImageServiceImp) { bind<ImageService>()}
     singleOf(::CleanupDataService)
+    singleOf(::PasswordResetTokenServiceImpl){ bind<PasswordResetTokenService>()}
 }

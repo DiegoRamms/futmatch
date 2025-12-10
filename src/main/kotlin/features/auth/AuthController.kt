@@ -1,6 +1,7 @@
 package com.devapplab.features.auth
 
 import com.devapplab.model.auth.JWTConfig
+import com.devapplab.model.auth.request.ForgotPasswordRequest
 import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.request.SignOutRequest
@@ -60,6 +61,13 @@ class AuthController(private val authService: AuthService) {
         val locale: Locale = call.retrieveLocale()
         val request = call.receive<SignOutRequest>()
         val result = authService.signOut(locale, request.deviceId)
+        call.respond(result)
+    }
+
+    suspend fun forgotPassword(call: ApplicationCall) {
+        val locale: Locale = call.retrieveLocale()
+        val request = call.receive<ForgotPasswordRequest>()
+        val result = authService.forgotPassword(locale, request)
         call.respond(result)
     }
 }

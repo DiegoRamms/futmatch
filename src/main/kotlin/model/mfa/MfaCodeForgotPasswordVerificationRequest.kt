@@ -5,12 +5,8 @@ import kotlinx.serialization.Serializable
 import java.util.*
 
 @Serializable
-data class MfaCodeVerificationRequest(
+data class MfaCodeForgotPasswordVerificationRequest(
     @Serializable(with = UUIDSerializer::class)
     val userId: UUID,
-    @Serializable(with = UUIDSerializer::class)
-    val deviceId: UUID,
     val code: String
 )
-
-

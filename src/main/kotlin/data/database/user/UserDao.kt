@@ -55,7 +55,7 @@ class UserDao {
             .singleOrNull()
     }
 
-    suspend fun getUserByEmail(email: String): UserBaseInfo? = dbQuery {
+    suspend fun findByEmail(email: String): UserBaseInfo? = dbQuery {
         UserTable.selectAll().where { UserTable.email eq email }
             .mapNotNull { rowToUserResponse(it) }
             .singleOrNull()
@@ -109,6 +109,13 @@ class UserDao {
             user[updatedAt] = System.currentTimeMillis()
         }
         rowsUpdated > 0
+    }
+
+    suspend fun updatePassword(userId: UUID, hashedPassword: String): Boolean = dbQuery {
+        UserTable.update({ UserTable.id eq userId }) {
+            it[password] = hashedPassword
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
     }
 
     fun markEmailAsVerified(userId: UUID): Boolean =

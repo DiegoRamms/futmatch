@@ -28,6 +28,11 @@ enum class StringResourcesKey(val value: String) {
     AUTH_SIGN_OUT_FAILED_TITLE("auth_sign_out_failed_title"),
     AUTH_SIGN_OUT_FAILED_DESCRIPTION("auth_sign_out_failed_description"),
 
+    PASSWORD_RESET_TOKEN_INVALID_TITLE("password_reset_token_invalid_title"),
+    PASSWORD_RESET_TOKEN_INVALID_DESCRIPTION("password_reset_token_invalid_description"),
+    PASSWORD_RESET_TOKEN_EXPIRED_TITLE("password_reset_token_expired_title"),
+    PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION("password_reset_token_expired_description"),
+
     REGISTER_NAME_INVALID_ERROR("register_name_invalid_error"),
     REGISTER_LAST_NAME_INVALID_ERROR("register_last_name_invalid_error"),
     REGISTER_EMAIL_INVALID_ERROR("register_email_invalid_error"),

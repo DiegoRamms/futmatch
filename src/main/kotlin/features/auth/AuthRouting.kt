@@ -46,5 +46,12 @@ fun Route.authRouting() {
             val authController = call.scope.get<AuthController>()
             authController.signOut(call)
         }
+
+        rateLimit(configuration = RateLimitName(RateLimitType.PUBLIC.value)) {
+            post("/forgot-password") {
+                val authController = call.scope.get<AuthController>()
+                authController.forgotPassword(call)
+            }
+        }
     }
 }

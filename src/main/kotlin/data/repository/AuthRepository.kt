@@ -14,6 +14,7 @@ interface AuthRepository {
     suspend fun createUserWithDevice(userWithPasswordHashed: User, deviceInfo: String): AuthUserSavedData
     suspend fun createDevice(userId: UUID, deviceInfo: String): UUID
     suspend fun completeMfaVerification(userId: UUID, deviceId: UUID, mfaCodeId: UUID)
+    suspend fun completeForgotPasswordMfaVerification(mfaCodeId: UUID)
     suspend fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload)
     suspend fun revokeRefreshToken(deviceId: UUID): Boolean
 }
@@ -44,6 +45,10 @@ class AuthRepositoryImpl(
         }
     }
 
+    override suspend fun completeForgotPasswordMfaVerification(mfaCodeId: UUID) {
+        mfaCodeDao.markAsVerified(mfaCodeId)
+    }
+
     override suspend fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload) {
         dbQuery {
             deviceDao.changeDeviceLastUsed(deviceId)
@@ -58,7 +63,7 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun revokeRefreshToken(deviceId: UUID): Boolean {
-       return refreshTokenDao.revokeCurrentToken(deviceId)
+        return refreshTokenDao.revokeCurrentToken(deviceId)
     }
 }
 
