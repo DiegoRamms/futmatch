@@ -251,16 +251,6 @@ class AuthService(
                     )
                 )
             }
-            is MfaCreationResult.AlreadyExists -> {
-                logger.info("ℹ️ Existing valid password reset code for user ${userInfo.id}. Not sending new email.")
-                AppResult.Success(
-                    ForgotPasswordResponse(
-                        userId = userInfo.id,
-                        newCodeSent = false,
-                        expiresInSeconds = creationResult.expiresInSeconds
-                    )
-                )
-            }
             is MfaCreationResult.Cooldown -> {
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,

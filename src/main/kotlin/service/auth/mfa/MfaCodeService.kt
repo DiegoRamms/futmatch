@@ -43,20 +43,20 @@ class MfaCodeService(private val mfaCodeRepository: MfaCodeRepository) {
             val isExpired = existingCode.expiresAt < System.currentTimeMillis()
             val isAlreadyUsed = existingCode.verified
 
+            // If a valid code exists, check if we are in the cooldown period.
             if (!isExpired && !isAlreadyUsed) {
                 val timeSinceCreation = (System.currentTimeMillis() - existingCode.createdAt) / 1000
                 if (timeSinceCreation < passwordResetCooldownSeconds) {
                     val retryAfter = passwordResetCooldownSeconds - timeSinceCreation
                     return MfaCreationResult.Cooldown(retryAfter)
                 }
-
-                val expiresInSeconds = (existingCode.expiresAt - System.currentTimeMillis()) / 1000
-                return MfaCreationResult.AlreadyExists(expiresInSeconds)
-            } else {
-                mfaCodeRepository.deleteById(existingCode.id)
             }
+
+            // In all other cases (expired, used, or valid but past cooldown), delete the old code.
+            mfaCodeRepository.deleteById(existingCode.id)
         }
 
+        // Proceed to create a new code.
         val newCodeId = mfaCodeRepository.createMfaCode(
             userId = userId,
             deviceId = null,
