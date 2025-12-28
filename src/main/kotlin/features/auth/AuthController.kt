@@ -6,11 +6,9 @@ import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.request.SignOutRequest
 import com.devapplab.model.auth.response.RefreshJWTRequest
+import com.devapplab.model.user.request.UpdatePasswordRequest
 import com.devapplab.service.auth.AuthService
-import com.devapplab.utils.getRefreshToken
-import com.devapplab.utils.getUserAgentHeader
-import com.devapplab.utils.respond
-import com.devapplab.utils.retrieveLocale
+import com.devapplab.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import model.mfa.MfaCodeRequest
@@ -75,6 +73,14 @@ class AuthController(private val authService: AuthService) {
         val locale: Locale = call.retrieveLocale()
         val request = call.receive<model.mfa.VerifyResetMfaRequest>()
         val result = authService.verifyResetMfa(locale, request)
+        call.respond(result)
+    }
+
+    suspend fun updatePassword(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val resetToken = call.getResetToken()
+        val request = call.receive<UpdatePasswordRequest>()
+        val result = authService.updatePassword(resetToken, request, locale)
         call.respond(result)
     }
 }

@@ -12,7 +12,10 @@ import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.auth.request.ForgotPasswordRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.response.*
+import com.devapplab.model.password_reset.TokenVerificationResult
 import com.devapplab.model.user.UserStatus
+import com.devapplab.model.user.request.UpdatePasswordRequest
+import com.devapplab.model.user.response.UpdatePasswordResponse
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
@@ -218,7 +221,10 @@ class AuthService(
         } else locale.respondSignOutError()
     }
 
-    suspend fun forgotPassword(locale: Locale, forgotPasswordRequest: ForgotPasswordRequest): AppResult<ForgotPasswordResponse> {
+    suspend fun forgotPassword(
+        locale: Locale,
+        forgotPasswordRequest: ForgotPasswordRequest
+    ): AppResult<ForgotPasswordResponse> {
         val userInfo =
             userRepository.findByEmail(forgotPasswordRequest.email) ?: return locale.respondUserNotFoundError()
 
@@ -251,6 +257,7 @@ class AuthService(
                     )
                 )
             }
+
             is MfaCreationResult.Cooldown -> {
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
@@ -263,12 +270,51 @@ class AuthService(
         }
     }
 
-// TODO Validate if I will use Email since forgotPassword is going to return boolean
+    suspend fun updatePassword(
+        resetToken: String,
+        request: UpdatePasswordRequest,
+        locale: Locale
+    ): AppResult<UpdatePasswordResponse> {
+        val userId = when (val tokenVerificationResult = passwordResetTokenService.verifyResetToken(resetToken)) {
+            is TokenVerificationResult.Success -> tokenVerificationResult.userId
+            is TokenVerificationResult.Invalid -> return locale.createError(
+                titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_TITLE,
+                descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_DESCRIPTION
+            )
+
+            is TokenVerificationResult.Expired -> return locale.createError(
+                titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_TITLE,
+                descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION
+            )
+        }
+
+        val hashedPassword = hashingService.hash(request.newPassword)
+        val passwordUpdated = userRepository.updatePassword(userId, hashedPassword)
+
+        if (passwordUpdated) {
+            passwordResetTokenService.invalidateToken(resetToken) // Invalidate the token after use
+            return AppResult.Success(
+                UpdatePasswordResponse(
+                    success = true,
+                    message = locale.getString(StringResourcesKey.PASSWORD_UPDATE_SUCCESS_MESSAGE)
+                )
+            )
+        }
+
+        return locale.createError(
+            titleKey = StringResourcesKey.PASSWORD_UPDATE_FAILED_TITLE,
+            descriptionKey = StringResourcesKey.PASSWORD_UPDATE_FAILED_DESCRIPTION,
+            status = HttpStatusCode.InternalServerError
+        )
+    }
+
+    // TODO Validate if I will use Email since forgotPassword is going to return boolean
     suspend fun verifyResetMfa(
         locale: Locale,
         verifyResetMfaRequest: VerifyResetMfaRequest,
     ): AppResult<VerifyResetMfaResponse> {
-        val userInfo = userRepository.getUserById(verifyResetMfaRequest.userId) ?: return locale.respondUserNotFoundError()
+        val userInfo =
+            userRepository.getUserById(verifyResetMfaRequest.userId) ?: return locale.respondUserNotFoundError()
 
         val latestCode = mfaCodeService.getLatestValidMfaCode(userInfo.id, null, MfaPurpose.PASSWORD_RESET)
             ?: return locale.respondInvalidMfaCodeError()
@@ -379,7 +425,6 @@ class AuthService(
         val resetToken = passwordResetTokenService.createAndSaveResetToken(userId)
         return AppResult.Success(VerifyResetMfaResponse(resetToken))
     }
-
 
 
     private fun Locale.respondUserNotFoundError(): AppResult.Failure =

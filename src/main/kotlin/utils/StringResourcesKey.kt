@@ -94,7 +94,11 @@ enum class StringResourcesKey(val value: String) {
     MATCH_MAX_PLAYERS_INVALID_ERROR("match_max_players_invalid_error"),
     MATCH_MIN_PLAYERS_INVALID_ERROR("match_min_players_invalid_error"),
     MATCH_PRICE_INVALID_ERROR("match_price_invalid_error"),
-    MATCH_DISCOUNT_INVALID_ERROR("match_discount_invalid_error");
+    MATCH_DISCOUNT_INVALID_ERROR("match_discount_invalid_error"),
+
+    PASSWORD_UPDATE_SUCCESS_MESSAGE("password_update_success_message"),
+    PASSWORD_UPDATE_FAILED_TITLE("password_update_failed_title"),
+    PASSWORD_UPDATE_FAILED_DESCRIPTION("password_update_failed_description");
 
     companion object {
         fun getStringResourcesKey(value: String): StringResourcesKey? {

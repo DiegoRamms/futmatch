@@ -1,17 +1,15 @@
 package com.devapplab.service.password_reset
 
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
-import com.devapplab.model.AppResult
+import com.devapplab.model.password_reset.TokenVerificationResult
 import com.devapplab.service.hashing.HashingService
-import com.devapplab.utils.StringResourcesKey
-import com.devapplab.utils.createError
 import java.security.SecureRandom
 import java.util.*
 import kotlin.time.Duration.Companion.minutes
 
 interface PasswordResetTokenService {
     suspend fun createAndSaveResetToken(userId: UUID): String
-    suspend fun verifyResetToken(token: String, locale: Locale): AppResult<UUID>
+    suspend fun verifyResetToken(token: String): TokenVerificationResult
     suspend fun invalidateToken(token: String)
 }
 
@@ -34,23 +32,17 @@ class PasswordResetTokenServiceImpl(
         return plainToken
     }
 
-    override suspend fun verifyResetToken(token: String, locale: Locale): AppResult<UUID> {
+    override suspend fun verifyResetToken(token: String): TokenVerificationResult {
         val hashedInputToken = hashingService.hashOpaqueToken(token)
         val record = repository.findByToken(hashedInputToken)
 
         return when {
-            record == null -> locale.createError(
-                titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_TITLE,
-                descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_DESCRIPTION
-            )
+            record == null -> TokenVerificationResult.Invalid
             record.expiresAt < System.currentTimeMillis() -> {
                 repository.delete(hashedInputToken) // Delete expired token
-                locale.createError(
-                    titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_TITLE,
-                    descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION
-                )
+                TokenVerificationResult.Expired
             }
-            else -> AppResult.Success(record.userId)
+            else -> TokenVerificationResult.Success(record.userId)
         }
     }
 

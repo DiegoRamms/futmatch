@@ -26,7 +26,20 @@ import service.image.ImageService
 val serviceModule = module {
 
     singleOf(::UserService)
-    singleOf(::AuthService)
+    single {
+        AuthService(
+            userRepository = get(),
+            hashingService = get(),
+            authTokenService = get(),
+            refreshTokenService = get(),
+            passwordResetTokenService = get(),
+            deviceService = get(),
+            mfaCodeService = get(),
+            emailService = get(),
+            authRepository = get(),
+            refreshTokenRepository = get()
+        )
+    }
     singleOf(::HashingServiceImpl) { bind<HashingService>() }
     singleOf(::JWTService) { bind<AuthTokenService>() }
     singleOf(::RefreshTokenServiceImp) { bind<RefreshTokenService>() }
@@ -37,5 +50,10 @@ val serviceModule = module {
     singleOf(::MatchService)
     singleOf(::ImageServiceImp) { bind<ImageService>()}
     singleOf(::CleanupDataService)
-    singleOf(::PasswordResetTokenServiceImpl){ bind<PasswordResetTokenService>() }
+    single<PasswordResetTokenService> {
+        PasswordResetTokenServiceImpl(
+            repository = get(),
+            hashingService = get()
+        )
+    }
 }

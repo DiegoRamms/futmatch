@@ -60,5 +60,10 @@ fun Route.authRouting() {
                 authController.verifyResetMfa(call)
             }
         }
+
+        put("/password") {
+            val authController = call.scope.get<AuthController>()
+            authController.updatePassword(call)
+        }
     }
 }
