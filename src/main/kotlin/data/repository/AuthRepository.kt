@@ -46,7 +46,9 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun completeForgotPasswordMfaVerification(mfaCodeId: UUID) {
-        mfaCodeDao.markAsVerified(mfaCodeId)
+        dbQuery {
+            mfaCodeDao.markAsVerified(mfaCodeId)
+        }
     }
 
     override suspend fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload) {
