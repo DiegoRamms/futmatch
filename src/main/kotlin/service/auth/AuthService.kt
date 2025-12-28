@@ -255,7 +255,7 @@ class AuthService(
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
                     descriptionKey = StringResourcesKey.MFA_COOLDOWN_DESCRIPTION,
-                    status = HttpStatusCode.TooManyRequests,
+                    status = HttpStatusCode.Conflict,
                     errorCode = ErrorCode.TOO_MANY_REQUESTS,
                     creationResult.retryAfterSeconds
                 )
