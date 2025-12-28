@@ -98,7 +98,12 @@ enum class StringResourcesKey(val value: String) {
 
     PASSWORD_UPDATE_SUCCESS_MESSAGE("password_update_success_message"),
     PASSWORD_UPDATE_FAILED_TITLE("password_update_failed_title"),
-    PASSWORD_UPDATE_FAILED_DESCRIPTION("password_update_failed_description");
+    PASSWORD_UPDATE_FAILED_DESCRIPTION("password_update_failed_description"),
+
+    AUTH_USER_ID_INVALID("auth_user_id_invalid"),
+    AUTH_DEVICE_ID_INVALID("auth_device_id_invalid"),
+    MFA_CODE_INVALID("mfa_code_invalid"),
+    PASSWORD_INVALID("password_invalid");
 
     companion object {
         fun getStringResourcesKey(value: String): StringResourcesKey? {
