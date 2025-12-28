@@ -266,7 +266,8 @@ class AuthService(
                     titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
                     descriptionKey = StringResourcesKey.MFA_COOLDOWN_DESCRIPTION,
                     status = HttpStatusCode.TooManyRequests,
-                    errorCode = ErrorCode.TOO_MANY_REQUESTS
+                    errorCode = ErrorCode.TOO_MANY_REQUESTS,
+                    creationResult.retryAfterSeconds
                 )
             }
         }

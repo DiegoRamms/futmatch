@@ -8,7 +8,6 @@ import com.devapplab.utils.createError
 import java.security.SecureRandom
 import java.util.*
 import kotlin.time.Duration.Companion.minutes
-import io.ktor.http.*
 
 interface PasswordResetTokenService {
     suspend fun createAndSaveResetToken(userId: UUID): String

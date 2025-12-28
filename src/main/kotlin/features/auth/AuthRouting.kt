@@ -53,5 +53,12 @@ fun Route.authRouting() {
                 authController.forgotPassword(call)
             }
         }
+
+        rateLimit(configuration = RateLimitName(RateLimitType.MFA_VERIFY.value)) {
+            post("/verify-reset-mfa") {
+                val authController = call.scope.get<AuthController>()
+                authController.verifyResetMfa(call)
+            }
+        }
     }
 }
