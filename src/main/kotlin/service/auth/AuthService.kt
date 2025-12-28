@@ -5,7 +5,6 @@ import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.UserRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
-import com.devapplab.model.ErrorResponse
 import com.devapplab.model.auth.ClaimConfig
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.RefreshTokenPayload
@@ -219,41 +218,63 @@ class AuthService(
         } else locale.respondSignOutError()
     }
 
-    suspend fun forgotPassword(locale: Locale, forgotPasswordRequest: ForgotPasswordRequest): AppResult<UUID> {
+    suspend fun forgotPassword(locale: Locale, forgotPasswordRequest: ForgotPasswordRequest): AppResult<ForgotPasswordResponse> {
         val userInfo =
             userRepository.findByEmail(forgotPasswordRequest.email) ?: return locale.respondUserNotFoundError()
 
+        when (userInfo.status) {
+            UserStatus.BLOCKED -> return locale.respondSignInBlockedUserError()
+            UserStatus.SUSPENDED -> logger.warn("⚠️ Suspended user ${userInfo.id} is requesting password reset.")
+            UserStatus.ACTIVE -> {}
+        }
+
         val code = MfaUtils.generateCode()
-        val expiresAt = MfaUtils.calculateExpiration(60)
+        val expiresAt = MfaUtils.calculateExpiration(60) // 60 seconds expiration for sensitive operation
         val hashedMfaCode = hashingService.hashOpaqueToken(code)
 
-        val codeUUID = mfaCodeService.createPasswordResetMfaCode(
+        val creationResult = mfaCodeService.createPasswordResetMfaCode(
             userId = userInfo.id,
             hashedCode = hashedMfaCode,
             channel = MfaChannel.EMAIL,
             expiresAt = expiresAt
         )
 
-        //TODO Create an specific Error
-        if (codeUUID == null) return AppResult.Failure(
-            ErrorResponse("Error", "Error al crear enviar mfa code"),
-            HttpStatusCode.Conflict
-        )
-
-        emailService.sendMfaCodeEmail(userInfo.email, code)
-        return AppResult.Success(userInfo.id)
+        return when (creationResult) {
+            is MfaCreationResult.Created -> {
+                emailService.sendMfaCodeEmail(userInfo.email, code)
+                logger.info("✅ Sent password reset code to user ${userInfo.id}")
+                AppResult.Success(
+                    ForgotPasswordResponse(
+                        userId = userInfo.id,
+                        newCodeSent = true,
+                        expiresInSeconds = creationResult.expiresInSeconds
+                    )
+                )
+            }
+            is MfaCreationResult.AlreadyExists -> {
+                logger.info("ℹ️ Existing valid password reset code for user ${userInfo.id}. Not sending new email.")
+                AppResult.Success(
+                    ForgotPasswordResponse(
+                        userId = userInfo.id,
+                        newCodeSent = false,
+                        expiresInSeconds = creationResult.expiresInSeconds
+                    )
+                )
+            }
+        }
     }
 
-    suspend fun verifyForgotPasswordMfaCode(
+// TODO Validate if I will use Email since forgotPassword is going to return boolean
+    suspend fun verifyResetMfa(
         locale: Locale,
         verifyResetMfaRequest: VerifyResetMfaRequest,
     ): AppResult<VerifyResetMfaResponse> {
-        val (userId, code) = verifyResetMfaRequest
+        val userInfo = userRepository.getUserById(verifyResetMfaRequest.userId) ?: return locale.respondUserNotFoundError()
 
-        val latestCode = mfaCodeService.getLatestValidMfaCode(userId, null, MfaPurpose.PASSWORD_RESET)
+        val latestCode = mfaCodeService.getLatestValidMfaCode(userInfo.id, null, MfaPurpose.PASSWORD_RESET)
             ?: return locale.respondInvalidMfaCodeError()
 
-        val hashedInput = hashingService.hashOpaqueToken(code)
+        val hashedInput = hashingService.hashOpaqueToken(verifyResetMfaRequest.code)
 
         val isValid = hashedInput == latestCode.hashedCode
         if (!isValid) {
@@ -262,7 +283,7 @@ class AuthService(
 
         authRepository.completeForgotPasswordMfaVerification(latestCode.id)
 
-        return generateResetPasswordTokenResponse(userId)
+        return generateResetPasswordTokenResponse(userInfo.id)
     }
 
 

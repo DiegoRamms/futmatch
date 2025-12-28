@@ -3,6 +3,7 @@ package com.devapplab.service.auth.mfa
 import com.devapplab.data.repository.MfaCodeRepository
 import com.devapplab.model.mfa.MfaData
 import model.mfa.MfaChannel
+import model.mfa.MfaCreationResult
 import model.mfa.MfaPurpose
 import java.util.*
 
@@ -32,26 +33,23 @@ class MfaCodeService(private val mfaCodeRepository: MfaCodeRepository) {
         hashedCode: String,
         channel: MfaChannel,
         expiresAt: Long
-    ): UUID? {
+    ): MfaCreationResult {
 
-        // Check for an existing code for this purpose, regardless of its validity
         val existingCode = mfaCodeRepository.getLatestMfaCode(userId, null, MfaPurpose.PASSWORD_RESET)
 
         if (existingCode != null) {
             val isExpired = existingCode.expiresAt < System.currentTimeMillis()
             val isAlreadyUsed = existingCode.verified
-            // If the code is still valid, do nothing to prevent spamming.
 
             if (!isExpired && !isAlreadyUsed) {
-                return null
+                val expiresInSeconds = (existingCode.expiresAt - System.currentTimeMillis()) / 1000
+                return MfaCreationResult.AlreadyExists(expiresInSeconds)
             } else {
-                // If the code is expired or used, delete it before creating a new one.
                 mfaCodeRepository.deleteById(existingCode.id)
             }
-
         }
 
-        return mfaCodeRepository.createMfaCode(
+        val newCodeId = mfaCodeRepository.createMfaCode(
             userId = userId,
             deviceId = null,
             hashedCode = hashedCode,
@@ -59,6 +57,8 @@ class MfaCodeService(private val mfaCodeRepository: MfaCodeRepository) {
             purpose = MfaPurpose.PASSWORD_RESET,
             expiresAt = expiresAt
         )
+        val expiresInSeconds = (expiresAt - System.currentTimeMillis()) / 1000
+        return MfaCreationResult.Created(newCodeId, expiresInSeconds)
     }
 
 }

@@ -24,13 +24,8 @@ import service.email.EmailServiceImpl
 import service.image.ImageService
 
 val serviceModule = module {
-    single {
-        UserService(
-            userRepository = get(),
-            passwordResetTokenService = get(),
-            hashingService = get()
-        )
-    }
+
+    singleOf(::UserService)
     singleOf(::AuthService)
     singleOf(::HashingServiceImpl) { bind<HashingService>() }
     singleOf(::JWTService) { bind<AuthTokenService>() }

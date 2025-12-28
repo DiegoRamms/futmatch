@@ -70,4 +70,11 @@ class AuthController(private val authService: AuthService) {
         val result = authService.forgotPassword(locale, request)
         call.respond(result)
     }
+
+    suspend fun verifyResetMfa(call: ApplicationCall) {
+        val locale: Locale = call.retrieveLocale()
+        val request = call.receive<model.mfa.VerifyResetMfaRequest>()
+        val result = authService.verifyResetMfa(locale, request)
+        call.respond(result)
+    }
 }
