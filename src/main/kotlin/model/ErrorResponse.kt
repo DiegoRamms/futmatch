@@ -13,6 +13,7 @@ data class ErrorResponse(
 @Serializable
 enum class ErrorCode {
     GENERAL_ERROR,
+    TOO_MANY_REQUESTS,
     AUTH_USER_BLOCKED,
     AUTH_USER_SUSPENDED,
     AUTH_NEED_LOGIN,

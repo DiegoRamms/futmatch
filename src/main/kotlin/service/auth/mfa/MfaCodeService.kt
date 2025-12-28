@@ -28,6 +28,8 @@ class MfaCodeService(private val mfaCodeRepository: MfaCodeRepository) {
     }
 
 
+    private val passwordResetCooldownSeconds = 60
+
     suspend fun createPasswordResetMfaCode(
         userId: UUID,
         hashedCode: String,
@@ -42,6 +44,12 @@ class MfaCodeService(private val mfaCodeRepository: MfaCodeRepository) {
             val isAlreadyUsed = existingCode.verified
 
             if (!isExpired && !isAlreadyUsed) {
+                val timeSinceCreation = (System.currentTimeMillis() - existingCode.createdAt) / 1000
+                if (timeSinceCreation < passwordResetCooldownSeconds) {
+                    val retryAfter = passwordResetCooldownSeconds - timeSinceCreation
+                    return MfaCreationResult.Cooldown(retryAfter)
+                }
+
                 val expiresInSeconds = (existingCode.expiresAt - System.currentTimeMillis()) / 1000
                 return MfaCreationResult.AlreadyExists(expiresInSeconds)
             } else {

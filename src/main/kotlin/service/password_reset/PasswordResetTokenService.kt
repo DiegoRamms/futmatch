@@ -1,14 +1,18 @@
 package com.devapplab.service.password_reset
 
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
+import com.devapplab.model.AppResult
 import com.devapplab.service.hashing.HashingService
+import com.devapplab.utils.StringResourcesKey
+import com.devapplab.utils.createError
 import java.security.SecureRandom
 import java.util.*
 import kotlin.time.Duration.Companion.minutes
+import io.ktor.http.*
 
 interface PasswordResetTokenService {
     suspend fun createAndSaveResetToken(userId: UUID): String
-    suspend fun verifyResetToken(token: String, locale: Locale): Boolean
+    suspend fun verifyResetToken(token: String, locale: Locale): AppResult<UUID>
     suspend fun invalidateToken(token: String)
 }
 
@@ -31,17 +35,23 @@ class PasswordResetTokenServiceImpl(
         return plainToken
     }
 
-    override suspend fun verifyResetToken(token: String, locale: Locale): Boolean {
+    override suspend fun verifyResetToken(token: String, locale: Locale): AppResult<UUID> {
         val hashedInputToken = hashingService.hashOpaqueToken(token)
         val record = repository.findByToken(hashedInputToken)
 
         return when {
-            record == null -> false
+            record == null -> locale.createError(
+                titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_TITLE,
+                descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_DESCRIPTION
+            )
             record.expiresAt < System.currentTimeMillis() -> {
                 repository.delete(hashedInputToken) // Delete expired token
-                false
+                locale.createError(
+                    titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_TITLE,
+                    descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION
+                )
             }
-            else -> true
+            else -> AppResult.Success(record.userId)
         }
     }
 

@@ -33,6 +33,12 @@ enum class StringResourcesKey(val value: String) {
     PASSWORD_RESET_TOKEN_EXPIRED_TITLE("password_reset_token_expired_title"),
     PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION("password_reset_token_expired_description"),
 
+    MFA_COOLDOWN_TITLE("mfa_cooldown_title"),
+    MFA_COOLDOWN_DESCRIPTION("mfa_cooldown_description"),
+
+    TOO_MANY_REQUESTS_TITLE("too_many_requests_title"),
+    TOO_MANY_REQUESTS_DESCRIPTION("too_many_requests_description"),
+
     REGISTER_NAME_INVALID_ERROR("register_name_invalid_error"),
     REGISTER_LAST_NAME_INVALID_ERROR("register_last_name_invalid_error"),
     REGISTER_EMAIL_INVALID_ERROR("register_email_invalid_error"),

@@ -29,11 +29,14 @@ fun Application.configureRouting() {
     install(StatusPages) {
 
         status(HttpStatusCode.TooManyRequests) { call, status ->
-            val retryAfter = call.response.headers["Retry-After"] ?: "unknown"
-            call.respondText(
-                text = "429: Too many requests. Wait for $retryAfter seconds.",
-                status = status
+            val locale = call.retrieveLocale()
+            val failure: AppResult.Failure = locale.createError(
+                titleKey = StringResourcesKey.TOO_MANY_REQUESTS_TITLE,
+                descriptionKey = StringResourcesKey.TOO_MANY_REQUESTS_DESCRIPTION,
+                status = status,
+                errorCode = ErrorCode.TOO_MANY_REQUESTS
             )
+            call.respond<ErrorResponse>(failure)
         }
 
         exception<RequestValidationException> { call, cause ->

@@ -229,7 +229,7 @@ class AuthService(
         }
 
         val code = MfaUtils.generateCode()
-        val expiresAt = MfaUtils.calculateExpiration(60) // 60 seconds expiration for sensitive operation
+        val expiresAt = MfaUtils.calculateExpiration(300) // 5 minutes expiration
         val hashedMfaCode = hashingService.hashOpaqueToken(code)
 
         val creationResult = mfaCodeService.createPasswordResetMfaCode(
@@ -241,7 +241,7 @@ class AuthService(
 
         return when (creationResult) {
             is MfaCreationResult.Created -> {
-                emailService.sendMfaCodeEmail(userInfo.email, code)
+                emailService.sendMfaPasswordResetEmail(userInfo.email, code)
                 logger.info("✅ Sent password reset code to user ${userInfo.id}")
                 AppResult.Success(
                     ForgotPasswordResponse(
@@ -259,6 +259,14 @@ class AuthService(
                         newCodeSent = false,
                         expiresInSeconds = creationResult.expiresInSeconds
                     )
+                )
+            }
+            is MfaCreationResult.Cooldown -> {
+                locale.createError(
+                    titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
+                    descriptionKey = StringResourcesKey.MFA_COOLDOWN_DESCRIPTION,
+                    status = HttpStatusCode.TooManyRequests,
+                    errorCode = ErrorCode.TOO_MANY_REQUESTS
                 )
             }
         }
@@ -380,6 +388,7 @@ class AuthService(
         val resetToken = passwordResetTokenService.createAndSaveResetToken(userId)
         return AppResult.Success(VerifyResetMfaResponse(resetToken))
     }
+
 
 
     private fun Locale.respondUserNotFoundError(): AppResult.Failure =
