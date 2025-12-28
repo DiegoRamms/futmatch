@@ -15,6 +15,13 @@ fun ApplicationCall.getRefreshToken(): String? {
     return request.headers[REFRESH_TOKEN_HEADER]
 }
 
+fun ApplicationCall.getResetToken(): String {
+    return request.headers["Authorization"]
+        ?.removePrefix("Bearer ")
+        ?.trim()
+        ?: throw InvalidTokenException("Missing or malformed reset token in Authorization header")
+}
+
 fun ApplicationCall.getUserAgentHeader(): String? {
     return request.headers["User-Agent"]
 }

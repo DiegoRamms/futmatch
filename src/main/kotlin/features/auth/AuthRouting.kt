@@ -13,7 +13,7 @@ fun Route.authRouting() {
             authController.signUp(call)
         }
 
-        rateLimit (configuration = RateLimitName(RateLimitType.REFRESH_TOKEN.value)){
+        rateLimit(configuration = RateLimitName(RateLimitType.REFRESH_TOKEN.value)) {
             post("/refresh") {
                 val authController = call.scope.get<AuthController>()
                 val jwtConfig = application.getJWTConfig()
@@ -27,24 +27,43 @@ fun Route.authRouting() {
             authController.signIn(call, jwtConfig)
         }
 
-        rateLimit (configuration = RateLimitName(RateLimitType.MFA_SEND.value)){
-            post("/mfa/send"){
+        rateLimit(configuration = RateLimitName(RateLimitType.MFA_SEND.value)) {
+            post("/mfa/send") {
                 val authController = call.scope.get<AuthController>()
                 authController.sendMfaCode(call)
             }
         }
 
-        rateLimit (configuration = RateLimitName(RateLimitType.MFA_VERIFY.value)){
-            post("/mfa/verify"){
+        rateLimit(configuration = RateLimitName(RateLimitType.MFA_VERIFY.value)) {
+            post("/mfa/verify") {
                 val authController = call.scope.get<AuthController>()
                 val jwtConfig = application.getJWTConfig()
                 authController.verifyMfaCode(call, jwtConfig)
             }
         }
 
-        post("/signOut"){
+        post("/signOut") {
             val authController = call.scope.get<AuthController>()
             authController.signOut(call)
+        }
+
+
+        post("/forgot-password") {
+            val authController = call.scope.get<AuthController>()
+            authController.forgotPassword(call)
+        }
+
+
+        rateLimit(configuration = RateLimitName(RateLimitType.MFA_VERIFY.value)) {
+            post("/verify-reset-mfa") {
+                val authController = call.scope.get<AuthController>()
+                authController.verifyResetMfa(call)
+            }
+        }
+
+        put("/password") {
+            val authController = call.scope.get<AuthController>()
+            authController.updatePassword(call)
         }
     }
 }

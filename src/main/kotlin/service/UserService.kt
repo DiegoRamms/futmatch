@@ -19,5 +19,4 @@ class UserService(
             userRepository.getUserById(userId) ?: return locale.createError(status = HttpStatusCode.NotFound)
         return AppResult.Success(userResponse.toUserResponse())
     }
-
 }

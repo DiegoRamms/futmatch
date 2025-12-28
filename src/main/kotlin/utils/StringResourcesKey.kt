@@ -28,6 +28,17 @@ enum class StringResourcesKey(val value: String) {
     AUTH_SIGN_OUT_FAILED_TITLE("auth_sign_out_failed_title"),
     AUTH_SIGN_OUT_FAILED_DESCRIPTION("auth_sign_out_failed_description"),
 
+    PASSWORD_RESET_TOKEN_INVALID_TITLE("password_reset_token_invalid_title"),
+    PASSWORD_RESET_TOKEN_INVALID_DESCRIPTION("password_reset_token_invalid_description"),
+    PASSWORD_RESET_TOKEN_EXPIRED_TITLE("password_reset_token_expired_title"),
+    PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION("password_reset_token_expired_description"),
+
+    MFA_COOLDOWN_TITLE("mfa_cooldown_title"),
+    MFA_COOLDOWN_DESCRIPTION("mfa_cooldown_description"),
+
+    TOO_MANY_REQUESTS_TITLE("too_many_requests_title"),
+    TOO_MANY_REQUESTS_DESCRIPTION("too_many_requests_description"),
+
     REGISTER_NAME_INVALID_ERROR("register_name_invalid_error"),
     REGISTER_LAST_NAME_INVALID_ERROR("register_last_name_invalid_error"),
     REGISTER_EMAIL_INVALID_ERROR("register_email_invalid_error"),
@@ -83,7 +94,11 @@ enum class StringResourcesKey(val value: String) {
     MATCH_MAX_PLAYERS_INVALID_ERROR("match_max_players_invalid_error"),
     MATCH_MIN_PLAYERS_INVALID_ERROR("match_min_players_invalid_error"),
     MATCH_PRICE_INVALID_ERROR("match_price_invalid_error"),
-    MATCH_DISCOUNT_INVALID_ERROR("match_discount_invalid_error");
+    MATCH_DISCOUNT_INVALID_ERROR("match_discount_invalid_error"),
+
+    PASSWORD_UPDATE_SUCCESS_MESSAGE("password_update_success_message"),
+    PASSWORD_UPDATE_FAILED_TITLE("password_update_failed_title"),
+    PASSWORD_UPDATE_FAILED_DESCRIPTION("password_update_failed_description");
 
     companion object {
         fun getStringResourcesKey(value: String): StringResourcesKey? {

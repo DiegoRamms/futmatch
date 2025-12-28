@@ -13,6 +13,10 @@ class UserRepositoryImpl(private val userDao: UserDao) : UserRepository {
         return userDao.getUserById(userId)
     }
 
+    override suspend fun findByEmail(email: String): UserBaseInfo? {
+        return userDao.findByEmail(email)
+    }
+
     override suspend fun isEmailAlreadyRegistered(email: String): Boolean {
         return userDao.isEmailAlreadyRegistered(email)
     }
@@ -27,5 +31,9 @@ class UserRepositoryImpl(private val userDao: UserDao) : UserRepository {
 
     override suspend fun getUserSignInInfo(email: String): UserSignInInfo? = dbQuery {
         userDao.getUserSignInInfo(email)
+    }
+
+    override suspend fun updatePassword(userId: UUID, hashedPassword: String): Boolean {
+        return userDao.updatePassword(userId, hashedPassword)
     }
 }

@@ -18,4 +18,17 @@ class EmailServiceImpl : EmailService {
             false
         }
     }
+
+    override suspend fun sendMfaPasswordResetEmail(to: String, code: String): Boolean = withContext(Dispatchers.IO) {
+        val logger = LoggerFactory.getLogger(this::class.java)
+        try {
+            logger.info("📩 [TEST] Enviando código de reseteo de contraseña al correo: $to")
+            logger.info("🔑 Código de reseteo generado: $code")
+            logger.info("⏰ Este código expira en 10 minutos.")
+            true
+        } catch (e: Exception) {
+            logger.error("Error al enviar email de reseteo de contraseña: ${e.message}")
+            false
+        }
+    }
 }

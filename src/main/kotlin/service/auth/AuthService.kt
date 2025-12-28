@@ -9,20 +9,23 @@ import com.devapplab.model.auth.ClaimConfig
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.RefreshTokenPayload
 import com.devapplab.model.auth.UserSignInInfo
+import com.devapplab.model.auth.request.ForgotPasswordRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.response.*
+import com.devapplab.model.password_reset.TokenVerificationResult
 import com.devapplab.model.user.UserStatus
+import com.devapplab.model.user.request.UpdatePasswordRequest
+import com.devapplab.model.user.response.UpdatePasswordResponse
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
+import com.devapplab.service.password_reset.PasswordResetTokenService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.getString
 import io.ktor.http.*
-import model.mfa.MfaChannel
-import model.mfa.MfaCodeRequest
-import model.mfa.MfaCodeVerificationRequest
+import model.mfa.*
 import model.user.User
 import model.user.UserRole
 import org.slf4j.LoggerFactory
@@ -38,6 +41,7 @@ class AuthService(
     private val hashingService: HashingService,
     private val authTokenService: AuthTokenService,
     private val refreshTokenService: RefreshTokenService,
+    private val passwordResetTokenService: PasswordResetTokenService,
     private val deviceService: DeviceService,
     private val mfaCodeService: MfaCodeService,
     private val emailService: EmailService,
@@ -119,11 +123,16 @@ class AuthService(
     suspend fun sendMFACode(locale: Locale, mfaCodeRequest: MfaCodeRequest): AppResult<Boolean> {
         val userInfo = userRepository.getUserById(mfaCodeRequest.userId) ?: return locale.respondUserNotFoundError()
         val code = MfaUtils.generateCode()
-        val expiresAt = MfaUtils.calculateExpiration(5)
+        val expiresAt = MfaUtils.calculateExpiration(300)
         val hashedMfaCode = hashingService.hashOpaqueToken(code)
 
         mfaCodeService.createMfaCode(
-            mfaCodeRequest.userId, mfaCodeRequest.deviceId, hashedMfaCode, MfaChannel.EMAIL, expiresAt
+            mfaCodeRequest.userId,
+            mfaCodeRequest.deviceId,
+            hashedMfaCode,
+            MfaChannel.EMAIL,
+            MfaPurpose.SIGN_IN,
+            expiresAt
         )
 
         emailService.sendMfaCodeEmail(userInfo.email, code)
@@ -138,7 +147,7 @@ class AuthService(
     ): AppResult<AuthResponse> {
         val (userId, deviceId, code) = mfaCodeVerificationRequest
 
-        val latestCode = mfaCodeService.getLatestValidMfaCode(userId, deviceId)
+        val latestCode = mfaCodeService.getLatestValidMfaCode(userId, deviceId, MfaPurpose.SIGN_IN)
             ?: return locale.respondInvalidMfaCodeError()
 
         val hashedInput = hashingService.hashOpaqueToken(code)
@@ -211,6 +220,117 @@ class AuthService(
             )
         } else locale.respondSignOutError()
     }
+
+    suspend fun forgotPassword(
+        locale: Locale,
+        forgotPasswordRequest: ForgotPasswordRequest
+    ): AppResult<ForgotPasswordResponse> {
+        val userInfo =
+            userRepository.findByEmail(forgotPasswordRequest.email) ?: return locale.respondUserNotFoundError()
+
+        when (userInfo.status) {
+            UserStatus.BLOCKED -> return locale.respondSignInBlockedUserError()
+            UserStatus.SUSPENDED -> logger.warn("⚠️ Suspended user ${userInfo.id} is requesting password reset.")
+            UserStatus.ACTIVE -> {}
+        }
+
+        val code = MfaUtils.generateCode()
+        val expiresAt = MfaUtils.calculateExpiration(300) // 5 minutes expiration
+        val hashedMfaCode = hashingService.hashOpaqueToken(code)
+
+        val creationResult = mfaCodeService.createPasswordResetMfaCode(
+            userId = userInfo.id,
+            hashedCode = hashedMfaCode,
+            channel = MfaChannel.EMAIL,
+            expiresAt = expiresAt
+        )
+
+        return when (creationResult) {
+            is MfaCreationResult.Created -> {
+                emailService.sendMfaPasswordResetEmail(userInfo.email, code)
+                logger.info("✅ Sent password reset code to user ${userInfo.id}")
+                AppResult.Success(
+                    ForgotPasswordResponse(
+                        userId = userInfo.id,
+                        newCodeSent = true,
+                        expiresInSeconds = creationResult.expiresInSeconds
+                    )
+                )
+            }
+
+            is MfaCreationResult.Cooldown -> {
+                locale.createError(
+                    titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
+                    descriptionKey = StringResourcesKey.MFA_COOLDOWN_DESCRIPTION,
+                    status = HttpStatusCode.Conflict,
+                    errorCode = ErrorCode.TOO_MANY_REQUESTS,
+                    creationResult.retryAfterSeconds
+                )
+            }
+        }
+    }
+
+    suspend fun updatePassword(
+        resetToken: String,
+        request: UpdatePasswordRequest,
+        locale: Locale
+    ): AppResult<UpdatePasswordResponse> {
+        val userId = when (val tokenVerificationResult = passwordResetTokenService.verifyResetToken(resetToken)) {
+            is TokenVerificationResult.Success -> tokenVerificationResult.userId
+            is TokenVerificationResult.Invalid -> return locale.createError(
+                titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_TITLE,
+                descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_DESCRIPTION
+            )
+
+            is TokenVerificationResult.Expired -> return locale.createError(
+                titleKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_TITLE,
+                descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION
+            )
+        }
+
+        val hashedPassword = hashingService.hash(request.newPassword)
+        val passwordUpdated = userRepository.updatePassword(userId, hashedPassword)
+
+        if (passwordUpdated) {
+            passwordResetTokenService.invalidateToken(resetToken) // Invalidate the token after use
+            return AppResult.Success(
+                UpdatePasswordResponse(
+                    success = true,
+                    message = locale.getString(StringResourcesKey.PASSWORD_UPDATE_SUCCESS_MESSAGE)
+                )
+            )
+        }
+
+        return locale.createError(
+            titleKey = StringResourcesKey.PASSWORD_UPDATE_FAILED_TITLE,
+            descriptionKey = StringResourcesKey.PASSWORD_UPDATE_FAILED_DESCRIPTION,
+            status = HttpStatusCode.InternalServerError
+        )
+    }
+
+    // TODO Validate if I will use Email since forgotPassword is going to return boolean
+    suspend fun verifyResetMfa(
+        locale: Locale,
+        verifyResetMfaRequest: VerifyResetMfaRequest,
+    ): AppResult<VerifyResetMfaResponse> {
+        val userInfo =
+            userRepository.getUserById(verifyResetMfaRequest.userId) ?: return locale.respondUserNotFoundError()
+
+        val latestCode = mfaCodeService.getLatestValidMfaCode(userInfo.id, null, MfaPurpose.PASSWORD_RESET)
+            ?: return locale.respondInvalidMfaCodeError()
+
+        val hashedInput = hashingService.hashOpaqueToken(verifyResetMfaRequest.code)
+
+        val isValid = hashedInput == latestCode.hashedCode
+        if (!isValid) {
+            return locale.respondInvalidMfaCodeError()
+        }
+
+        authRepository.completeForgotPasswordMfaVerification(latestCode.id)
+
+        return generateResetPasswordTokenResponse(userInfo.id)
+    }
+
 
     private suspend fun handleSuccessfulSignIn(
         user: UserSignInInfo,
@@ -298,6 +418,14 @@ class AuthService(
             )
         )
     }
+
+    private suspend fun generateResetPasswordTokenResponse(
+        userId: UUID,
+    ): AppResult<VerifyResetMfaResponse> {
+        val resetToken = passwordResetTokenService.createAndSaveResetToken(userId)
+        return AppResult.Success(VerifyResetMfaResponse(resetToken))
+    }
+
 
     private fun Locale.respondUserNotFoundError(): AppResult.Failure =
         createError(

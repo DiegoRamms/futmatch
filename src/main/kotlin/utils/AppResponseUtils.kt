@@ -64,6 +64,24 @@ fun Locale.createError(
     )
 }
 
+fun Locale.createError(
+    titleKey: StringResourcesKey? = null,
+    descriptionKey: StringResourcesKey? = null,
+    status: HttpStatusCode = HttpStatusCode.BadRequest,
+    errorCode: ErrorCode = ErrorCode.GENERAL_ERROR,
+    vararg descriptionPlaceholders: Any,
+): AppResult.Failure {
+    return AppResult.Failure(
+        ErrorResponse(
+            title = titleKey?.let { getString(it) } ?: getString(StringResourcesKey.GENERIC_TITLE_ERROR_KEY),
+            message = descriptionKey?.let { getString(it, *descriptionPlaceholders) }
+                ?: getString(StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY),
+            errorCode = errorCode
+        ),
+        appStatus = status
+    )
+}
+
 fun Locale.createAlreadyExistsError(
     value: String
 ): AppResult.Failure {
