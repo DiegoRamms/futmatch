@@ -69,12 +69,12 @@ fun Locale.createError(
     descriptionKey: StringResourcesKey? = null,
     status: HttpStatusCode = HttpStatusCode.BadRequest,
     errorCode: ErrorCode = ErrorCode.GENERAL_ERROR,
-    vararg descriptionPlaceholders: Any,
+    placeholders: Map<String, String> = emptyMap()
 ): AppResult.Failure {
     return AppResult.Failure(
         ErrorResponse(
             title = titleKey?.let { getString(it) } ?: getString(StringResourcesKey.GENERIC_TITLE_ERROR_KEY),
-            message = descriptionKey?.let { getString(it, *descriptionPlaceholders) }
+            message = descriptionKey?.let { getString(it, placeholders) }
                 ?: getString(StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY),
             errorCode = errorCode
         ),

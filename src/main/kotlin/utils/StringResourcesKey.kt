@@ -36,6 +36,9 @@ enum class StringResourcesKey(val value: String) {
     MFA_COOLDOWN_TITLE("mfa_cooldown_title"),
     MFA_COOLDOWN_DESCRIPTION("mfa_cooldown_description"),
 
+    MFA_GENERATION_LOCKED_TITLE("mfa_generation_locked_title"),
+    MFA_GENERATION_LOCKED_DESCRIPTION("mfa_generation_locked_description"),
+
     TOO_MANY_REQUESTS_TITLE("too_many_requests_title"),
     TOO_MANY_REQUESTS_DESCRIPTION("too_many_requests_description"),
 
@@ -103,7 +106,13 @@ enum class StringResourcesKey(val value: String) {
     AUTH_USER_ID_INVALID("auth_user_id_invalid"),
     AUTH_DEVICE_ID_INVALID("auth_device_id_invalid"),
     MFA_CODE_INVALID("mfa_code_invalid"),
-    PASSWORD_INVALID("password_invalid");
+    PASSWORD_INVALID("password_invalid"),
+
+    AUTH_USER_NOT_VERIFIED_TITLE("auth_user_not_verified_title"),
+    AUTH_USER_NOT_VERIFIED_DESCRIPTION("auth_user_not_verified_description"),
+    AUTH_INVALID_PASSWORD_RESET_TITLE("auth_invalid_password_reset_title"),
+    AUTH_INVALID_PASSWORD_RESET_DESCRIPTION("auth_invalid_password_reset_description");
+
 
     companion object {
         fun getStringResourcesKey(value: String): StringResourcesKey? {

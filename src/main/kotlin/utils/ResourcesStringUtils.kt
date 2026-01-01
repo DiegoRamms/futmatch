@@ -28,15 +28,4 @@ fun Locale.getString(
         acc.replace("{$placeholder}", value)
     }
 }
-
-
-fun Locale.getString(key: StringResourcesKey, vararg formatArgs: Any): String {
-    val rawString = getString(key)
-    var formattedString = rawString
-    formatArgs.forEach { arg ->
-        formattedString = formattedString.replaceFirst("{}", arg.toString())
-    }
-    return formattedString
-}
-
     

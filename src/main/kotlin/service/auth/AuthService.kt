@@ -12,18 +12,19 @@ import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.auth.request.ForgotPasswordRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.response.*
+import com.devapplab.model.mfa.response.MfaSendCodeResponse
 import com.devapplab.model.password_reset.TokenVerificationResult
 import com.devapplab.model.user.UserStatus
 import com.devapplab.model.user.request.UpdatePasswordRequest
 import com.devapplab.model.user.response.UpdatePasswordResponse
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.mfa.MfaCodeService
+
+import com.devapplab.service.auth.mfa.MfaRateLimitConfig
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.password_reset.PasswordResetTokenService
-import com.devapplab.utils.StringResourcesKey
-import com.devapplab.utils.createError
-import com.devapplab.utils.getString
+import com.devapplab.utils.*
 import io.ktor.http.*
 import model.mfa.*
 import model.user.User
@@ -46,7 +47,8 @@ class AuthService(
     private val mfaCodeService: MfaCodeService,
     private val emailService: EmailService,
     private val authRepository: AuthRepository,
-    private val refreshTokenRepository: RefreshTokenRepository
+    private val refreshTokenRepository: RefreshTokenRepository,
+    private val mfaRateLimitConfig: MfaRateLimitConfig
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -120,24 +122,58 @@ class AuthService(
         }
     }
 
-    suspend fun sendMFACode(locale: Locale, mfaCodeRequest: MfaCodeRequest): AppResult<Boolean> {
-        val userInfo = userRepository.getUserById(mfaCodeRequest.userId) ?: return locale.respondUserNotFoundError()
+    suspend fun sendMFACode(locale: Locale, mfaCodeRequest: MfaCodeRequest): AppResult<MfaSendCodeResponse> {
+        val user = userRepository.getUserById(mfaCodeRequest.userId)
+            ?: return locale.respondUserNotFoundError()
+
+        if (user.status == UserStatus.BLOCKED) {
+            return locale.respondSignInBlockedUserError()
+        }
+
         val code = MfaUtils.generateCode()
         val expiresAt = MfaUtils.calculateExpiration(300)
         val hashedMfaCode = hashingService.hashOpaqueToken(code)
 
-        mfaCodeService.createMfaCode(
-            mfaCodeRequest.userId,
-            mfaCodeRequest.deviceId,
-            hashedMfaCode,
-            MfaChannel.EMAIL,
-            MfaPurpose.SIGN_IN,
-            expiresAt
+        val creationResult = mfaCodeService.createMfaCode(
+            userId = user.id,
+            deviceId = mfaCodeRequest.deviceId,
+            hashedCode = hashedMfaCode,
+            channel = MfaChannel.EMAIL,
+            purpose = MfaPurpose.SIGN_IN,
+            expiresAt = expiresAt,
+            config = mfaRateLimitConfig
         )
 
-        emailService.sendMfaCodeEmail(userInfo.email, code)
-
-        return AppResult.Success(true)
+        return when (creationResult) {
+            is MfaCreationResult.Created -> {
+                emailService.sendMfaCodeEmail(user.email, code)
+                logger.info("✅ Sent MFA code to user ${user.id} for purpose SIGN_IN")
+                AppResult.Success(
+                    MfaSendCodeResponse(
+                        newCodeSent = true,
+                        expiresInSeconds = creationResult.expiresInSeconds
+                    )
+                )
+            }
+            is MfaCreationResult.Cooldown -> {
+                locale.createError(
+                    titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
+                    descriptionKey = StringResourcesKey.MFA_COOLDOWN_DESCRIPTION,
+                    status = HttpStatusCode.Conflict,
+                    errorCode = ErrorCode.TOO_MANY_REQUESTS,
+                    placeholders = mapOf("seconds" to creationResult.retryAfterSeconds.toString())
+                )
+            }
+            is MfaCreationResult.Locked -> {
+                locale.createError(
+                    titleKey = StringResourcesKey.MFA_GENERATION_LOCKED_TITLE,
+                    descriptionKey = StringResourcesKey.MFA_GENERATION_LOCKED_DESCRIPTION,
+                    status = HttpStatusCode.Forbidden,
+                    errorCode = ErrorCode.MFA_GENERATION_LOCKED,
+                    placeholders = mapOf("minutes" to creationResult.lockDurationMinutes.toString())
+                )
+            }
+        }
     }
 
     suspend fun verifyMfaCode(
@@ -225,46 +261,59 @@ class AuthService(
         locale: Locale,
         forgotPasswordRequest: ForgotPasswordRequest
     ): AppResult<ForgotPasswordResponse> {
-        val userInfo =
-            userRepository.findByEmail(forgotPasswordRequest.email) ?: return locale.respondUserNotFoundError()
+        val user = userRepository.findByEmail(forgotPasswordRequest.email)
+            ?: return locale.respondUserNotFoundError()
 
-        when (userInfo.status) {
-            UserStatus.BLOCKED -> return locale.respondSignInBlockedUserError()
-            UserStatus.SUSPENDED -> logger.warn("⚠️ Suspended user ${userInfo.id} is requesting password reset.")
-            UserStatus.ACTIVE -> {}
+        if (user.status == UserStatus.BLOCKED) {
+            return locale.respondSignInBlockedUserError()
+        }
+        if (!user.isEmailVerified) {
+            return locale.respondUserNotVerifiedError()
         }
 
         val code = MfaUtils.generateCode()
         val expiresAt = MfaUtils.calculateExpiration(300) // 5 minutes expiration
         val hashedMfaCode = hashingService.hashOpaqueToken(code)
 
-        val creationResult = mfaCodeService.createPasswordResetMfaCode(
-            userId = userInfo.id,
+        val creationResult = mfaCodeService.createMfaCode(
+            userId = user.id,
+            deviceId = null,
             hashedCode = hashedMfaCode,
             channel = MfaChannel.EMAIL,
-            expiresAt = expiresAt
+            purpose = MfaPurpose.PASSWORD_RESET,
+            expiresAt = expiresAt,
+            config = mfaRateLimitConfig
         )
 
         return when (creationResult) {
             is MfaCreationResult.Created -> {
-                emailService.sendMfaPasswordResetEmail(userInfo.email, code)
-                logger.info("✅ Sent password reset code to user ${userInfo.id}")
+                emailService.sendMfaPasswordResetEmail(user.email, code)
+                logger.info("✅ Sent password reset code to user ${user.id}")
+
                 AppResult.Success(
                     ForgotPasswordResponse(
-                        userId = userInfo.id,
+                        userId = user.id,
                         newCodeSent = true,
                         expiresInSeconds = creationResult.expiresInSeconds
                     )
                 )
             }
-
             is MfaCreationResult.Cooldown -> {
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
                     descriptionKey = StringResourcesKey.MFA_COOLDOWN_DESCRIPTION,
                     status = HttpStatusCode.Conflict,
                     errorCode = ErrorCode.TOO_MANY_REQUESTS,
-                    creationResult.retryAfterSeconds
+                    placeholders = mapOf("seconds" to creationResult.retryAfterSeconds.toString())
+                )
+            }
+            is MfaCreationResult.Locked -> {
+                locale.createError(
+                    titleKey = StringResourcesKey.MFA_GENERATION_LOCKED_TITLE,
+                    descriptionKey = StringResourcesKey.MFA_GENERATION_LOCKED_DESCRIPTION,
+                    status = HttpStatusCode.Forbidden,
+                    errorCode = ErrorCode.MFA_GENERATION_LOCKED,
+                    placeholders = mapOf("minutes" to creationResult.lockDurationMinutes.toString())
                 )
             }
         }
@@ -491,6 +540,22 @@ class AuthService(
             StringResourcesKey.AUTH_SIGN_IN_SUSPENDED_DESCRIPTION,
             status = HttpStatusCode.Forbidden,
             errorCode = ErrorCode.AUTH_USER_SUSPENDED
+        )
+
+    private fun Locale.respondUserNotVerifiedError(): AppResult.Failure =
+        createError(
+            StringResourcesKey.AUTH_USER_NOT_VERIFIED_TITLE,
+            StringResourcesKey.AUTH_USER_NOT_VERIFIED_DESCRIPTION,
+            status = HttpStatusCode.Forbidden,
+            errorCode = ErrorCode.AUTH_USER_NOT_VERIFIED
+        )
+
+    private fun Locale.respondInvalidPasswordResetError(): AppResult.Failure =
+        createError(
+            StringResourcesKey.AUTH_INVALID_PASSWORD_RESET_TITLE,
+            StringResourcesKey.AUTH_INVALID_PASSWORD_RESET_DESCRIPTION,
+            status = HttpStatusCode.BadRequest,
+            errorCode = ErrorCode.AUTH_INVALID_PASSWORD_RESET
         )
 
     private fun Locale.respondSignOutError(): AppResult.Failure = createError(

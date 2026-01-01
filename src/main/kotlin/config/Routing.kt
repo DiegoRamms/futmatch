@@ -36,7 +36,7 @@ fun Application.configureRouting() {
                 descriptionKey = StringResourcesKey.TOO_MANY_REQUESTS_DESCRIPTION,
                 status = status,
                 errorCode = ErrorCode.TOO_MANY_REQUESTS,
-                retryAfter
+                placeholders = mapOf("seconds" to retryAfter)
             )
             call.respond<ErrorResponse>(failure)
         }

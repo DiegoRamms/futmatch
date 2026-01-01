@@ -29,15 +29,41 @@ class MfaCodeDao {
             it[MfaCodeTable.expiresAt] = expiresAt
             it[verified] = false
             it[createdAt] = System.currentTimeMillis()
+            it[isActive] = true
         }
 
         result[MfaCodeTable.id]
     }
 
-    fun getLatestMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
+    suspend fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int = dbQuery {
+        MfaCodeTable.update({
+            (MfaCodeTable.userId eq userId) and
+                    (MfaCodeTable.purpose eq purpose) and
+                    (MfaCodeTable.isActive eq true)
+        }) {
+            it[isActive] = false
+        }
+    }
+
+    suspend fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long = dbQuery {
+        MfaCodeTable
+            .selectAll()
+            .where {
+                (MfaCodeTable.userId eq userId) and
+                        (MfaCodeTable.purpose eq purpose) and
+                        (MfaCodeTable.createdAt greaterEq since)
+            }
+            .count()
+    }
+
+    fun getLatestActiveMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
         val query = MfaCodeTable
             .selectAll()
-            .where { (MfaCodeTable.userId eq userId) and (MfaCodeTable.purpose eq purpose) }
+            .where {
+                (MfaCodeTable.userId eq userId) and
+                        (MfaCodeTable.purpose eq purpose) and
+                        (MfaCodeTable.isActive eq true)
+            }
             .apply {
                 if (deviceId != null) {
                     andWhere { MfaCodeTable.deviceId eq deviceId }
@@ -49,6 +75,29 @@ class MfaCodeDao {
         return query.map { it.toMfaData() }.singleOrNull()
     }
 
+    fun findLatestMfaCode(userId: UUID, purpose: MfaPurpose): MfaData? {
+        val query = MfaCodeTable
+            .selectAll()
+            .where { (MfaCodeTable.userId eq userId) and (MfaCodeTable.purpose eq purpose) }
+            .orderBy(MfaCodeTable.createdAt, SortOrder.DESC)
+            .limit(1)
+
+        return query.map { it.toMfaData() }.singleOrNull()
+    }
+
+    fun findLatestMfaCodeSince(userId: UUID, purpose: MfaPurpose, since: Long): MfaData? {
+        val query = MfaCodeTable
+            .selectAll()
+            .where {
+                (MfaCodeTable.userId eq userId) and
+                        (MfaCodeTable.purpose eq purpose) and
+                        (MfaCodeTable.createdAt greaterEq since)
+            }
+            .orderBy(MfaCodeTable.createdAt, SortOrder.DESC)
+            .limit(1)
+
+        return query.map { it.toMfaData() }.singleOrNull()
+    }
 
     fun markAsVerified(codeId: UUID): Boolean =
         MfaCodeTable.update({ MfaCodeTable.id eq codeId }) {
@@ -57,7 +106,7 @@ class MfaCodeDao {
         } > 0
 
     suspend fun deleteExpiredMFACodes():Boolean {
-       return dbQuery {
+        return dbQuery {
             MfaCodeTable.deleteWhere {
                 expiresAt less System.currentTimeMillis() or (verified eq true)
             } > 0
@@ -78,7 +127,8 @@ class MfaCodeDao {
         expiresAt = this[MfaCodeTable.expiresAt],
         verified = this[MfaCodeTable.verified],
         verifiedAt = this[MfaCodeTable.verifiedAt],
-        createdAt = this[MfaCodeTable.createdAt]
+        createdAt = this[MfaCodeTable.createdAt],
+        isActive = this[MfaCodeTable.isActive]
     )
 
 }

@@ -53,7 +53,7 @@ fun Application.configureRateLimit() {
         }
 
         register(RateLimitName(RateLimitType.MFA_SEND.value)) {
-            rateLimiter(limit = 3, refillPeriod = 5.minutes)
+            rateLimiter(limit = 30, refillPeriod = 5.minutes)
             requestKey { call ->
                 call.request.headers["X-Forwarded-For"]?.split(",")?.first()?.trim()
                     ?: call.request.origin.remoteHost
@@ -61,7 +61,7 @@ fun Application.configureRateLimit() {
         }
 
         register(RateLimitName(RateLimitType.MFA_VERIFY.value)) {
-            rateLimiter(limit = 10, refillPeriod = 5.minutes)
+            rateLimiter(limit = 30, refillPeriod = 5.minutes)
 
             requestKey { call ->
                 call.request.headers["X-Forwarded-For"]?.split(",")?.first()?.trim()

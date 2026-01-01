@@ -16,6 +16,7 @@ object MfaCodeTable : Table("mfa_codes") {
     val expiresAt = long("expires_at")
     val verified = bool("verified").default(false)
     val verifiedAt = long("verified_at").nullable()
+    val isActive = bool("is_active").default(true)
     val createdAt = long("created_at").default(System.currentTimeMillis())
 
     override val primaryKey = PrimaryKey(id)

@@ -14,5 +14,6 @@ data class MfaData(
     val expiresAt: Long,
     val verified: Boolean,
     val verifiedAt: Long?,
+    val isActive: Boolean,
     val createdAt: Long
 )

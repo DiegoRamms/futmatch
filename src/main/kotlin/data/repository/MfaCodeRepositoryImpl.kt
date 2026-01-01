@@ -24,8 +24,24 @@ class MfaCodeRepositoryImpl(
         return mfaCodeDao.createMfaCode(userId, deviceId, hashedCode, channel, purpose, expiresAt)
     }
 
-    override suspend fun getLatestMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
-        return dbQuery { mfaCodeDao.getLatestMfaCode(userId, deviceId, purpose) }
+    override suspend fun getLatestActiveMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
+        return dbQuery { mfaCodeDao.getLatestActiveMfaCode(userId, deviceId, purpose) }
+    }
+
+    override suspend fun findLatestMfaCode(userId: UUID, purpose: MfaPurpose): MfaData? {
+        return dbQuery { mfaCodeDao.findLatestMfaCode(userId, purpose) }
+    }
+
+    override suspend fun findLatestMfaCodeSince(userId: UUID, purpose: MfaPurpose, since: Long): MfaData? {
+        return dbQuery {   mfaCodeDao.findLatestMfaCodeSince(userId, purpose, since) }
+    }
+
+    override suspend fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long {
+        return mfaCodeDao.countRecentCodes(userId, purpose, since)
+    }
+
+    override suspend fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int {
+        return mfaCodeDao.deactivatePreviousCodes(userId, purpose)
     }
 
     override suspend fun deleteExpiredMfaCodes(): Boolean {

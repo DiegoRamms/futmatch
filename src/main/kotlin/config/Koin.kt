@@ -1,9 +1,6 @@
 package com.devapplab.config
 
-import com.devapplab.di.controllerModule
-import com.devapplab.di.daoModule
-import com.devapplab.di.repositoryModule
-import com.devapplab.di.serviceModule
+import com.devapplab.di.*
 import io.ktor.server.application.*
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
@@ -13,6 +10,7 @@ fun Application.configureKoin() {
     install(Koin) {
         slf4jLogger()
         modules(
+            appModule(this@configureKoin),
             daoModule,
             repositoryModule,
             serviceModule,
