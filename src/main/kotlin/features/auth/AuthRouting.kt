@@ -77,5 +77,3 @@ fun Route.authRouting() {
     }
 }
 
-
-// TODO Revoke old codes for rest password

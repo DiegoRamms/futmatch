@@ -10,6 +10,7 @@ interface PasswordResetTokenDao {
     suspend fun create(token: String, userId: UUID, expiresAt: Long): PasswordResetTokenRecord?
     suspend fun findByToken(token: String): PasswordResetTokenRecord?
     suspend fun delete(token: String)
+    suspend fun deleteByUserId(userId: UUID)
 }
 
 class PasswordResetTokenDaoImpl : PasswordResetTokenDao {
@@ -34,6 +35,12 @@ class PasswordResetTokenDaoImpl : PasswordResetTokenDao {
     override suspend fun delete(token: String) {
         dbQuery {
             PasswordResetTokensTable.deleteWhere { PasswordResetTokensTable.token eq token }
+        }
+    }
+
+    override suspend fun deleteByUserId(userId: UUID) {
+        dbQuery {
+            PasswordResetTokensTable.deleteWhere { PasswordResetTokensTable.userId eq userId }
         }
     }
 

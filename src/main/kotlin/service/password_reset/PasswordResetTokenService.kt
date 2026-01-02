@@ -21,6 +21,7 @@ class PasswordResetTokenServiceImpl(
     private val secureRandom = SecureRandom()
 
     override suspend fun createAndSaveResetToken(userId: UUID): String {
+        repository.deleteByUserId(userId)
         val bytes = ByteArray(32)
         secureRandom.nextBytes(bytes)
         val plainToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)

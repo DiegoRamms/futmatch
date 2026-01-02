@@ -357,7 +357,6 @@ class AuthService(
         )
     }
 
-    // TODO Validate if I will use Email since forgotPassword is going to return boolean
     suspend fun verifyResetMfa(
         locale: Locale,
         verifyResetMfaRequest: VerifyResetMfaRequest,
@@ -548,14 +547,6 @@ class AuthService(
             StringResourcesKey.AUTH_USER_NOT_VERIFIED_DESCRIPTION,
             status = HttpStatusCode.Forbidden,
             errorCode = ErrorCode.AUTH_USER_NOT_VERIFIED
-        )
-
-    private fun Locale.respondInvalidPasswordResetError(): AppResult.Failure =
-        createError(
-            StringResourcesKey.AUTH_INVALID_PASSWORD_RESET_TITLE,
-            StringResourcesKey.AUTH_INVALID_PASSWORD_RESET_DESCRIPTION,
-            status = HttpStatusCode.BadRequest,
-            errorCode = ErrorCode.AUTH_INVALID_PASSWORD_RESET
         )
 
     private fun Locale.respondSignOutError(): AppResult.Failure = createError(
