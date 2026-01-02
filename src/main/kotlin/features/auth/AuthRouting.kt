@@ -21,10 +21,12 @@ fun Route.authRouting() {
             }
         }
 
-        post("/signIn") {
-            val authController = call.scope.get<AuthController>()
-            val jwtConfig = application.getJWTConfig()
-            authController.signIn(call, jwtConfig)
+        rateLimit(configuration = RateLimitName(RateLimitType.SIGN_IN.value)) {
+            post("/signIn") {
+                val authController = call.scope.get<AuthController>()
+                val jwtConfig = application.getJWTConfig()
+                authController.signIn(call, jwtConfig)
+            }
         }
 
         rateLimit(configuration = RateLimitName(RateLimitType.MFA_SEND.value)) {
@@ -47,14 +49,14 @@ fun Route.authRouting() {
             authController.signOut(call)
         }
 
-
-        post("/forgot-password") {
-            val authController = call.scope.get<AuthController>()
-            authController.forgotPassword(call)
+        rateLimit(configuration = RateLimitName(RateLimitType.REST_PASSWORD_MFA_SEND.value)) {
+            post("/forgot-password") {
+                val authController = call.scope.get<AuthController>()
+                authController.forgotPassword(call)
+            }
         }
 
-
-        rateLimit(configuration = RateLimitName(RateLimitType.MFA_VERIFY.value)) {
+        rateLimit(configuration = RateLimitName(RateLimitType.MFA_VERIFY_REST_PASSWORD.value)) {
             post("/verify-reset-mfa") {
                 val authController = call.scope.get<AuthController>()
                 authController.verifyResetMfa(call)
@@ -67,3 +69,6 @@ fun Route.authRouting() {
         }
     }
 }
+
+
+// TODO Revoke old codes for rest password
