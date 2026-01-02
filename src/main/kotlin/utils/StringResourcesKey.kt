@@ -22,6 +22,10 @@ enum class StringResourcesKey(val value: String) {
     AUTH_DEVICE_INFO_REQUIRED_DESCRIPTION("auth_device_info_required_description"),
     AUTH_USER_NOT_FOUND_TITLE("auth_user_not_found_title"),
     AUTH_USER_NOT_FOUND_DESCRIPTION("auth_user_not_found_description"),
+
+    AUTH_ACCOUNT_LOCKED_TITLE("AUTH_ACCOUNT_LOCKED_TITLE"),
+    AUTH_ACCOUNT_LOCKED_DESCRIPTION("AUTH_ACCOUNT_LOCKED_DESCRIPTION"),
+
     MFA_CODE_INVALID_TITLE("mfa_code_invalid_title"),
     MFA_CODE_INVALID_DESCRIPTION("mfa_code_invalid_description"),
     AUTH_SIGN_OUT_SUCCESS_MESSAGE("auth_sign_out_success_message"),

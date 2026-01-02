@@ -3,6 +3,7 @@ package com.devapplab.service.auth
 import com.devapplab.data.repository.AuthRepository
 import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.UserRepository
+import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.auth.ClaimConfig
@@ -19,12 +20,13 @@ import com.devapplab.model.user.request.UpdatePasswordRequest
 import com.devapplab.model.user.response.UpdatePasswordResponse
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.mfa.MfaCodeService
-
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.password_reset.PasswordResetTokenService
-import com.devapplab.utils.*
+import com.devapplab.utils.StringResourcesKey
+import com.devapplab.utils.createError
+import com.devapplab.utils.getString
 import io.ktor.http.*
 import model.mfa.*
 import model.user.User
@@ -35,6 +37,8 @@ import service.email.EmailService
 import utils.MfaUtils
 import java.util.*
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 
 class AuthService(
@@ -48,10 +52,22 @@ class AuthService(
     private val emailService: EmailService,
     private val authRepository: AuthRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
-    private val mfaRateLimitConfig: MfaRateLimitConfig
+    private val mfaRateLimitConfig: MfaRateLimitConfig,
+    private val loginAttemptRepository: LoginAttemptRepository
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
+    
+    private object LoginAttemptPolicy {
+        const val MAX_ATTEMPTS_TIER_1 = 5
+        const val LOCKOUT_DURATION_TIER_1_MINUTES = 15L
+        
+        const val MAX_ATTEMPTS_TIER_2 = 6
+        const val LOCKOUT_DURATION_TIER_2_HOURS = 1L
+
+        const val MAX_ATTEMPTS_TIER_3 = 7
+        const val LOCKOUT_DURATION_TIER_3_HOURS = 24L
+    }
 
     suspend fun addUser(
         user: User,
@@ -88,21 +104,23 @@ class AuthService(
     ): AppResult<AuthResponse> {
         val startTime = System.currentTimeMillis()
 
+        val lockoutError = checkLockoutStatus(signInRequest.email, locale)
+        if (lockoutError != null) {
+            return lockoutError
+        }
+
         if (deviceInfo.isNullOrBlank()) {
             logger.error("❌ signIn - Missing device info (Took ${System.currentTimeMillis() - startTime} ms)")
             return locale.respondDeviceInfoRequired()
         }
 
         val user = userRepository.getUserSignInInfo(signInRequest.email)
-            ?: run {
-                logger.error("❌ signIn - Invalid credentials (Took ${System.currentTimeMillis() - startTime} ms)")
-                return locale.respondInvalidSignInCredentialsError()
-            }
-
-        if (!hashingService.verify(signInRequest.password, user.password)) {
-            logger.error("❌ signIn - Invalid credentials (Took ${System.currentTimeMillis() - startTime} ms)")
-            return locale.respondInvalidSignInCredentialsError()
+        if (user == null || !hashingService.verify(signInRequest.password, user.password)) {
+            logger.error("❌ signIn - Invalid credentials for email: ${signInRequest.email} (Took ${System.currentTimeMillis() - startTime} ms)")
+            return handleFailedLoginAttempt(signInRequest.email, locale)
         }
+        
+        handleSuccessfulLoginAttempt(signInRequest.email)
 
         return when (user.status) {
             UserStatus.BLOCKED -> {
@@ -121,6 +139,61 @@ class AuthService(
             }
         }
     }
+    
+    private suspend fun checkLockoutStatus(email: String, locale: Locale): AppResult.Failure? {
+        val attempt = loginAttemptRepository.findByEmail(email)
+        if (attempt?.lockedUntil != null && attempt.lockedUntil > System.currentTimeMillis()) {
+            val remainingLockoutMinutes = (attempt.lockedUntil - System.currentTimeMillis()) / 60000
+            return locale.createError(
+                StringResourcesKey.AUTH_ACCOUNT_LOCKED_TITLE,
+                StringResourcesKey.AUTH_ACCOUNT_LOCKED_DESCRIPTION,
+                status = HttpStatusCode.Forbidden,
+                placeholders = mapOf("minutes" to remainingLockoutMinutes.toString())
+            )
+        }
+        return null
+    }
+    
+    private suspend fun handleFailedLoginAttempt(email: String, locale: Locale): AppResult.Failure {
+        val attempt = loginAttemptRepository.findByEmail(email)
+        val newAttemptCount = (attempt?.attempts ?: 0) + 1
+        
+        var newLockedUntil: Long? = null
+        when {
+            newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_3 -> {
+                newLockedUntil = System.currentTimeMillis() + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_3_HOURS.hours.inWholeMilliseconds
+            }
+            newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_2 -> {
+                newLockedUntil = System.currentTimeMillis() + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_2_HOURS.hours.inWholeMilliseconds
+            }
+            newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_1 -> {
+                newLockedUntil = System.currentTimeMillis() + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_1_MINUTES.minutes.inWholeMilliseconds
+            }
+        }
+        
+        if (attempt == null) {
+            loginAttemptRepository.create(email)
+        } else {
+            loginAttemptRepository.update(email, newAttemptCount, System.currentTimeMillis(), newLockedUntil)
+        }
+
+        if (newLockedUntil != null) {
+             val remainingLockoutMinutes = (newLockedUntil - System.currentTimeMillis()) / 60000
+             return locale.createError(
+                StringResourcesKey.AUTH_ACCOUNT_LOCKED_TITLE,
+                StringResourcesKey.AUTH_ACCOUNT_LOCKED_DESCRIPTION,
+                status = HttpStatusCode.Forbidden,
+                placeholders = mapOf("minutes" to remainingLockoutMinutes.toString())
+            )
+        }
+
+        return locale.respondInvalidSignInCredentialsError()
+    }
+
+    private suspend fun handleSuccessfulLoginAttempt(email: String) {
+        loginAttemptRepository.delete(email)
+    }
+
 
     suspend fun sendMFACode(locale: Locale, mfaCodeRequest: MfaCodeRequest): AppResult<MfaSendCodeResponse> {
         val user = userRepository.getUserById(mfaCodeRequest.userId)
@@ -336,12 +409,16 @@ class AuthService(
                 descriptionKey = StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION
             )
         }
+        
+        val user = userRepository.getUserById(userId)
+            ?: return locale.respondUserNotFoundError()
 
         val hashedPassword = hashingService.hash(request.newPassword)
         val passwordUpdated = userRepository.updatePassword(userId, hashedPassword)
 
         if (passwordUpdated) {
-            passwordResetTokenService.invalidateToken(resetToken) // Invalidate the token after use
+            passwordResetTokenService.invalidateToken(resetToken)
+            handleSuccessfulLoginAttempt(user.email)
             return AppResult.Success(
                 UpdatePasswordResponse(
                     success = true,
