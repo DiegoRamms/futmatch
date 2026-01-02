@@ -106,9 +106,11 @@ fun Application.configureRouting() {
             authRouting()
         }
         authenticate("auth-jwt") {
-            userRouting()
-            fieldRouting()
-            matchRouting()
+            rateLimit(RateLimitName(RateLimitType.PROTECTED.value)) {
+                userRouting()
+                fieldRouting()
+                matchRouting()
+            }
         }
     }
 }
