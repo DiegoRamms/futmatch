@@ -8,9 +8,12 @@ import org.koin.ktor.plugin.scope
 
 fun Route.authRouting() {
     route("/auth") {
-        post("/signUp") {
-            val authController = call.scope.get<AuthController>()
-            authController.signUp(call)
+
+        rateLimit(configuration = RateLimitName(RateLimitType.SIGN_IN.value)) {
+            post("/signUp") {
+                val authController = call.scope.get<AuthController>()
+                authController.signUp(call)
+            }
         }
 
         rateLimit(configuration = RateLimitName(RateLimitType.REFRESH_TOKEN.value)) {
@@ -44,9 +47,11 @@ fun Route.authRouting() {
             }
         }
 
-        post("/signOut") {
-            val authController = call.scope.get<AuthController>()
-            authController.signOut(call)
+        rateLimit(configuration = RateLimitName(RateLimitType.SIGN_OUT.value)) {
+            post("/signOut") {
+                val authController = call.scope.get<AuthController>()
+                authController.signOut(call)
+            }
         }
 
         rateLimit(configuration = RateLimitName(RateLimitType.REST_PASSWORD_MFA_SEND.value)) {
@@ -63,9 +68,11 @@ fun Route.authRouting() {
             }
         }
 
-        put("/password") {
-            val authController = call.scope.get<AuthController>()
-            authController.updatePassword(call)
+        rateLimit(configuration = RateLimitName(RateLimitType.REST_PASSWORD_UPDATE.value)) {
+            put("/password") {
+                val authController = call.scope.get<AuthController>()
+                authController.updatePassword(call)
+            }
         }
     }
 }

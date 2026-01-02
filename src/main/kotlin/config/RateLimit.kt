@@ -32,10 +32,10 @@ fun Application.configureRateLimit() {
                 val req = runCatching { call.receive<SignInRequest>() }.getOrNull()
                 val email = req?.email?.trim()?.lowercase().orEmpty()
 
-                if (email.isBlank()) return@requestKey "login:ip:$ip"
+                if (email.isBlank()) return@requestKey "sign_in:ip:$ip"
 
                 val emailHash = sha256(email)
-                "login:email:$emailHash:ip:$ip"
+                "sign_in:email:$emailHash:ip:$ip"
             }
         }
 
@@ -97,9 +97,9 @@ fun Application.configureRateLimit() {
                 }.getOrNull()
 
                 if (userId != null) {
-                    "mfa-send:login:user:$userId:ip:$ip"
+                    "mfa-send:sign_in:user:$userId:ip:$ip"
                 } else {
-                    "mfa-send:login:ip:$ip"
+                    "mfa-send:sign_in:ip:$ip"
                 }
             }
         }
@@ -137,9 +137,9 @@ fun Application.configureRateLimit() {
                 }.getOrNull()
 
                 if (userId != null) {
-                    "mfa-verify:login:user:$userId:ip:$ip"
+                    "mfa-verify:sign_in:user:$userId:ip:$ip"
                 } else {
-                    "mfa-verify:login:ip:$ip"
+                    "mfa-verify:sign_in:ip:$ip"
                 }
             }
         }
@@ -184,6 +184,29 @@ fun Application.configureRateLimit() {
                 if (k.contains("token:")) 1 else 20
             }
         }
+
+        register(RateLimitName(RateLimitType.SIGN_OUT.value)) {
+            rateLimiter(limit = 10, refillPeriod = 60.seconds)
+
+            requestKey { call ->
+                val ip = call.clientIp()
+
+                val userId = runCatching {
+                    call.getIdentifier(ClaimType.USER_IDENTIFIER)
+                }.getOrNull()
+
+                if (userId != null) {
+                    "sign_out:user:$userId:ip:$ip"
+                } else {
+                    "sign_out:ip:$ip"
+                }
+            }
+
+            requestWeight { _, key ->
+                val k = key as? String ?: return@requestWeight 20
+                if (k.startsWith("sign_out:user:")) 1 else 20
+            }
+        }
     }
 }
 
@@ -199,6 +222,7 @@ private fun sha256(text: String): String {
 enum class RateLimitType(val value: String) {
     PROTECTED("protected"),
     SIGN_IN("sign_in"),
+    SIGN_OUT("sign_out"),
     PUBLIC("public"),
     REFRESH_TOKEN("refresh_token"),
     MFA_SEND("mfa_send"),
