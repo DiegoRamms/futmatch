@@ -2,6 +2,7 @@ package com.devapplab.config
 
 import com.devapplab.data.database.field.FieldAdminsTable
 import com.devapplab.data.database.login_attempt.LoginAttemptTable
+import com.devapplab.data.database.pending_registrations.PendingRegistrationTable
 import com.devapplab.data.database.password_reset.PasswordResetTokensTable
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserTable
@@ -39,6 +40,7 @@ fun Application.configureDatabase() {
         SchemaUtils.create(MatchTable)
         SchemaUtils.create(PasswordResetTokensTable)
         SchemaUtils.create(LoginAttemptTable)
+        SchemaUtils.create(PendingRegistrationTable)
 
         addLogger(StdOutSqlLogger)
     }

@@ -1,10 +1,7 @@
 package com.devapplab.features.auth
 
 import com.devapplab.model.auth.JWTConfig
-import com.devapplab.model.auth.request.ForgotPasswordRequest
-import com.devapplab.model.auth.request.RegisterUserRequest
-import com.devapplab.model.auth.request.SignInRequest
-import com.devapplab.model.auth.request.SignOutRequest
+import com.devapplab.model.auth.request.*
 import com.devapplab.model.auth.response.RefreshJWTRequest
 import com.devapplab.model.user.request.UpdatePasswordRequest
 import com.devapplab.service.auth.AuthService
@@ -22,6 +19,28 @@ class AuthController(private val authService: AuthService) {
         val deviceInfo = call.getUserAgentHeader()
         val registerUserRequest = call.receive<RegisterUserRequest>()
         val result = authService.addUser(registerUserRequest.toUser(), locale, deviceInfo)
+        call.respond(result)
+    }
+
+    suspend fun startRegistration(call: ApplicationCall) {
+        val locale: Locale = call.retrieveLocale()
+        val registerUserRequest = call.receive<RegisterUserRequest>()
+        val result = authService.startRegistration(registerUserRequest, locale)
+        call.respond(result)
+    }
+
+    suspend fun completeRegistration(call: ApplicationCall, jwtConfig: JWTConfig) {
+        val locale: Locale = call.retrieveLocale()
+        val deviceInfo = call.getUserAgentHeader()
+        val request = call.receive<CompleteRegistrationRequest>()
+        val result = authService.completeRegistration(request, jwtConfig, locale, deviceInfo)
+        call.respond(result)
+    }
+
+    suspend fun resendRegistrationCode(call: ApplicationCall) {
+        val locale: Locale = call.retrieveLocale()
+        val request = call.receive<ResendRegistrationCodeRequest>()
+        val result = authService.resendRegistrationCode(request, locale)
         call.respond(result)
     }
 

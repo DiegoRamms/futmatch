@@ -31,4 +31,17 @@ class EmailServiceImpl : EmailService {
             false
         }
     }
+
+    override suspend fun sendRegistrationEmail(to: String, code: String): Boolean = withContext(Dispatchers.IO) {
+        val logger = LoggerFactory.getLogger(this::class.java)
+        try {
+            logger.info("📩 [TEST] Enviando código de registro al correo: $to")
+            logger.info("📝 Código de registro generado: $code")
+            logger.info("⏰ Este código expira en 1 hora.")
+            true
+        } catch (e: Exception) {
+            logger.error("Error al enviar email de registro: ${e.message}")
+            false
+        }
+    }
 }

@@ -1,9 +1,11 @@
 package model.user
 
 import com.devapplab.model.user.UserStatus
+import java.util.UUID
 
 
 data class User(
+    val id: UUID? = null,
     val name: String,
     val lastName: String,
     val email: String,

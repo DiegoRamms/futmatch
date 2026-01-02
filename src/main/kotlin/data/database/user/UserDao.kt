@@ -2,6 +2,7 @@ package com.devapplab.data.database.user
 
 import com.devapplab.config.dbQuery
 import com.devapplab.model.auth.UserSignInInfo
+import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.UserBaseInfo
 import model.user.User
 import org.jetbrains.exposed.sql.*
@@ -28,6 +29,27 @@ class UserDao {
             it[role] = user.role
         }
         return result[UserTable.id]
+    }
+
+    suspend fun create(pendingUser: PendingUser): User? = dbQuery {
+        UserTable.insert {
+            it[name] = pendingUser.name
+            it[lastName] = pendingUser.lastName
+            it[email] = pendingUser.email
+            it[password] = pendingUser.password
+            it[phone] = pendingUser.phone
+            it[status] = pendingUser.status
+            it[gender] = pendingUser.gender
+            it[country] = pendingUser.country
+            it[birthDate] = pendingUser.birthDate
+            it[playerPosition] = pendingUser.playerPosition
+            it[profilePic] = pendingUser.profilePic
+            it[level] = pendingUser.level
+            it[role] = pendingUser.userRole
+            it[isEmailVerified] = pendingUser.isEmailVerified
+            it[createdAt] = pendingUser.createdAt
+            it[updatedAt] = pendingUser.updatedAt
+        }.resultedValues?.singleOrNull()?.let(::rowToUser)
     }
 
     suspend fun getUserById(id: UUID): UserBaseInfo? = dbQuery {
@@ -129,6 +151,7 @@ class UserDao {
     }
 
     private fun rowToUser(row: ResultRow): User = User(
+        id = row[UserTable.id],
         name = row[UserTable.name],
         lastName = row[UserTable.lastName],
         email = row[UserTable.email],

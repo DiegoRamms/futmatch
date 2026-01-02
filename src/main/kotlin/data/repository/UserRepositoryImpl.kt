@@ -5,9 +5,15 @@ import com.devapplab.data.database.user.UserDao
 import com.devapplab.data.repository.UserRepository
 import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.user.PendingUser
+import model.user.User
 import java.util.*
 
 class UserRepositoryImpl(private val userDao: UserDao) : UserRepository {
+
+    override suspend fun create(pendingUser: PendingUser): User? {
+        return userDao.create(pendingUser)
+    }
 
     override suspend fun getUserById(userId: UUID): UserBaseInfo? {
         return userDao.getUserById(userId)

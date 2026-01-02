@@ -67,6 +67,16 @@ fun Application.configureRateLimit() {
             requestKey { call -> "mfa-verify:sign_in:ip:${call.clientIp()}" }
         }
 
+        register(RateLimitName(RateLimitType.MFA_VERIFY_REGISTRATION.value)) {
+            rateLimiter(limit = 15, refillPeriod = 5.minutes)
+            requestKey { call -> "mfa-verify:registration:ip:${call.clientIp()}" }
+        }
+
+        register(RateLimitName(RateLimitType.MFA_VERIFY_REGISTRATION_COMPLETE.value)) {
+            rateLimiter(limit = 15, refillPeriod = 5.minutes)
+            requestKey { call -> "mfa-verify:registration_complete:ip:${call.clientIp()}" }
+        }
+
         register(RateLimitName(RateLimitType.MFA_VERIFY_REST_PASSWORD.value)) {
             rateLimiter(limit = 15, refillPeriod = 5.minutes)
             requestKey { call -> "mfa-verify:reset:ip:${call.clientIp()}" }
@@ -128,4 +138,6 @@ enum class RateLimitType(val value: String) {
     MFA_VERIFY("mfa_verify"),
     MFA_VERIFY_REST_PASSWORD("mfa_verify_rest_password"),
     REST_PASSWORD_UPDATE("rest_password_update"),
+    MFA_VERIFY_REGISTRATION("mfa_verify_registration"),
+    MFA_VERIFY_REGISTRATION_COMPLETE("mfa_verify_registration_complete"),
 }

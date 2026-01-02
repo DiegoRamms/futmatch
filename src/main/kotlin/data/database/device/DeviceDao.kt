@@ -8,11 +8,11 @@ import org.jetbrains.exposed.sql.update
 import java.util.*
 
 class DeviceDao {
-    fun saveDevice(userId: UUID, deviceInfo: String): UUID {
+    fun saveDevice(userId: UUID, deviceInfo: String, isTrusted: Boolean = false): UUID {
         val result = DeviceTable.insert {
             it[DeviceTable.userId] = userId
             it[DeviceTable.deviceInfo] = deviceInfo //"Android 14 - Pixel 7 - App v1.3.2"
-            it[isTrusted] = false
+            it[DeviceTable.isTrusted] = isTrusted
             it[isActive] = true
             it[lastUsedAt] = System.currentTimeMillis()
             it[createdAt] = System.currentTimeMillis()

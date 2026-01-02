@@ -12,7 +12,7 @@ import java.util.UUID
 
 interface AuthRepository {
     suspend fun createUserWithDevice(userWithPasswordHashed: User, deviceInfo: String): AuthUserSavedData
-    suspend fun createDevice(userId: UUID, deviceInfo: String): UUID
+    suspend fun createDevice(userId: UUID, deviceInfo: String, isTrusted: Boolean = false): UUID
     suspend fun completeMfaVerification(userId: UUID, deviceId: UUID, mfaCodeId: UUID)
     suspend fun completeForgotPasswordMfaVerification(mfaCodeId: UUID)
     suspend fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload)
@@ -32,8 +32,8 @@ class AuthRepositoryImpl(
             AuthUserSavedData(userId, deviceId)
         }
 
-    override suspend fun createDevice(userId: UUID, deviceInfo: String): UUID = dbQuery {
-        val deviceId = deviceDao.saveDevice(userId, deviceInfo)
+    override suspend fun createDevice(userId: UUID, deviceInfo: String, isTrusted: Boolean): UUID = dbQuery {
+        val deviceId = deviceDao.saveDevice(userId, deviceInfo, isTrusted)
         deviceId
     }
 

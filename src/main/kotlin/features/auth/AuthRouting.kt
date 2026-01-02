@@ -9,10 +9,33 @@ import org.koin.ktor.plugin.scope
 fun Route.authRouting() {
     route("/auth") {
 
+        // DEPRECATED: This endpoint is insecure and will be removed. Use /register/start and /register/complete instead.
         rateLimit(configuration = RateLimitName(RateLimitType.SIGN_IN.value)) {
             post("/signUp") {
                 val authController = call.scope.get<AuthController>()
                 authController.signUp(call)
+            }
+        }
+
+        rateLimit(configuration = RateLimitName(RateLimitType.MFA_VERIFY_REGISTRATION.value)) {
+            post("/register/start") {
+                val authController = call.scope.get<AuthController>()
+                authController.startRegistration(call)
+            }
+        }
+
+        rateLimit(configuration = RateLimitName(RateLimitType.MFA_VERIFY_REGISTRATION_COMPLETE.value)) {
+            post("/register/complete") {
+                val authController = call.scope.get<AuthController>()
+                val jwtConfig = application.getJWTConfig()
+                authController.completeRegistration(call, jwtConfig)
+            }
+        }
+
+        rateLimit(configuration = RateLimitName(RateLimitType.SIGN_IN.value)) {
+            post("/register/resend-code") {
+                val authController = call.scope.get<AuthController>()
+                authController.resendRegistrationCode(call)
             }
         }
 

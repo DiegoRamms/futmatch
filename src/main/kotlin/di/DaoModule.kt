@@ -9,6 +9,8 @@ import com.devapplab.data.database.match.MatchDao
 import com.devapplab.data.database.match.MatchWithFieldDao
 import com.devapplab.data.database.password_reset.PasswordResetTokenDao
 import com.devapplab.data.database.password_reset.PasswordResetTokenDaoImpl
+import com.devapplab.data.database.pending_registrations.PendingRegistrationDao
+import com.devapplab.data.database.pending_registrations.PendingRegistrationDaoImpl
 import com.devapplab.data.database.refresh_token.RefreshTokenDao
 import com.devapplab.data.database.user.UserDao
 import data.database.mfa.MfaCodeDao
@@ -27,4 +29,5 @@ val daoModule = module {
     singleOf(::MatchWithFieldDao)
     singleOf(::PasswordResetTokenDaoImpl) { bind<PasswordResetTokenDao>() }
     singleOf(::LoginAttemptDaoImpl) { bind<LoginAttemptDao>() }
+    singleOf(::PendingRegistrationDaoImpl) { bind<PendingRegistrationDao>() }
 }

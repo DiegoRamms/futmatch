@@ -17,6 +17,7 @@ fun Application.scheduleCleanUp(){
                 delay(1.days)
                 exposedLogger.info("Cleanup Data Service started 🧹")
                 cleanupDataService.cleanupData()
+                cleanupDataService.cleanupExpiredPendingRegistrations()
                 exposedLogger.info("Cleanup Data Service ran successfully. ✅")
             }
         }

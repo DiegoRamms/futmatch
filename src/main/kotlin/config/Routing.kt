@@ -102,9 +102,7 @@ fun Application.configureRouting() {
     routing {
         //TODO Validate rate limit with Client
         staticFiles("/uploads", File("uploads"))
-        rateLimit(RateLimitName(RateLimitType.PUBLIC.value)) {
-            authRouting()
-        }
+        authRouting()
         authenticate("auth-jwt") {
             rateLimit(RateLimitName(RateLimitType.PROTECTED.value)) {
                 userRouting()
