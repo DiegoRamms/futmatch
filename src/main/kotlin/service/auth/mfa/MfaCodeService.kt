@@ -10,7 +10,7 @@ import java.time.temporal.ChronoUnit
 import java.util.*
 
 class MfaCodeService(private val mfaCodeRepository: MfaCodeRepository) {
-    suspend fun createMfaCode(
+    fun createMfaCode(
         userId: UUID,
         deviceId: UUID?,
         hashedCode: String,
@@ -64,7 +64,7 @@ class MfaCodeService(private val mfaCodeRepository: MfaCodeRepository) {
         return MfaCreationResult.Created(newId, expiresInSeconds)
     }
 
-    suspend fun getLatestValidMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
+     fun getLatestValidMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
         val code = mfaCodeRepository.getLatestActiveMfaCode(userId, deviceId, purpose) ?: return null
         val isExpired = code.expiresAt < System.currentTimeMillis()
         val isAlreadyUsed = code.verified

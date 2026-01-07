@@ -1,6 +1,5 @@
 package com.devapplab.data.database.device
 
-import com.devapplab.config.dbQuery
 import data.database.device.DeviceTable
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
@@ -20,16 +19,16 @@ class DeviceDao {
         return result[DeviceTable.id]
     }
 
-    suspend fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean = dbQuery {
-        DeviceTable
+    fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
+        return DeviceTable
             .select(DeviceTable.id)
             .where { (DeviceTable.id eq deviceId) and (DeviceTable.userId eq userId) and (DeviceTable.isActive eq true) }
             .limit(1)
             .singleOrNull() != null
     }
 
-    suspend fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean = dbQuery {
-        DeviceTable
+    fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
+        return DeviceTable
             .select(DeviceTable.id)
             .where {
                 (DeviceTable.id eq deviceId) and

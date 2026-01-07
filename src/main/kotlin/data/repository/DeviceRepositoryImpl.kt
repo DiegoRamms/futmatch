@@ -6,11 +6,11 @@ import java.util.*
 
 class DeviceRepositoryImpl(private val deviceDao: DeviceDao) : DeviceRepository {
 
-    override suspend fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
+    override fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
         return deviceDao.isValidDeviceIdForUser(deviceId, userId)
     }
 
-    override suspend fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
+    override fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
         return deviceDao.isTrustedDeviceIdForUser(deviceId, userId)
     }
 }

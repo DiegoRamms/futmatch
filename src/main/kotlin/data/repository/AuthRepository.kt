@@ -8,22 +8,22 @@ import com.devapplab.model.auth.RefreshTokenPayload
 import data.database.mfa.MfaCodeDao
 import model.auth.AuthUserSavedData
 import model.user.User
-import java.util.UUID
+import java.util.*
 
 interface AuthRepository {
     suspend fun createUserWithDevice(userWithPasswordHashed: User, deviceInfo: String): AuthUserSavedData
-    suspend fun createDevice(userId: UUID, deviceInfo: String, isTrusted: Boolean = false): UUID
-    suspend fun completeMfaVerification(userId: UUID, deviceId: UUID, mfaCodeId: UUID)
-    suspend fun completeForgotPasswordMfaVerification(mfaCodeId: UUID)
-    suspend fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload)
-    suspend fun revokeRefreshToken(deviceId: UUID): Boolean
+    fun createDevice(userId: UUID, deviceInfo: String, isTrusted: Boolean = false): UUID
+    fun completeMfaVerification(userId: UUID, deviceId: UUID, mfaCodeId: UUID)
+    fun completeForgotPasswordMfaVerification(mfaCodeId: UUID)
+    fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload)
+    fun revokeRefreshToken(deviceId: UUID): Boolean
 }
 
 class AuthRepositoryImpl(
     private val userDao: UserDao,
     private val deviceDao: DeviceDao,
     private val mfaCodeDao: MfaCodeDao,
-    private val refreshTokenDao: RefreshTokenDao
+    private val refreshTokenDao: RefreshTokenDao,
 ) : AuthRepository {
     override suspend fun createUserWithDevice(userWithPasswordHashed: User, deviceInfo: String): AuthUserSavedData =
         dbQuery {
@@ -32,40 +32,33 @@ class AuthRepositoryImpl(
             AuthUserSavedData(userId, deviceId)
         }
 
-    override suspend fun createDevice(userId: UUID, deviceInfo: String, isTrusted: Boolean): UUID = dbQuery {
+    override fun createDevice(userId: UUID, deviceInfo: String, isTrusted: Boolean): UUID {
         val deviceId = deviceDao.saveDevice(userId, deviceInfo, isTrusted)
-        deviceId
+        return deviceId
     }
 
-    override suspend fun completeMfaVerification(userId: UUID, deviceId: UUID, mfaCodeId: UUID) {
-        dbQuery {
-            userDao.markEmailAsVerified(userId)
-            deviceDao.markDeviceAsTrusted(deviceId)
-            mfaCodeDao.markAsVerified(mfaCodeId)
-        }
+    override fun completeMfaVerification(userId: UUID, deviceId: UUID, mfaCodeId: UUID) {
+        userDao.markEmailAsVerified(userId)
+        deviceDao.markDeviceAsTrusted(deviceId)
+        mfaCodeDao.markAsVerified(mfaCodeId)
     }
 
-    override suspend fun completeForgotPasswordMfaVerification(mfaCodeId: UUID) {
-        dbQuery {
-            mfaCodeDao.markAsVerified(mfaCodeId)
-        }
+    override fun completeForgotPasswordMfaVerification(mfaCodeId: UUID) {
+        mfaCodeDao.markAsVerified(mfaCodeId)
     }
 
-    override suspend fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload) {
-        dbQuery {
-            deviceDao.changeDeviceLastUsed(deviceId)
-            refreshTokenDao.saveToken(
-                userId = userId,
-                deviceId = deviceId,
-                token = newPayload.hashedToken,
-                expiresAt = newPayload.expiresAt
-            )
-            refreshTokenDao.revokeToken(deviceId)
-        }
+    override fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload) {
+        deviceDao.changeDeviceLastUsed(deviceId)
+        refreshTokenDao.saveToken(
+            userId = userId,
+            deviceId = deviceId,
+            token = newPayload.hashedToken,
+            expiresAt = newPayload.expiresAt
+        )
+        refreshTokenDao.revokeToken(deviceId)
     }
 
-    override suspend fun revokeRefreshToken(deviceId: UUID): Boolean {
+    override fun revokeRefreshToken(deviceId: UUID): Boolean {
         return refreshTokenDao.revokeCurrentToken(deviceId)
     }
 }
-

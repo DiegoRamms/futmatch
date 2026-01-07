@@ -1,29 +1,28 @@
 package data.repository
 
-import com.devapplab.config.dbQuery
 import com.devapplab.data.database.user.UserDao
 import com.devapplab.data.repository.UserRepository
 import com.devapplab.model.auth.UserSignInInfo
-import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.PendingUser
+import com.devapplab.model.user.UserBaseInfo
 import model.user.User
 import java.util.*
 
 class UserRepositoryImpl(private val userDao: UserDao) : UserRepository {
 
-    override suspend fun create(pendingUser: PendingUser): User? {
+    override fun create(pendingUser: PendingUser): User? {
         return userDao.create(pendingUser)
     }
 
-    override suspend fun getUserById(userId: UUID): UserBaseInfo? {
+    override fun getUserById(userId: UUID): UserBaseInfo? {
         return userDao.getUserById(userId)
     }
 
-    override suspend fun findByEmail(email: String): UserBaseInfo? {
+    override fun findByEmail(email: String): UserBaseInfo? {
         return userDao.findByEmail(email)
     }
 
-    override suspend fun isEmailAlreadyRegistered(email: String): Boolean {
+    override fun isEmailAlreadyRegistered(email: String): Boolean {
         return userDao.isEmailAlreadyRegistered(email)
     }
 
@@ -35,11 +34,11 @@ class UserRepositoryImpl(private val userDao: UserDao) : UserRepository {
         return userDao.isEmailVerified(userId)
     }
 
-    override suspend fun getUserSignInInfo(email: String): UserSignInInfo? = dbQuery {
-        userDao.getUserSignInInfo(email)
+    override fun getUserSignInInfo(email: String): UserSignInInfo? {
+        return userDao.getUserSignInInfo(email)
     }
 
-    override suspend fun updatePassword(userId: UUID, hashedPassword: String): Boolean {
+    override fun updatePassword(userId: UUID, hashedPassword: String): Boolean {
         return userDao.updatePassword(userId, hashedPassword)
     }
 }

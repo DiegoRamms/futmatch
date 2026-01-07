@@ -49,10 +49,5 @@ val serviceModule = module {
     singleOf(::MatchService)
     singleOf(::ImageServiceImp) { bind<ImageService>() }
     singleOf(::CleanupDataService)
-    single<PasswordResetTokenService> {
-        PasswordResetTokenServiceImpl(
-            repository = get(),
-            hashingService = get()
-        )
-    }
+    singleOf(::PasswordResetTokenServiceImpl) { bind<PasswordResetTokenService>()  }
 }

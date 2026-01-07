@@ -1,6 +1,5 @@
 package data.repository
 
-import com.devapplab.config.dbQuery
 import com.devapplab.data.repository.MfaCodeRepository
 import com.devapplab.model.mfa.MfaData
 import data.database.mfa.MfaCodeDao
@@ -12,7 +11,7 @@ class MfaCodeRepositoryImpl(
     private val mfaCodeDao: MfaCodeDao
 ) : MfaCodeRepository {
 
-    override suspend fun createMfaCode(
+    override fun createMfaCode(
         userId: UUID,
         deviceId:
         UUID?,
@@ -24,23 +23,23 @@ class MfaCodeRepositoryImpl(
         return mfaCodeDao.createMfaCode(userId, deviceId, hashedCode, channel, purpose, expiresAt)
     }
 
-    override suspend fun getLatestActiveMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
-        return dbQuery { mfaCodeDao.getLatestActiveMfaCode(userId, deviceId, purpose) }
+    override fun getLatestActiveMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
+        return  mfaCodeDao.getLatestActiveMfaCode(userId, deviceId, purpose)
     }
 
-    override suspend fun findLatestMfaCode(userId: UUID, purpose: MfaPurpose): MfaData? {
-        return dbQuery { mfaCodeDao.findLatestMfaCode(userId, purpose) }
+    override fun findLatestMfaCode(userId: UUID, purpose: MfaPurpose): MfaData? {
+        return mfaCodeDao.findLatestMfaCode(userId, purpose)
     }
 
-    override suspend fun findLatestMfaCodeSince(userId: UUID, purpose: MfaPurpose, since: Long): MfaData? {
-        return dbQuery {   mfaCodeDao.findLatestMfaCodeSince(userId, purpose, since) }
+    override fun findLatestMfaCodeSince(userId: UUID, purpose: MfaPurpose, since: Long): MfaData? {
+        return mfaCodeDao.findLatestMfaCodeSince(userId, purpose, since)
     }
 
-    override suspend fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long {
+    override fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long {
         return mfaCodeDao.countRecentCodes(userId, purpose, since)
     }
 
-    override suspend fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int {
+    override fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int {
         return mfaCodeDao.deactivatePreviousCodes(userId, purpose)
     }
 

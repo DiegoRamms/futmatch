@@ -7,13 +7,13 @@ import model.user.User
 import java.util.*
 
 interface UserRepository {
-    suspend fun create(pendingUser: PendingUser): User?
-    suspend fun getUserById(userId: UUID): UserBaseInfo?
-    suspend fun findByEmail(email: String): UserBaseInfo?
-    suspend fun isEmailAlreadyRegistered(email: String): Boolean
+    fun create(pendingUser: PendingUser): User?
+    fun getUserById(userId: UUID): UserBaseInfo?
+    fun findByEmail(email: String): UserBaseInfo?
+    fun isEmailAlreadyRegistered(email: String): Boolean
     suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean
     suspend fun isEmailVerified(userId: UUID): Boolean
-    suspend fun getUserSignInInfo(email: String): UserSignInInfo?
-    suspend fun updatePassword(userId: UUID, hashedPassword: String): Boolean
+    fun getUserSignInInfo(email: String): UserSignInInfo?
+    fun updatePassword(userId: UUID, hashedPassword: String): Boolean
 }
 

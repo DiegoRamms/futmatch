@@ -1,5 +1,6 @@
 package com.devapplab.service
 
+import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.UserRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.user.UserBaseInfo
@@ -10,13 +11,14 @@ import model.user.response.UserResponse
 import java.util.*
 
 class UserService(
+    private val dbExecutor: DbExecutor,
     private val userRepository: UserRepository
 ) {
 
     suspend fun getUserById(userId: UUID?, locale: Locale): AppResult<UserResponse> {
         userId ?: return locale.createError(status = HttpStatusCode.NotFound)
-        val userResponse: UserBaseInfo =
-            userRepository.getUserById(userId) ?: return locale.createError(status = HttpStatusCode.NotFound)
+        val userResponse: UserBaseInfo = dbExecutor.tx { userRepository.getUserById(userId) }
+            ?: return locale.createError(status = HttpStatusCode.NotFound)
         return AppResult.Success(userResponse.toUserResponse())
     }
 }

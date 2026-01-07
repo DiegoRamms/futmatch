@@ -41,8 +41,8 @@ class RefreshTokenDao {
             .singleOrNull()
     }
 
-    suspend fun getRefreshTokenValidationInfo(deviceId: UUID): RefreshTokenValidationInfo? = dbQuery {
-        (RefreshTokenTable innerJoin UserTable)
+    fun getRefreshTokenValidationInfo(deviceId: UUID): RefreshTokenValidationInfo? {
+        return (RefreshTokenTable innerJoin UserTable)
             .select(
                 RefreshTokenTable.userId,
                 RefreshTokenTable.token,
@@ -88,13 +88,13 @@ class RefreshTokenDao {
         return updated > 0
     }
 
-    suspend fun revokeCurrentToken(deviceId: UUID): Boolean = dbQuery {
+    fun revokeCurrentToken(deviceId: UUID): Boolean {
         val updated = RefreshTokenTable.update({
             (RefreshTokenTable.deviceId eq deviceId) and (RefreshTokenTable.revoked eq false)
         }) {
             it[revoked] = true
         }
-        updated > 0
+        return updated > 0
     }
 
     suspend fun deleteRevokedTokens(): Boolean = dbQuery {

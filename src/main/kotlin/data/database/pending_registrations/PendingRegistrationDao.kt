@@ -1,26 +1,25 @@
 package com.devapplab.data.database.pending_registrations
 
-import com.devapplab.config.dbQuery
 import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.pending_registration.PendingRegistration
 import model.user.UserRole
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
-import java.util.UUID
+import java.util.*
 
 interface PendingRegistrationDao {
-    suspend fun create(request: RegisterUserRequest, verificationCode: String, expiresAt: Long): PendingRegistration?
-    suspend fun findByEmail(email: String): PendingRegistration?
-    suspend fun updateCodeAndExpiration(id: UUID, newCode: String, newExpiresAt: Long, newUpdatedAt: Long): Boolean
-    suspend fun delete(id: UUID): Boolean
-    suspend fun deleteExpired(timestamp: Long): Int
+    fun create(request: RegisterUserRequest, verificationCode: String, expiresAt: Long): PendingRegistration?
+    fun findByEmail(email: String): PendingRegistration?
+    fun updateCodeAndExpiration(id: UUID, newCode: String, newExpiresAt: Long, newUpdatedAt: Long): Boolean
+    fun delete(id: UUID): Boolean
+    fun deleteExpired(timestamp: Long): Int
 }
 
 class PendingRegistrationDaoImpl : PendingRegistrationDao {
 
-    override suspend fun create(request: RegisterUserRequest, verificationCode: String, expiresAt: Long): PendingRegistration? = dbQuery {
-        PendingRegistrationTable.insert {
+    override  fun create(request: RegisterUserRequest, verificationCode: String, expiresAt: Long): PendingRegistration?  {
+        return PendingRegistrationTable.insert {
             it[name] = request.name
             it[lastName] = request.lastName
             it[email] = request.email
@@ -40,26 +39,26 @@ class PendingRegistrationDaoImpl : PendingRegistrationDao {
         }.resultedValues?.singleOrNull()?.let(::toPendingRegistration)
     }
 
-    override suspend fun findByEmail(email: String): PendingRegistration? = dbQuery {
-        PendingRegistrationTable.selectAll().where { PendingRegistrationTable.email eq email }
+    override fun findByEmail(email: String): PendingRegistration? {
+       return PendingRegistrationTable.selectAll().where { PendingRegistrationTable.email eq email }
             .singleOrNull()
             ?.let(::toPendingRegistration)
     }
 
-    override suspend fun updateCodeAndExpiration(id: UUID, newCode: String, newExpiresAt: Long, newUpdatedAt: Long): Boolean = dbQuery {
-        PendingRegistrationTable.update({ PendingRegistrationTable.id eq id }) {
+    override fun updateCodeAndExpiration(id: UUID, newCode: String, newExpiresAt: Long, newUpdatedAt: Long): Boolean  {
+       return PendingRegistrationTable.update({ PendingRegistrationTable.id eq id }) {
             it[verificationCode] = newCode
             it[expiresAt] = newExpiresAt
             it[updatedAt] = newUpdatedAt
         } > 0
     }
 
-    override suspend fun delete(id: UUID): Boolean = dbQuery {
-        PendingRegistrationTable.deleteWhere { PendingRegistrationTable.id eq id } > 0
+    override fun delete(id: UUID): Boolean  {
+       return PendingRegistrationTable.deleteWhere { PendingRegistrationTable.id eq id } > 0
     }
 
-    override suspend fun deleteExpired(timestamp: Long): Int = dbQuery {
-        PendingRegistrationTable.deleteWhere { expiresAt less timestamp }
+    override fun deleteExpired(timestamp: Long): Int  {
+        return PendingRegistrationTable.deleteWhere { expiresAt less timestamp }
     }
 
     private fun toPendingRegistration(row: ResultRow): PendingRegistration {

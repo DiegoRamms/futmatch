@@ -6,11 +6,11 @@ import java.util.*
 class DeviceService(
     private val deviceRepository: DeviceRepository,
 ) {
-    suspend fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
+    fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
         return deviceRepository.isValidDeviceIdForUser(deviceId, userId)
     }
 
-    suspend fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
+    fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
         return deviceRepository.isTrustedDeviceIdForUser(deviceId, userId)
     }
 }

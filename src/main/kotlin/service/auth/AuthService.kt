@@ -1,9 +1,11 @@
 package com.devapplab.service.auth
 
+import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.AuthRepository
 import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.UserRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
+import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.pending_registrations.PendingRegistrationRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
@@ -18,7 +20,6 @@ import com.devapplab.model.auth.request.ResendRegistrationCodeRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.response.*
 import com.devapplab.model.mfa.response.MfaSendCodeResponse
-import com.devapplab.model.password_reset.TokenVerificationResult
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.UserStatus
 import com.devapplab.model.user.request.UpdatePasswordRequest
@@ -31,12 +32,15 @@ import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.password_reset.PasswordResetTokenService
 import com.devapplab.utils.*
 import io.ktor.http.*
+import model.auth.RefreshTokenValidationInfo
 import model.mfa.*
 import model.user.User
 import model.user.UserRole
-import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.slf4j.LoggerFactory
 import service.auth.DeviceService
+import service.auth.state.CompleteRegistrationAbort
+import service.auth.state.CompleteRegistrationFailure
+import service.auth.state.ResendRegistrationCodeDecision
 import service.email.EmailService
 import utils.MfaUtils
 import java.util.*
@@ -45,13 +49,16 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
+// TODO TEST All endpoints
 
 class AuthService(
+    private val dbExecutor: DbExecutor,
     private val userRepository: UserRepository,
     private val hashingService: HashingService,
     private val authTokenService: AuthTokenService,
     private val refreshTokenService: RefreshTokenService,
     private val passwordResetTokenService: PasswordResetTokenService,
+    private val passwordResetTokenRepository: PasswordResetTokenRepository,
     private val deviceService: DeviceService,
     private val mfaCodeService: MfaCodeService,
     private val emailService: EmailService,
@@ -84,7 +91,10 @@ class AuthService(
         locale: Locale,
         deviceInfo: String?
     ): AppResult<AuthResponse> {
-        loginAttemptRepository.delete(user.email)
+
+        dbExecutor.tx {
+            loginAttemptRepository.delete(user.email)
+        }
 
         if (deviceInfo.isNullOrBlank()) {
             return locale.respondDeviceInfoRequired()
@@ -112,39 +122,50 @@ class AuthService(
         request: RegisterUserRequest,
         locale: Locale
     ): AppResult<SimpleResponse> {
+
         val email = request.email
-        if (userRepository.isEmailAlreadyRegistered(email)) {
-            logger.warn("⚠️ Registration attempt for already existing user: $email")
-            return AppResult.Success(
-                SimpleResponse(
-                    success = true,
-                    message = locale.getString(StringResourcesKey.REGISTRATION_EMAIL_SENT_MESSAGE)
+        val now = System.currentTimeMillis()
+
+        val verificationCode = MfaUtils.generateCode()
+        val hashedCode = hashingService.hashOpaqueToken(verificationCode)
+        val expiresAt = now + RegistrationPolicy.EXPIRATION_DURATION.inWholeMilliseconds
+        val hashedPassword = hashingService.hash(request.password)
+        val requestWithHashedPassword = request.copy(password = hashedPassword)
+
+        val shouldSendEmail = runCatching {
+            dbExecutor.tx {
+                val alreadyRegistered = userRepository.isEmailAlreadyRegistered(email)
+                if (alreadyRegistered) {
+                    logger.warn("⚠️ Registration attempt for already existing user: $email")
+                    return@tx false
+                }
+
+                pendingRegistrationRepository.findByEmail(email)?.let {
+                    pendingRegistrationRepository.delete(it.id)
+                }
+
+                pendingRegistrationRepository.create(
+                    request = requestWithHashedPassword,
+                    hashedVerificationCode = hashedCode,
+                    expiresAt = expiresAt
                 )
-            )
-        }
 
-        try {
-            pendingRegistrationRepository.findByEmail(email)?.let {
-                pendingRegistrationRepository.delete(it.id)
+                true
             }
-
-            val verificationCode = MfaUtils.generateCode()
-            val hashedCode = hashingService.hashOpaqueToken(verificationCode)
-            val expiresAt = System.currentTimeMillis() + RegistrationPolicy.EXPIRATION_DURATION.inWholeMilliseconds
-            val hashedPassword = hashingService.hash(request.password)
-            val requestWithHashedPassword = request.copy(password = hashedPassword)
-
-            pendingRegistrationRepository.create(requestWithHashedPassword, hashedCode, expiresAt)
-            
-            emailService.sendRegistrationEmail(email, verificationCode)
-            logger.info("✅ Sent registration verification code to $email")
-
-        } catch (e: ExposedSQLException) {
-            logger.error("🔥 ExposedSQLException during startRegistration, likely a race condition for email: $email. Error: ${e.message}")
-        } catch (e: Exception) {
-            logger.error("🔥 Unexpected error during startRegistration for email: $email. Error: ${e.message}")
+        }.getOrElse { error ->
+            logger.error("🔥 startRegistration DB error for email=$email (responding success anyway)", error)
+            false
         }
-        
+
+        if (shouldSendEmail) {
+            runCatching {
+                emailService.sendRegistrationEmail(email, verificationCode)
+                logger.info("✅ Sent registration verification code to $email")
+            }.onFailure { error ->
+                logger.error("📧 Failed to send registration email to $email", error)
+            }
+        }
+
         return AppResult.Success(
             SimpleResponse(
                 success = true,
@@ -153,78 +174,110 @@ class AuthService(
         )
     }
 
+
     suspend fun completeRegistration(
         request: CompleteRegistrationRequest,
         jwtConfig: JWTConfig,
         locale: Locale,
-        deviceInfo: String? // Added deviceInfo
+        deviceInfo: String?
     ): AppResult<AuthResponse> {
-        // Validate deviceInfo
+
         if (deviceInfo.isNullOrBlank()) {
             logger.error("❌ completeRegistration - Missing device info")
             return locale.respondDeviceInfoRequired()
         }
 
-        val pendingRegistration = pendingRegistrationRepository.findByEmail(request.email)
-            ?: return locale.createError(
-                StringResourcesKey.REGISTRATION_CODE_INVALID_TITLE,
-                StringResourcesKey.REGISTRATION_CODE_INVALID_DESCRIPTION
-            )
+        val now = System.currentTimeMillis()
+        val hashedCode = hashingService.hashOpaqueToken(request.verificationCode)
 
-        if (pendingRegistration.expiresAt < System.currentTimeMillis()) {
-            pendingRegistrationRepository.delete(pendingRegistration.id)
-            return locale.createError(
-                StringResourcesKey.REGISTRATION_CODE_EXPIRED_TITLE,
-                StringResourcesKey.REGISTRATION_CODE_EXPIRED_DESCRIPTION
-            )
+        val txResult = runCatching {
+            dbExecutor.tx {
+                val pendingRegistration = pendingRegistrationRepository.findByEmail(request.email)
+                    ?: throw CompleteRegistrationAbort(CompleteRegistrationFailure.PendingNotFound)
+
+                if (pendingRegistration.expiresAt < now) {
+                    pendingRegistrationRepository.delete(pendingRegistration.id)
+                    throw CompleteRegistrationAbort(CompleteRegistrationFailure.Expired)
+                }
+
+                if (hashedCode != pendingRegistration.verificationCode) {
+                    throw CompleteRegistrationAbort(CompleteRegistrationFailure.InvalidCode)
+                }
+
+                val pendingUserToCreate = PendingUser(
+                    name = pendingRegistration.name,
+                    lastName = pendingRegistration.lastName,
+                    email = pendingRegistration.email,
+                    password = pendingRegistration.password,
+                    phone = pendingRegistration.phone,
+                    country = pendingRegistration.country,
+                    birthDate = pendingRegistration.birthDate,
+                    playerPosition = pendingRegistration.playerPosition,
+                    gender = pendingRegistration.gender,
+                    profilePic = pendingRegistration.profilePic,
+                    level = pendingRegistration.level,
+                    userRole = pendingRegistration.userRole,
+                    isEmailVerified = true,
+                    status = UserStatus.ACTIVE,
+                    createdAt = now,
+                    updatedAt = now
+                )
+
+                val savedUser = userRepository.create(pendingUserToCreate)
+                    ?: throw CompleteRegistrationAbort(CompleteRegistrationFailure.CreateUserFailed)
+
+                val userId = savedUser.id
+                    ?: throw CompleteRegistrationAbort(CompleteRegistrationFailure.MissingUserId)
+
+                // Limpieza relacionada (misma tx)
+                pendingRegistrationRepository.delete(pendingRegistration.id)
+                loginAttemptRepository.delete(savedUser.email)
+
+                val deviceId = authRepository.createDevice(
+                    userId = userId,
+                    deviceInfo = deviceInfo,
+                    isTrusted = true
+                )
+
+                Triple(savedUser, deviceId, userId)
+            }
+        }.getOrElse { error ->
+            logger.error("❌ completeRegistration failed", error)
+
+            return when (error) {
+                is CompleteRegistrationAbort -> when (error.reason) {
+                    CompleteRegistrationFailure.PendingNotFound,
+                    CompleteRegistrationFailure.InvalidCode -> locale.createError(
+                        StringResourcesKey.REGISTRATION_CODE_INVALID_TITLE,
+                        StringResourcesKey.REGISTRATION_CODE_INVALID_DESCRIPTION
+                    )
+
+                    CompleteRegistrationFailure.Expired -> locale.createError(
+                        StringResourcesKey.REGISTRATION_CODE_EXPIRED_TITLE,
+                        StringResourcesKey.REGISTRATION_CODE_EXPIRED_DESCRIPTION
+                    )
+
+                    CompleteRegistrationFailure.CreateUserFailed,
+                    CompleteRegistrationFailure.MissingUserId -> locale.createError(
+                        StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                        StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+                    )
+                }
+
+                else -> locale.createError(
+                    StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                    StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+                )
+            }
         }
 
-        val isCodeValid =  hashingService.hashOpaqueToken(request.verificationCode) == pendingRegistration.verificationCode
-        if (!isCodeValid) {
-            return locale.createError(
-                StringResourcesKey.REGISTRATION_CODE_INVALID_TITLE,
-                StringResourcesKey.REGISTRATION_CODE_INVALID_DESCRIPTION
-            )
-        }
-
-        val pendingUserToCreate = PendingUser(
-            name = pendingRegistration.name,
-            lastName = pendingRegistration.lastName,
-            email = pendingRegistration.email,
-            password = pendingRegistration.password,
-            phone = pendingRegistration.phone,
-            country = pendingRegistration.country,
-            birthDate = pendingRegistration.birthDate,
-            playerPosition = pendingRegistration.playerPosition,
-            gender = pendingRegistration.gender,
-            profilePic = pendingRegistration.profilePic,
-            level = pendingRegistration.level,
-            userRole = pendingRegistration.userRole,
-            isEmailVerified = true,
-            status = UserStatus.ACTIVE,
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
-        )
-
-        // Pass PendingUser to userRepository.create
-        val savedUser = userRepository.create(pendingUserToCreate)
-            ?: return locale.createError(
-                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
-                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
-            )
-
-        pendingRegistrationRepository.delete(pendingRegistration.id)
-        loginAttemptRepository.delete(savedUser.email)
-
-        val deviceId = savedUser.id?.let { authRepository.createDevice(it, deviceInfo, isTrusted = true) }  ?: return locale.createError(
-            StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
-            StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
-        )
+        val (savedUser, deviceId, userId) = txResult
 
         return generateAuthenticatedResponse(
-            userId = savedUser.id,
+            locale = locale,
+            userId = userId,
             deviceId = deviceId,
-            userRole = savedUser.role, // Use userRole from savedUser
+            userRole = savedUser.role,
             jwtConfig = jwtConfig
         )
     }
@@ -233,55 +286,99 @@ class AuthService(
         request: ResendRegistrationCodeRequest,
         locale: Locale
     ): AppResult<SimpleResponse> {
-        val pendingRegistration = pendingRegistrationRepository.findByEmail(request.email)
-            ?: return locale.createError(
-                StringResourcesKey.REGISTRATION_NOT_FOUND_OR_EXPIRED_TITLE,
-                StringResourcesKey.REGISTRATION_NOT_FOUND_OR_EXPIRED_DESCRIPTION
-            )
 
-        // Check for cooldown
-        val timeSinceLastUpdate = System.currentTimeMillis() - pendingRegistration.updatedAt
-        if (timeSinceLastUpdate < RegistrationPolicy.RESEND_COOLDOWN.inWholeMilliseconds) {
-            val remainingSeconds = (RegistrationPolicy.RESEND_COOLDOWN.inWholeMilliseconds - timeSinceLastUpdate) / 1000
-            return locale.createError(
-                StringResourcesKey.REGISTRATION_RESEND_COOLDOWN_TITLE,
-                StringResourcesKey.REGISTRATION_RESEND_COOLDOWN_DESCRIPTION,
-                placeholders = mapOf("seconds" to remainingSeconds.toString())
-            )
-        }
-        
-        // Generate new code, update record, and send email
+        val email = request.email
+        val now = System.currentTimeMillis()
+
         val newVerificationCode = MfaUtils.generateCode()
         val newHashedCode = hashingService.hashOpaqueToken(newVerificationCode)
-        val newExpiresAt = System.currentTimeMillis() + RegistrationPolicy.EXPIRATION_DURATION.inWholeMilliseconds
-        val newUpdatedAt = System.currentTimeMillis()
+        val newExpiresAt = now + RegistrationPolicy.EXPIRATION_DURATION.inWholeMilliseconds
 
-        val updated = pendingRegistrationRepository.updateCodeAndExpiration(
-            pendingRegistration.id,
-            newHashedCode,
-            newExpiresAt,
-            newUpdatedAt
-        )
+        val shouldSendEmail = runCatching {
+            dbExecutor.tx {
+                val pending = pendingRegistrationRepository.findByEmail(email)
+                    ?: return@tx ResendRegistrationCodeDecision.NotFoundOrExpired
 
-        if (!updated) {
-            logger.error("Failed to update pending registration code for email: ${request.email}")
+
+                if (pending.expiresAt < now) {
+                    return@tx ResendRegistrationCodeDecision.NotFoundOrExpired
+                }
+
+                val timeSinceLastUpdate = now - pending.updatedAt
+                val cooldownMs = RegistrationPolicy.RESEND_COOLDOWN.inWholeMilliseconds
+
+                if (timeSinceLastUpdate < cooldownMs) {
+                    val remainingSeconds = ((cooldownMs - timeSinceLastUpdate) / 1000).coerceAtLeast(1)
+                    return@tx ResendRegistrationCodeDecision.Cooldown(remainingSeconds)
+                }
+
+
+                val updated = pendingRegistrationRepository.updateCodeAndExpiration(
+                    id = pending.id,
+                    newCode = newHashedCode,
+                    newExpiresAt = newExpiresAt,
+                    newUpdatedAt = now
+                )
+
+                if (!updated) {
+                    return@tx ResendRegistrationCodeDecision.DbUpdateFailed
+                }
+
+                ResendRegistrationCodeDecision.SendEmail
+            }
+        }.getOrElse { error ->
+            logger.error("🔥 resendRegistrationCode DB error for email=$email", error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
             )
         }
-        
-        emailService.sendRegistrationEmail(request.email, newVerificationCode)
-        logger.info("✅ Resent registration verification code to ${request.email}")
 
-        return AppResult.Success(
-            SimpleResponse(
-                success = true,
-                message = locale.getString(StringResourcesKey.REGISTRATION_RESEND_SUCCESS_MESSAGE)
-            )
-        )
+        when (shouldSendEmail) {
+            ResendRegistrationCodeDecision.NotFoundOrExpired -> {
+                return locale.createError(
+                    StringResourcesKey.REGISTRATION_NOT_FOUND_OR_EXPIRED_TITLE,
+                    StringResourcesKey.REGISTRATION_NOT_FOUND_OR_EXPIRED_DESCRIPTION
+                )
+            }
+
+            is ResendRegistrationCodeDecision.Cooldown -> {
+                return locale.createError(
+                    StringResourcesKey.REGISTRATION_RESEND_COOLDOWN_TITLE,
+                    StringResourcesKey.REGISTRATION_RESEND_COOLDOWN_DESCRIPTION,
+                    placeholders = mapOf("seconds" to shouldSendEmail.remainingSeconds.toString())
+                )
+            }
+
+            ResendRegistrationCodeDecision.DbUpdateFailed -> {
+                logger.error("Failed to update pending registration code for email: $email")
+                return locale.createError(
+                    StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                    StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+                )
+            }
+
+            ResendRegistrationCodeDecision.SendEmail -> {
+                return runCatching {
+                    emailService.sendRegistrationEmail(email, newVerificationCode)
+                    logger.info("✅ Resent registration verification code to $email")
+
+                    AppResult.Success(
+                        SimpleResponse(
+                            success = true,
+                            message = locale.getString(StringResourcesKey.REGISTRATION_RESEND_SUCCESS_MESSAGE)
+                        )
+                    )
+                }.getOrElse { error ->
+                    logger.error("📧 Failed to resend registration email to $email", error)
+                    locale.createError(
+                        StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                        StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+                    )
+                }
+            }
+        }
     }
-
 
     suspend fun signIn(
         locale: Locale,
@@ -290,98 +387,209 @@ class AuthService(
         deviceInfo: String?,
     ): AppResult<AuthResponse> {
         val startTime = System.currentTimeMillis()
-
-        val lockoutError = checkLockoutStatus(signInRequest.email, locale)
-        if (lockoutError != null) {
-            return lockoutError
-        }
+        val email = signInRequest.email
 
         if (deviceInfo.isNullOrBlank()) {
             logger.error("❌ signIn - Missing device info (Took ${System.currentTimeMillis() - startTime} ms)")
             return locale.respondDeviceInfoRequired()
         }
 
-        val user = userRepository.getUserSignInInfo(signInRequest.email)
-        if (user == null || !hashingService.verify(signInRequest.password, user.password)) {
-            logger.error("❌ signIn - Invalid credentials for email: ${signInRequest.email} (Took ${System.currentTimeMillis() - startTime} ms)")
-            return handleFailedLoginAttempt(signInRequest.email, locale)
+        // 1) Lockout + get user (DB read) dentro de tx
+        val preCheck = runCatching {
+            dbExecutor.tx {
+                val attempt = loginAttemptRepository.findByEmail(email)
+                val now = System.currentTimeMillis()
+
+                if (attempt?.lockedUntil != null && attempt.lockedUntil > now) {
+                    val remainingMinutes = ((attempt.lockedUntil - now) / 60000).coerceAtLeast(1)
+                    return@tx SignInPreCheck.Locked(remainingMinutes)
+                }
+
+                val user = userRepository.getUserSignInInfo(email)
+                SignInPreCheck.Ok(user)
+            }
+        }.getOrElse { error ->
+            logger.error("🔥 signIn - DB error on preCheck for email=$email", error)
+            return locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+            )
         }
 
-        handleSuccessfulLoginAttempt(signInRequest.email)
+        if (preCheck is SignInPreCheck.Locked) {
+            return locale.createError(
+                StringResourcesKey.AUTH_ACCOUNT_LOCKED_TITLE,
+                StringResourcesKey.AUTH_ACCOUNT_LOCKED_DESCRIPTION,
+                status = HttpStatusCode.Forbidden,
+                placeholders = mapOf("minutes" to preCheck.remainingMinutes.toString())
+            )
+        }
+
+        val user = (preCheck as SignInPreCheck.Ok).user
+
+        val credentialsOk = user != null && hashingService.verify(signInRequest.password, user.password)
+        if (!credentialsOk) {
+            logger.error("❌ signIn - Invalid credentials for email: $email (Took ${System.currentTimeMillis() - startTime} ms)")
+            return handleFailedLoginAttemptTx(email, locale)
+        }
+
+        runCatching {
+            dbExecutor.tx { loginAttemptRepository.delete(email) }
+        }.onFailure { error ->
+            logger.error("🔥 signIn - Failed to clear login attempts for email=$email", error)
+        }
+
+        user ?: run {
+            logger.error("🔥 signIn - User error - Not Expected")
+            return locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+            )
+        }
 
         return when (user.status) {
             UserStatus.BLOCKED -> {
                 logger.error("❌ signIn - User is blocked (Took ${System.currentTimeMillis() - startTime} ms)")
                 locale.respondSignInBlockedUserError()
             }
+
             UserStatus.SUSPENDED -> {
                 logger.error("❌ signIn - User is suspended (Took ${System.currentTimeMillis() - startTime} ms)")
                 locale.respondSignInSuspendedUserError()
             }
+
             UserStatus.ACTIVE -> {
-                logger.error("✅ signIn - Credentials verified, continuing to handleSuccessfulSignIn (Took ${System.currentTimeMillis() - startTime} ms)")
-                handleSuccessfulSignIn(user, signInRequest, jwtConfig, deviceInfo)
+                logger.info("✅ signIn - Credentials verified (Took ${System.currentTimeMillis() - startTime} ms)")
+
+                val providedDeviceId = signInRequest.deviceId
+
+                val deviceDecision = runCatching {
+                    dbExecutor.tx {
+                        val isKnownDevice = providedDeviceId?.let { deviceService.isValidDeviceIdForUser(it, user.userId) } ?: false
+                        val isTrustedDevice = providedDeviceId?.let { deviceService.isTrustedDeviceIdForUser(it, user.userId) } ?: false
+
+                        val resolvedDeviceId =
+                            if (isKnownDevice && providedDeviceId != null) {
+                                providedDeviceId
+                            } else {
+                                authRepository.createDevice(user.userId, deviceInfo, isTrusted = false)
+                            }
+
+                        val needsMfa = !isKnownDevice || !isTrustedDevice || !user.isEmailVerified
+
+                        SignInDeviceDecision(
+                            deviceId = resolvedDeviceId,
+                            needsMfa = needsMfa
+                        )
+                    }
+                }.getOrElse { error ->
+                    logger.error("🔥 signIn - Device resolution failed for user=${user.userId}", error)
+                    return locale.createError(
+                        StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                        StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+                    )
+                }
+
+                if (deviceDecision.needsMfa) {
+                    return AppResult.Success(
+                        AuthResponse(
+                            userId = user.userId,
+                            deviceId = deviceDecision.deviceId,
+                            authCode = AuthCode.SUCCESS_NEED_MFA
+                        )
+                    )
+                }
+
+                return generateAuthenticatedResponse(
+                    locale = locale,
+                    userId = user.userId,
+                    deviceId = deviceDecision.deviceId,
+                    userRole = user.userRole,
+                    jwtConfig = jwtConfig
+                )
             }
         }
     }
 
-    private suspend fun checkLockoutStatus(email: String, locale: Locale): AppResult.Failure? {
-        val attempt = loginAttemptRepository.findByEmail(email)
-        if (attempt?.lockedUntil != null && attempt.lockedUntil > System.currentTimeMillis()) {
-            val remainingLockoutMinutes = (attempt.lockedUntil - System.currentTimeMillis()) / 60000
+    private sealed interface SignInPreCheck {
+        data class Locked(val remainingMinutes: Long) : SignInPreCheck
+        data class Ok(val user: UserSignInInfo?) : SignInPreCheck
+    }
+
+    private data class SignInDeviceDecision(
+        val deviceId: UUID,
+        val needsMfa: Boolean
+    )
+
+    private suspend fun handleFailedLoginAttemptTx(email: String, locale: Locale): AppResult.Failure {
+        val result = runCatching {
+            dbExecutor.tx {
+                val attempt = loginAttemptRepository.findByEmail(email)
+                val newAttemptCount = (attempt?.attempts ?: 0) + 1
+
+                val now = System.currentTimeMillis()
+                val newLockedUntil: Long? = when {
+                    newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_3 ->
+                        now + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_3_HOURS.hours.inWholeMilliseconds
+
+                    newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_2 ->
+                        now + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_2_HOURS.hours.inWholeMilliseconds
+
+                    newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_1 ->
+                        now + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_1_MINUTES.minutes.inWholeMilliseconds
+
+                    else -> null
+                }
+
+                if (attempt == null) {
+                    loginAttemptRepository.create(email)
+                } else {
+                    loginAttemptRepository.update(email, newAttemptCount, now, newLockedUntil)
+                }
+
+                newLockedUntil
+            }
+        }.getOrElse { error ->
+            logger.error("🔥 signIn - Failed to update login attempts for email=$email", error)
             return locale.createError(
-                StringResourcesKey.AUTH_ACCOUNT_LOCKED_TITLE,
-                StringResourcesKey.AUTH_ACCOUNT_LOCKED_DESCRIPTION,
-                status = HttpStatusCode.Forbidden,
-                placeholders = mapOf("minutes" to remainingLockoutMinutes.toString())
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
             )
         }
-        return null
-    }
 
-    private suspend fun handleFailedLoginAttempt(email: String, locale: Locale): AppResult.Failure {
-        val attempt = loginAttemptRepository.findByEmail(email)
-        val newAttemptCount = (attempt?.attempts ?: 0) + 1
-
-        var newLockedUntil: Long? = null
-        when {
-            newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_3 -> {
-                newLockedUntil = System.currentTimeMillis() + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_3_HOURS.hours.inWholeMilliseconds
-            }
-            newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_2 -> {
-                newLockedUntil = System.currentTimeMillis() + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_2_HOURS.hours.inWholeMilliseconds
-            }
-            newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_1 -> {
-                newLockedUntil = System.currentTimeMillis() + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_1_MINUTES.minutes.inWholeMilliseconds
-            }
-        }
-
-        if (attempt == null) {
-            loginAttemptRepository.create(email)
-        } else {
-            loginAttemptRepository.update(email, newAttemptCount, System.currentTimeMillis(), newLockedUntil)
-        }
-
-        if (newLockedUntil != null) {
-            val remainingLockoutMinutes = (newLockedUntil - System.currentTimeMillis()) / 60000
+        if (result != null) {
+            val remainingMinutes = ((result - System.currentTimeMillis()) / 60000).coerceAtLeast(1)
             return locale.createError(
                 StringResourcesKey.AUTH_ACCOUNT_LOCKED_TITLE,
                 StringResourcesKey.AUTH_ACCOUNT_LOCKED_DESCRIPTION,
                 status = HttpStatusCode.Forbidden,
-                placeholders = mapOf("minutes" to remainingLockoutMinutes.toString())
+                placeholders = mapOf("minutes" to remainingMinutes.toString())
             )
         }
 
         return locale.respondInvalidSignInCredentialsError()
     }
 
-    private suspend fun handleSuccessfulLoginAttempt(email: String) {
-        loginAttemptRepository.delete(email)
-    }
+    suspend fun sendMFACode(
+        locale: Locale,
+        mfaCodeRequest: MfaCodeRequest
+    ): AppResult<MfaSendCodeResponse> {
 
-    suspend fun sendMFACode(locale: Locale, mfaCodeRequest: MfaCodeRequest): AppResult<MfaSendCodeResponse> {
-        val user = userRepository.getUserById(mfaCodeRequest.userId)
-            ?: return locale.respondUserNotFoundError()
+        val userId = mfaCodeRequest.userId
+        val deviceId = mfaCodeRequest.deviceId
+
+        // 1) DB read (user) dentro de tx
+        val user = runCatching {
+            dbExecutor.tx { userRepository.getUserById(userId) }
+        }.getOrElse { error ->
+            logger.error("🔥 sendMFACode getUserById DB error userId=$userId", error)
+            return locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError,
+                errorCode = ErrorCode.GENERAL_ERROR
+            )
+        } ?: return locale.respondUserNotFoundError()
 
         if (user.status == UserStatus.BLOCKED) {
             return locale.respondSignInBlockedUserError()
@@ -391,19 +599,47 @@ class AuthService(
         val expiresAt = MfaUtils.calculateExpiration(300)
         val hashedMfaCode = hashingService.hashOpaqueToken(code)
 
-        val creationResult = mfaCodeService.createMfaCode(
-            userId = user.id,
-            deviceId = mfaCodeRequest.deviceId,
-            hashedCode = hashedMfaCode,
-            channel = MfaChannel.EMAIL,
-            purpose = MfaPurpose.SIGN_IN,
-            expiresAt = expiresAt,
-            config = mfaRateLimitConfig
-        )
+        val creationResult = runCatching {
+            dbExecutor.tx {
+                mfaCodeService.createMfaCode(
+                    userId = user.id,
+                    deviceId = deviceId,
+                    hashedCode = hashedMfaCode,
+                    channel = MfaChannel.EMAIL,
+                    purpose = MfaPurpose.SIGN_IN,
+                    expiresAt = expiresAt,
+                    config = mfaRateLimitConfig
+                )
+            }
+        }.getOrElse { error ->
+            logger.error("🔥 sendMFACode createMfaCode DB error userId=${user.id}", error)
+            return locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError,
+                errorCode = ErrorCode.GENERAL_ERROR
+            )
+        }
 
         return when (creationResult) {
             is MfaCreationResult.Created -> {
-                emailService.sendMfaCodeEmail(user.email, code)
+                val emailSent = runCatching {
+                    emailService.sendMfaCodeEmail(user.email, code)
+                    true
+                }.getOrElse { error ->
+                    logger.error("📧 Failed to send MFA email userId=${user.id} email=${user.email}", error)
+                    false
+                }
+
+                if (!emailSent) {
+                    return locale.createError(
+                        titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                        descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                        status = HttpStatusCode.InternalServerError,
+                        errorCode = ErrorCode.GENERAL_ERROR
+                    )
+                }
+
                 logger.info("✅ Sent MFA code to user ${user.id} for purpose SIGN_IN")
                 AppResult.Success(
                     MfaSendCodeResponse(
@@ -412,19 +648,23 @@ class AuthService(
                     )
                 )
             }
+
             is MfaCreationResult.Cooldown -> {
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
                     descriptionKey = StringResourcesKey.MFA_COOLDOWN_DESCRIPTION,
                     status = HttpStatusCode.Conflict,
+                    errorCode = ErrorCode.TOO_MANY_REQUESTS,
                     placeholders = mapOf("seconds" to creationResult.retryAfterSeconds.toString())
                 )
             }
+
             is MfaCreationResult.Locked -> {
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_GENERATION_LOCKED_TITLE,
                     descriptionKey = StringResourcesKey.MFA_GENERATION_LOCKED_DESCRIPTION,
                     status = HttpStatusCode.Forbidden,
+                    errorCode = ErrorCode.MFA_GENERATION_LOCKED,
                     placeholders = mapOf("minutes" to creationResult.lockDurationMinutes.toString())
                 )
             }
@@ -436,25 +676,39 @@ class AuthService(
         mfaCodeVerificationRequest: MfaCodeVerificationRequest,
         jwtConfig: JWTConfig
     ): AppResult<AuthResponse> {
+
         val (userId, deviceId, code) = mfaCodeVerificationRequest
-
-        val latestCode = mfaCodeService.getLatestValidMfaCode(userId, deviceId, MfaPurpose.SIGN_IN)
-            ?: return locale.respondInvalidMfaCodeError()
-
         val hashedInput = hashingService.hashOpaqueToken(code)
 
-        val isValid = hashedInput == latestCode.hashedCode
-        if (!isValid) {
-            return locale.respondInvalidMfaCodeError()
-        }
+        val userRole = runCatching {
+            dbExecutor.tx {
+                val latestCode = mfaCodeService.getLatestValidMfaCode(
+                    userId,
+                    deviceId,
+                    MfaPurpose.SIGN_IN
+                ) ?: return@tx null
 
-        val userRole = userRepository.getUserById(userId)?.userRole ?: UserRole.PLAYER
+                if (hashedInput != latestCode.hashedCode) {
+                    return@tx null
+                }
 
-        authRepository.completeMfaVerification(userId, deviceId, latestCode.id)
+                val user = userRepository.getUserById(userId)
+                    ?: return@tx null
 
-        return generateAuthenticatedResponse(userId, deviceId, userRole, jwtConfig)
+                authRepository.completeMfaVerification(userId, deviceId, latestCode.id)
+
+                user.userRole
+            }
+        }.getOrElse { error ->
+            logger.error("🔥 verifyMfaCode DB error userId=$userId deviceId=$deviceId", error)
+            return locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+            )
+        } ?: return locale.respondInvalidMfaCodeError()
+
+        return generateAuthenticatedResponse(locale, userId, deviceId, userRole, jwtConfig)
     }
-
 
     suspend fun refreshJwtToken(
         locale: Locale,
@@ -464,44 +718,91 @@ class AuthService(
     ): AppResult<AuthResponse> {
 
         val (userId, deviceId) = refreshJWTRequest
-        val refreshTokenValidationInfo = refreshTokenRepository.getValidationInfo(deviceId)
-            ?: return locale.respondInvalidRefreshTokenError()
+        val plainRefresh = currentRefreshToken ?: return locale.respondInvalidRefreshTokenError()
 
-        val refreshTokenPayload = RefreshTokenPayload(
-            plainToken = currentRefreshToken ?: return locale.respondInvalidRefreshTokenError(),
-            hashedToken = refreshTokenValidationInfo.token,
-            expiresAt = refreshTokenValidationInfo.expiresAt
+        val dbData = runCatching {
+            dbExecutor.tx {
+                val validationInfo = refreshTokenRepository.getValidationInfo(deviceId) ?: return@tx null
+                val userRole = userRepository.getUserById(userId)?.userRole ?: UserRole.PLAYER
+                RefreshDbData(validationInfo, userRole)
+            }
+        }.getOrElse { error ->
+            logger.error("🔥 refreshJwtToken DB read error userId=$userId deviceId=$deviceId", error)
+            return locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+            )
+        } ?: return locale.respondInvalidRefreshTokenError()
+
+        val validationInfo = dbData.validationInfo
+        val userRole = dbData.userRole
+
+        val payload = RefreshTokenPayload(
+            plainToken = plainRefresh,
+            hashedToken = validationInfo.token,
+            expiresAt = validationInfo.expiresAt
         )
 
-        val isRefreshTokenValid = refreshTokenService.isValidRefreshToken(refreshTokenPayload)
-        if (!isRefreshTokenValid) return locale.respondInvalidRefreshTokenError()
-
-        val userRole = userRepository.getUserById(userId)?.userRole ?: UserRole.PLAYER
+        if (!refreshTokenService.isValidRefreshToken(payload)) {
+            return locale.respondInvalidRefreshTokenError()
+        }
 
         val claimConfig = ClaimConfig(userId, userRole)
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
 
+        val now = System.currentTimeMillis()
         val expiresSoon =
-            refreshTokenValidationInfo.expiresAt - System.currentTimeMillis() < jwtConfig.refreshTokenRotationThreshold.days.inWholeMilliseconds
+            validationInfo.expiresAt - now < jwtConfig.refreshTokenRotationThreshold.days.inWholeMilliseconds
 
-        val (refreshToken, authCode) = if (expiresSoon) {
+        var newRefreshToken: String? = null
+        val authCode: AuthCode
+
+        if (expiresSoon) {
             val newPayload = refreshTokenService.generateRefreshToken(jwtConfig.refreshTokenLifetime)
-            authRepository.rotateRefreshToken(userId, deviceId, newPayload)
-            newPayload.plainToken to AuthCode.REFRESHED_BOTH_TOKENS
+
+            val rotated = runCatching {
+                dbExecutor.tx { authRepository.rotateRefreshToken(userId, deviceId, newPayload) }
+                true
+            }.getOrElse { error ->
+                logger.error("🔥 refreshJwtToken rotateRefreshToken failed userId=$userId deviceId=$deviceId", error)
+                false
+            }
+
+            if (!rotated) {
+                return locale.createError(
+                    StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                    StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+                )
+            }
+
+            newRefreshToken = newPayload.plainToken
+            authCode = AuthCode.REFRESHED_BOTH_TOKENS
         } else {
-            null to AuthCode.REFRESHED_JWT
+            authCode = AuthCode.REFRESHED_JWT
         }
 
-        val authResponse = AuthResponse(
-            authTokenResponse = AuthTokenResponse(accessToken = accessToken, refreshToken = refreshToken),
-            authCode = authCode
+        return AppResult.Success(
+            AuthResponse(
+                authTokenResponse = AuthTokenResponse(
+                    accessToken = accessToken,
+                    refreshToken = newRefreshToken
+                ),
+                authCode = authCode
+            )
         )
-
-        return AppResult.Success(authResponse)
     }
 
+    private data class RefreshDbData(
+        val validationInfo: RefreshTokenValidationInfo,
+        val userRole: UserRole
+    )
+
+
     suspend fun signOut(locale: Locale, deviceId: UUID): AppResult<SignOutResponse> {
-        val wasRevoke = authRepository.revokeRefreshToken(deviceId)
+        val wasRevoke = dbExecutor.tx {
+            authRepository.revokeRefreshToken(deviceId)
+        }
+
         return if (wasRevoke) {
             AppResult.Success(
                 SignOutResponse(
@@ -516,8 +817,19 @@ class AuthService(
         locale: Locale,
         forgotPasswordRequest: ForgotPasswordRequest
     ): AppResult<ForgotPasswordResponse> {
-        val user = userRepository.findByEmail(forgotPasswordRequest.email)
-            ?: return locale.respondUserNotFoundError()
+
+        val email = forgotPasswordRequest.email
+
+        // 1) DB read (tx corta)
+        val user = runCatching {
+            dbExecutor.tx { userRepository.findByEmail(email) }
+        }.getOrElse { error ->
+            logger.error("🔥 forgotPassword getUser DB error email=$email", error)
+            return locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+            )
+        } ?: return locale.respondUserNotFoundError()
 
         if (user.status == UserStatus.BLOCKED) {
             return locale.respondSignInBlockedUserError()
@@ -526,24 +838,44 @@ class AuthService(
             return locale.respondUserNotVerifiedError()
         }
 
+        // 2) CPU fuera de tx
         val code = MfaUtils.generateCode()
-        val expiresAt = MfaUtils.calculateExpiration(300) // 5 minutes expiration
+        val expiresAt = MfaUtils.calculateExpiration(300)
         val hashedMfaCode = hashingService.hashOpaqueToken(code)
 
-        val creationResult = mfaCodeService.createMfaCode(
-            userId = user.id,
-            deviceId = null,
-            hashedCode = hashedMfaCode,
-            channel = MfaChannel.EMAIL,
-            purpose = MfaPurpose.PASSWORD_RESET,
-            expiresAt = expiresAt,
-            config = mfaRateLimitConfig
-        )
+        // 3) DB: rate-limit + deactivate + insert (tx corta)
+        val creationResult = runCatching {
+            dbExecutor.tx {
+                mfaCodeService.createMfaCode(
+                    userId = user.id,
+                    deviceId = null,
+                    hashedCode = hashedMfaCode,
+                    channel = MfaChannel.EMAIL,
+                    purpose = MfaPurpose.PASSWORD_RESET,
+                    expiresAt = expiresAt,
+                    config = mfaRateLimitConfig
+                )
+            }
+        }.getOrElse { error ->
+            logger.error("🔥 forgotPassword createMfaCode DB error userId=${user.id}", error)
+            return locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+            )
+        }
 
         return when (creationResult) {
             is MfaCreationResult.Created -> {
-                emailService.sendMfaPasswordResetEmail(user.email, code)
-                logger.info("✅ Sent password reset code to user ${user.id}")
+                runCatching {
+                    emailService.sendMfaPasswordResetEmail(user.email, code)
+                    logger.info("✅ Sent password reset code to user ${user.id}")
+                }.getOrElse { error ->
+                    logger.error("📧 Failed to send password reset email to userId=${user.id}", error)
+                    return locale.createError(
+                        StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                        StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+                    )
+                }
 
                 AppResult.Success(
                     ForgotPasswordResponse(
@@ -553,6 +885,7 @@ class AuthService(
                     )
                 )
             }
+
             is MfaCreationResult.Cooldown -> {
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
@@ -561,6 +894,7 @@ class AuthService(
                     placeholders = mapOf("seconds" to creationResult.retryAfterSeconds.toString())
                 )
             }
+
             is MfaCreationResult.Locked -> {
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_GENERATION_LOCKED_TITLE,
@@ -577,144 +911,182 @@ class AuthService(
         request: UpdatePasswordRequest,
         locale: Locale
     ): AppResult<UpdatePasswordResponse> {
-        val userId = when (val tokenVerificationResult = passwordResetTokenService.verifyResetToken(resetToken)) {
-            is TokenVerificationResult.Success -> tokenVerificationResult.userId
-            is TokenVerificationResult.Invalid -> return locale.createError(
+
+        // CPU fuera de tx
+        val hashedInputToken = passwordResetTokenService.hashToken(resetToken)
+        val hashedPassword = hashingService.hash(request.newPassword)
+        val now = System.currentTimeMillis()
+
+        val result = runCatching {
+            dbExecutor.tx {
+                val record = passwordResetTokenRepository.findByToken(hashedInputToken)
+                    ?: return@tx UpdatePasswordTxResult.InvalidToken
+
+                if (record.expiresAt < now) {
+                    passwordResetTokenRepository.delete(hashedInputToken)
+                    return@tx UpdatePasswordTxResult.ExpiredToken
+                }
+
+                val user = userRepository.getUserById(record.userId)
+                    ?: return@tx UpdatePasswordTxResult.UserNotFound
+
+                val updated = userRepository.updatePassword(user.id, hashedPassword)
+                if (!updated) return@tx UpdatePasswordTxResult.UpdateFailed
+
+                // DB: invalidar token usado + limpiar intentos
+                passwordResetTokenRepository.delete(hashedInputToken)
+                loginAttemptRepository.delete(user.email)
+
+                UpdatePasswordTxResult.Success
+            }
+        }.getOrElse { error ->
+            logger.error("🔥 updatePassword DB error", error)
+            return locale.createError(
+                StringResourcesKey.PASSWORD_UPDATE_FAILED_TITLE,
+                StringResourcesKey.PASSWORD_UPDATE_FAILED_DESCRIPTION,
+                status = HttpStatusCode.InternalServerError
+            )
+        }
+
+        return when (result) {
+            UpdatePasswordTxResult.InvalidToken -> locale.createError(
                 StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_TITLE,
                 StringResourcesKey.PASSWORD_RESET_TOKEN_INVALID_DESCRIPTION
             )
 
-            is TokenVerificationResult.Expired -> return locale.createError(
+            UpdatePasswordTxResult.ExpiredToken -> locale.createError(
                 StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_TITLE,
                 StringResourcesKey.PASSWORD_RESET_TOKEN_EXPIRED_DESCRIPTION
             )
-        }
 
-        val user = userRepository.getUserById(userId)
-            ?: return locale.respondUserNotFoundError()
+            UpdatePasswordTxResult.UserNotFound -> locale.respondUserNotFoundError()
 
-        val hashedPassword = hashingService.hash(request.newPassword)
-        val passwordUpdated = userRepository.updatePassword(userId, hashedPassword)
+            UpdatePasswordTxResult.UpdateFailed -> locale.createError(
+                StringResourcesKey.PASSWORD_UPDATE_FAILED_TITLE,
+                StringResourcesKey.PASSWORD_UPDATE_FAILED_DESCRIPTION,
+                status = HttpStatusCode.InternalServerError
+            )
 
-        if (passwordUpdated) {
-            passwordResetTokenService.invalidateToken(resetToken)
-            handleSuccessfulLoginAttempt(user.email)
-            return AppResult.Success(
+            UpdatePasswordTxResult.Success -> AppResult.Success(
                 UpdatePasswordResponse(
                     success = true,
                     message = locale.getString(StringResourcesKey.PASSWORD_UPDATE_SUCCESS_MESSAGE)
                 )
             )
         }
-
-        return locale.createError(
-            titleKey = StringResourcesKey.PASSWORD_UPDATE_FAILED_TITLE,
-            descriptionKey = StringResourcesKey.PASSWORD_UPDATE_FAILED_DESCRIPTION,
-            status = HttpStatusCode.InternalServerError
-        )
     }
+
+    private sealed interface UpdatePasswordTxResult {
+        data object InvalidToken : UpdatePasswordTxResult
+        data object ExpiredToken : UpdatePasswordTxResult
+        data object UserNotFound : UpdatePasswordTxResult
+        data object UpdateFailed : UpdatePasswordTxResult
+        data object Success : UpdatePasswordTxResult
+    }
+
 
     suspend fun verifyResetMfa(
         locale: Locale,
         verifyResetMfaRequest: VerifyResetMfaRequest,
     ): AppResult<VerifyResetMfaResponse> {
-        val userInfo =
-            userRepository.getUserById(verifyResetMfaRequest.userId) ?: return locale.respondUserNotFoundError()
 
-        val latestCode = mfaCodeService.getLatestValidMfaCode(userInfo.id, null, MfaPurpose.PASSWORD_RESET)
-            ?: return locale.respondInvalidMfaCodeError()
+        val userId = verifyResetMfaRequest.userId
 
+        // CPU fuera de tx
         val hashedInput = hashingService.hashOpaqueToken(verifyResetMfaRequest.code)
 
-        val isValid = hashedInput == latestCode.hashedCode
-        if (!isValid) {
-            return locale.respondInvalidMfaCodeError()
-        }
+        // CPU fuera de tx (token material listo para persistir)
+        val tokenData = passwordResetTokenService.generateResetTokenData()
 
-        authRepository.completeForgotPasswordMfaVerification(latestCode.id)
+        val result = runCatching {
+            dbExecutor.tx {
+                val user = userRepository.getUserById(userId)
+                    ?: return@tx ResetMfaResult.UserNotFound
 
-        return generateResetPasswordTokenResponse(userInfo.id)
-    }
+                val latestCode = mfaCodeService.getLatestValidMfaCode(
+                    userId = user.id,
+                    deviceId = null,
+                    purpose = MfaPurpose.PASSWORD_RESET
+                ) ?: return@tx ResetMfaResult.InvalidCode
 
+                if (hashedInput != latestCode.hashedCode) {
+                    return@tx ResetMfaResult.InvalidCode
+                }
 
-    private suspend fun handleSuccessfulSignIn(
-        user: UserSignInInfo,
-        signInRequest: SignInRequest,
-        jwtConfig: JWTConfig,
-        deviceInfo: String
-    ): AppResult<AuthResponse> {
-        val startTime = System.currentTimeMillis()
+                // DB: marcar MFA como verificado
+                authRepository.completeForgotPasswordMfaVerification(latestCode.id)
 
-        val providedDeviceId = signInRequest.deviceId
-        logger.info("🔐 SignIn - Provided device ID: $providedDeviceId")
-        val isKnownDevice = isKnownDeviceForUser(providedDeviceId, user.userId)
-        val isDeviceTrusted =
-            providedDeviceId?.let { deviceService.isTrustedDeviceIdForUser(providedDeviceId, user.userId) } ?: false
-        logger.info("🔐 SignIn - Is known device: $isKnownDevice, Is trusted device: $isDeviceTrusted")
-        val currentDeviceId = resolveDeviceId(providedDeviceId, isKnownDevice, deviceInfo, user.userId)
-        logger.info("🔐 SignIn - Resolved device ID: $currentDeviceId")
+                // DB: invalidar tokens anteriores y guardar el nuevo
+                passwordResetTokenRepository.deleteByUserId(user.id)
+                passwordResetTokenRepository.create(
+                    tokenData.hashedToken,
+                    user.id,
+                    tokenData.expiresAt
+                )
 
-        val needsMFA = !isKnownDevice || !isDeviceTrusted || !user.isEmailVerified
-        logger.info("🔐 SignIn - Needs MFA: $needsMFA (Email Verified: ${user.isEmailVerified})")
-
-        if (needsMFA) {
-            val duration = System.currentTimeMillis() - startTime
-            logger.info("🛡️ SignIn - MFA required, returning challenge (Took $duration ms)")
-            return respondMFARequired(currentDeviceId, user.userId)
-        }
-
-        val duration = System.currentTimeMillis() - startTime
-        logger.info("✅ SignIn - Authenticated without MFA (Took $duration ms)")
-        return generateAuthenticatedResponse(user.userId, currentDeviceId, user.userRole, jwtConfig)
-    }
-
-    private suspend fun isKnownDeviceForUser(deviceId: UUID?, userId: UUID): Boolean {
-        return deviceId?.let {
-            deviceService.isValidDeviceIdForUser(it, userId)
-        } ?: false
-    }
-
-    private suspend fun resolveDeviceId(
-        providedDeviceId: UUID?,
-        isKnownDevice: Boolean,
-        deviceInfo: String,
-        userId: UUID
-    ): UUID {
-        return when {
-            isKnownDevice && providedDeviceId != null -> providedDeviceId
-            else -> authRepository.createDevice(userId, deviceInfo)
-        }
-    }
-
-    private fun respondMFARequired(deviceId: UUID, userId: UUID): AppResult<AuthResponse> {
-        return AppResult.Success(
-            AuthResponse(
-                userId = userId,
-                deviceId = deviceId,
-                authCode = AuthCode.SUCCESS_NEED_MFA
+                ResetMfaResult.Success(tokenData.plainToken)
+            }
+        }.getOrElse { error ->
+            logger.error("🔥 verifyResetMfa DB error userId=$userId", error)
+            return locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
             )
-        )
+        }
+
+        return when (result) {
+            ResetMfaResult.UserNotFound -> locale.respondUserNotFoundError()
+            ResetMfaResult.InvalidCode -> locale.respondInvalidMfaCodeError()
+            is ResetMfaResult.Success -> AppResult.Success(VerifyResetMfaResponse(result.resetToken))
+        }
+    }
+
+
+    private sealed interface ResetMfaResult {
+        data object UserNotFound : ResetMfaResult
+        data object InvalidCode : ResetMfaResult
+        data class Success(val resetToken: String) : ResetMfaResult
     }
 
     private suspend fun generateAuthenticatedResponse(
+        locale: Locale,
         userId: UUID,
         deviceId: UUID,
         userRole: UserRole,
         jwtConfig: JWTConfig
     ): AppResult<AuthResponse> {
         val start = System.currentTimeMillis()
+
         val claimConfig = ClaimConfig(userId, userRole)
-        val token = authTokenService.createAuthToken(claimConfig, jwtConfig)
+        val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
         val refreshTokenPayload = refreshTokenService.generateRefreshToken(jwtConfig.refreshTokenLifetime)
 
-        authRepository.rotateRefreshToken(userId, deviceId, refreshTokenPayload)
+        val rotated = runCatching {
+            dbExecutor.tx {
+                authRepository.rotateRefreshToken(userId, deviceId, refreshTokenPayload)
+            }
+            true
+        }.getOrElse { error ->
+            logger.error("🔥 rotateRefreshToken failed for userId=$userId deviceId=$deviceId", error)
+            false
+        }
+
+        if (!rotated) {
+            return locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError,
+                errorCode = ErrorCode.GENERAL_ERROR
+            )
+        }
 
         val duration = System.currentTimeMillis() - start
         logger.info("✅ JWT + RefreshToken generated in $duration ms")
+
         return AppResult.Success(
             AuthResponse(
                 authTokenResponse = AuthTokenResponse(
-                    accessToken = token,
+                    accessToken = accessToken,
                     refreshToken = refreshTokenPayload.plainToken
                 ),
                 userId = userId,
@@ -723,14 +1095,6 @@ class AuthService(
             )
         )
     }
-
-    private suspend fun generateResetPasswordTokenResponse(
-        userId: UUID,
-    ): AppResult<VerifyResetMfaResponse> {
-        val resetToken = passwordResetTokenService.createAndSaveResetToken(userId)
-        return AppResult.Success(VerifyResetMfaResponse(resetToken))
-    }
-
 
     private fun Locale.respondUserNotFoundError(): AppResult.Failure =
         createError(
@@ -750,7 +1114,7 @@ class AuthService(
         StringResourcesKey.AUTH_DEVICE_INFO_REQUIRED_TITLE,
         StringResourcesKey.AUTH_DEVICE_INFO_REQUIRED_DESCRIPTION,
         status = HttpStatusCode.BadRequest
-        )
+    )
 
     private fun Locale.respondIsEmailAlreadyRegisteredError(): AppResult.Failure =
         createError(
@@ -814,3 +1178,5 @@ class AuthService(
     )
 
 }
+
+

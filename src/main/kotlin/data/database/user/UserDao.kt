@@ -31,8 +31,8 @@ class UserDao {
         return result[UserTable.id]
     }
 
-    suspend fun create(pendingUser: PendingUser): User? = dbQuery {
-        UserTable.insert {
+    fun create(pendingUser: PendingUser): User? {
+        return UserTable.insert {
             it[name] = pendingUser.name
             it[lastName] = pendingUser.lastName
             it[email] = pendingUser.email
@@ -52,8 +52,8 @@ class UserDao {
         }.resultedValues?.singleOrNull()?.let(::rowToUser)
     }
 
-    suspend fun getUserById(id: UUID): UserBaseInfo? = dbQuery {
-        UserTable
+    fun getUserById(id: UUID): UserBaseInfo? {
+        return UserTable
             .select(
                 UserTable.id,
                 UserTable.name,
@@ -77,14 +77,14 @@ class UserDao {
             .singleOrNull()
     }
 
-    suspend fun findByEmail(email: String): UserBaseInfo? = dbQuery {
-        UserTable.selectAll().where { UserTable.email eq email }
+    fun findByEmail(email: String): UserBaseInfo? {
+        return UserTable.selectAll().where { UserTable.email eq email }
             .mapNotNull { rowToUserResponse(it) }
             .singleOrNull()
     }
 
-    suspend fun isEmailAlreadyRegistered(email: String): Boolean = dbQuery {
-        !UserTable.select(UserTable.email).where { UserTable.email eq email }.limit(1).empty()
+    fun isEmailAlreadyRegistered(email: String): Boolean {
+        return !UserTable.select(UserTable.email).where { UserTable.email eq email }.limit(1).empty()
     }
 
     suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean = dbQuery {
@@ -101,7 +101,13 @@ class UserDao {
     }
 
     fun getUserSignInInfo(email: String): UserSignInInfo? {
-        val user = UserTable.select(UserTable.id, UserTable.role, UserTable.password, UserTable.status, UserTable.isEmailVerified)
+        val user = UserTable.select(
+            UserTable.id,
+            UserTable.role,
+            UserTable.password,
+            UserTable.status,
+            UserTable.isEmailVerified
+        )
             .where { UserTable.email eq email }.limit(1)
             .mapNotNull { resultRow ->
                 UserSignInInfo(
@@ -133,8 +139,8 @@ class UserDao {
         rowsUpdated > 0
     }
 
-    suspend fun updatePassword(userId: UUID, hashedPassword: String): Boolean = dbQuery {
-        UserTable.update({ UserTable.id eq userId }) {
+    fun updatePassword(userId: UUID, hashedPassword: String): Boolean {
+        return UserTable.update({ UserTable.id eq userId }) {
             it[password] = hashedPassword
             it[updatedAt] = System.currentTimeMillis()
         } > 0

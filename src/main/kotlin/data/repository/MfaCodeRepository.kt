@@ -6,7 +6,7 @@ import model.mfa.MfaPurpose
 import java.util.*
 
 interface MfaCodeRepository {
-    suspend fun createMfaCode(
+    fun createMfaCode(
         userId: UUID,
         deviceId: UUID?,
         hashedCode: String,
@@ -15,11 +15,11 @@ interface MfaCodeRepository {
         expiresAt: Long
     ): UUID
 
-    suspend fun getLatestActiveMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData?
-    suspend fun findLatestMfaCode(userId: UUID, purpose: MfaPurpose): MfaData?
-    suspend fun findLatestMfaCodeSince(userId: UUID, purpose: MfaPurpose, since: Long): MfaData?
-    suspend fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long
-    suspend fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int
+    fun getLatestActiveMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData?
+    fun findLatestMfaCode(userId: UUID, purpose: MfaPurpose): MfaData?
+    fun findLatestMfaCodeSince(userId: UUID, purpose: MfaPurpose, since: Long): MfaData?
+    fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long
+    fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int
     suspend fun deleteExpiredMfaCodes(): Boolean
     suspend fun deleteById(codeId: UUID): Boolean
 }

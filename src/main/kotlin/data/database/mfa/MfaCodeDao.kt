@@ -11,14 +11,14 @@ import java.util.*
 
 class MfaCodeDao {
 
-    suspend fun createMfaCode(
+    fun createMfaCode(
         userId: UUID,
         deviceId: UUID?,
         hashedCode: String,
         channel: MfaChannel,
         purpose: MfaPurpose,
         expiresAt: Long
-    ): UUID = dbQuery {
+    ): UUID {
 
         val result = MfaCodeTable.insert {
             it[MfaCodeTable.userId] = userId
@@ -32,11 +32,11 @@ class MfaCodeDao {
             it[isActive] = true
         }
 
-        result[MfaCodeTable.id]
+        return result[MfaCodeTable.id]
     }
 
-    suspend fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int = dbQuery {
-        MfaCodeTable.update({
+    fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int {
+        return MfaCodeTable.update({
             (MfaCodeTable.userId eq userId) and
                     (MfaCodeTable.purpose eq purpose) and
                     (MfaCodeTable.isActive eq true)
@@ -45,8 +45,8 @@ class MfaCodeDao {
         }
     }
 
-    suspend fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long = dbQuery {
-        MfaCodeTable
+    fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long {
+        return MfaCodeTable
             .selectAll()
             .where {
                 (MfaCodeTable.userId eq userId) and
@@ -105,7 +105,7 @@ class MfaCodeDao {
             it[verifiedAt] = System.currentTimeMillis()
         } > 0
 
-    suspend fun deleteExpiredMFACodes():Boolean {
+    suspend fun deleteExpiredMFACodes(): Boolean {
         return dbQuery {
             MfaCodeTable.deleteWhere {
                 expiresAt less System.currentTimeMillis() or (verified eq true)
@@ -114,7 +114,7 @@ class MfaCodeDao {
     }
 
     suspend fun deleteById(codeId: UUID): Boolean = dbQuery {
-        MfaCodeTable.deleteWhere { MfaCodeTable.id eq codeId } > 0
+        MfaCodeTable.deleteWhere { id eq codeId } > 0
     }
 
     private fun ResultRow.toMfaData(): MfaData = MfaData(

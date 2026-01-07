@@ -8,7 +8,7 @@ import java.util.*
 interface RefreshTokenRepository {
     suspend fun saveToken(userId: UUID, deviceId: UUID, refreshTokenPayload: RefreshTokenPayload): UUID
     suspend fun findLatestTokenByUserId(userId: UUID): RefreshTokenRecord?
-    suspend fun getValidationInfo(deviceId: UUID): RefreshTokenValidationInfo?
+    fun getValidationInfo(deviceId: UUID): RefreshTokenValidationInfo?
     suspend fun deleteRevokedTokens(): Boolean
 }
 
