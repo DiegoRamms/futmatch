@@ -3,8 +3,8 @@ package com.devapplab.di
 import com.devapplab.data.database.device.DeviceDao
 import com.devapplab.data.database.field.FieldDao
 import com.devapplab.data.database.field.FieldImageDao
-import com.devapplab.data.database.login_attempt.LoginAttemptDao
-import com.devapplab.data.database.login_attempt.LoginAttemptDaoImpl
+import com.devapplab.data.database.login_attempt.LoginAttemptDAO
+
 import com.devapplab.data.database.match.MatchDao
 import com.devapplab.data.database.match.MatchWithFieldDao
 import com.devapplab.data.database.password_reset.PasswordResetTokenDao
@@ -28,6 +28,6 @@ val daoModule = module {
     singleOf(::MatchDao)
     singleOf(::MatchWithFieldDao)
     singleOf(::PasswordResetTokenDaoImpl) { bind<PasswordResetTokenDao>() }
-    singleOf(::LoginAttemptDaoImpl) { bind<LoginAttemptDao>() }
+    singleOf(::LoginAttemptDAO)
     singleOf(::PendingRegistrationDaoImpl) { bind<PendingRegistrationDao>() }
 }

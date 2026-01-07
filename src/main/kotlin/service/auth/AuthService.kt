@@ -429,14 +429,14 @@ class AuthService(
 
         val credentialsOk = user != null && hashingService.verify(signInRequest.password, user.password)
         if (!credentialsOk) {
-            logger.error("❌ signIn - Invalid credentials for email: $email (Took ${System.currentTimeMillis() - startTime} ms)")
+            logger.error("❌ signIn - Invalid credentials (Took ${System.currentTimeMillis() - startTime} ms)")
             return handleFailedLoginAttemptTx(email, locale)
         }
 
         runCatching {
             dbExecutor.tx { loginAttemptRepository.delete(email) }
         }.onFailure { error ->
-            logger.error("🔥 signIn - Failed to clear login attempts for email=$email", error)
+            logger.error("🔥 signIn - Failed to clear login attempts", error)
         }
 
         user ?: run {
