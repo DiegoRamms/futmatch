@@ -20,7 +20,6 @@ import io.ktor.server.config.*
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
-import service.auth.DeviceService
 import service.email.EmailService
 import service.email.EmailServiceImpl
 import service.image.ImageService
@@ -42,7 +41,6 @@ val serviceModule = module {
     singleOf(::HashingServiceImpl) { bind<HashingService>() }
     singleOf(::JWTService) { bind<AuthTokenService>() }
     singleOf(::RefreshTokenServiceImp) { bind<RefreshTokenService>() }
-    singleOf(::DeviceService)
     singleOf(::MfaCodeService)
     singleOf(::EmailServiceImpl) { bind<EmailService>() }
     singleOf(::FieldService)

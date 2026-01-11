@@ -1,7 +1,6 @@
 package com.devapplab.service.auth
 
 import com.devapplab.data.database.executor.DbExecutor
-import com.devapplab.data.repository.AuthRepository
 import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.UserRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
@@ -31,13 +30,14 @@ import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.password_reset.PasswordResetTokenService
 import com.devapplab.utils.*
+import data.repository.auth.AuthRepository
+import data.repository.device.DeviceRepository
 import io.ktor.http.*
 import model.auth.RefreshTokenValidationInfo
 import model.mfa.*
 import model.user.User
 import model.user.UserRole
 import org.slf4j.LoggerFactory
-import service.auth.DeviceService
 import service.auth.state.CompleteRegistrationAbort
 import service.auth.state.CompleteRegistrationFailure
 import service.auth.state.ResendRegistrationCodeDecision
@@ -59,7 +59,7 @@ class AuthService(
     private val refreshTokenService: RefreshTokenService,
     private val passwordResetTokenService: PasswordResetTokenService,
     private val passwordResetTokenRepository: PasswordResetTokenRepository,
-    private val deviceService: DeviceService,
+    private val deviceRepository: DeviceRepository,
     private val mfaCodeService: MfaCodeService,
     private val emailService: EmailService,
     private val authRepository: AuthRepository,
@@ -107,7 +107,10 @@ class AuthService(
 
         val userWithPasswordHashed = user.copy(password = hashingService.hash(user.password))
 
-        val authUserSavedData = authRepository.createUserWithDevice(userWithPasswordHashed, deviceInfo)
+        val authUserSavedData = dbExecutor.tx {
+            authRepository.createUserWithDevice(userWithPasswordHashed, deviceInfo)
+        }
+
 
         val appResponse = AuthResponse(
             deviceId = authUserSavedData.deviceId,
@@ -229,7 +232,6 @@ class AuthService(
                 val userId = savedUser.id
                     ?: throw CompleteRegistrationAbort(CompleteRegistrationFailure.MissingUserId)
 
-                // Limpieza relacionada (misma tx)
                 pendingRegistrationRepository.delete(pendingRegistration.id)
                 loginAttemptRepository.delete(savedUser.email)
 
@@ -465,8 +467,8 @@ class AuthService(
 
                 val deviceDecision = runCatching {
                     dbExecutor.tx {
-                        val isKnownDevice = providedDeviceId?.let { deviceService.isValidDeviceIdForUser(it, user.userId) } ?: false
-                        val isTrustedDevice = providedDeviceId?.let { deviceService.isTrustedDeviceIdForUser(it, user.userId) } ?: false
+                        val isKnownDevice = providedDeviceId?.let { deviceRepository.isValidDeviceIdForUser(it, user.userId) } ?: false
+                        val isTrustedDevice = providedDeviceId?.let { deviceRepository.isTrustedDeviceIdForUser(it, user.userId) } ?: false
 
                         val resolvedDeviceId =
                             if (isKnownDevice && providedDeviceId != null) {

@@ -9,10 +9,12 @@ import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepositoryImpl
 import com.devapplab.data.repository.pending_registrations.PendingRegistrationRepository
 import com.devapplab.data.repository.pending_registrations.PendingRegistrationRepositoryImpl
-import data.repository.DeviceRepositoryImpl
 import data.repository.MfaCodeRepositoryImpl
 import data.repository.RefreshTokenRepositoryImp
 import data.repository.UserRepositoryImpl
+import data.repository.auth.AuthRepository
+import data.repository.device.DeviceRepository
+import data.repository.device.DeviceRepositoryImpl
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module

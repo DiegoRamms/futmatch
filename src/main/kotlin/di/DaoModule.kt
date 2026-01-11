@@ -1,6 +1,6 @@
 package com.devapplab.di
 
-import com.devapplab.data.database.device.DeviceDao
+import com.devapplab.data.database.device.DeviceDAO
 import com.devapplab.data.database.field.FieldDao
 import com.devapplab.data.database.field.FieldImageDao
 import com.devapplab.data.database.login_attempt.LoginAttemptDAO
@@ -21,7 +21,7 @@ import org.koin.dsl.module
 val daoModule = module {
     singleOf(::UserDao)
     singleOf(::RefreshTokenDao)
-    singleOf(::DeviceDao)
+    singleOf(::DeviceDAO)
     singleOf(::MfaCodeDao)
     singleOf(::FieldDao)
     singleOf(::FieldImageDao)
