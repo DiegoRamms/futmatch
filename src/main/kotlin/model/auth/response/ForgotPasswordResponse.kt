@@ -9,5 +9,6 @@ data class ForgotPasswordResponse(
     @Serializable(with = UUIDSerializer::class)
     val userId: UUID,
     val newCodeSent: Boolean,
-    val expiresInSeconds: Long
+    val expiresInSeconds: Long,
+    val resendCodeTimeInSeconds: Long
 )

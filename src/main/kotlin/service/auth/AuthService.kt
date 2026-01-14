@@ -172,7 +172,8 @@ class AuthService(
         return AppResult.Success(
             SimpleResponse(
                 success = true,
-                message = locale.getString(StringResourcesKey.REGISTRATION_EMAIL_SENT_MESSAGE)
+                message = locale.getString(StringResourcesKey.REGISTRATION_EMAIL_SENT_MESSAGE),
+                resendCodeTimeInSeconds = RegistrationPolicy.RESEND_COOLDOWN.inWholeSeconds
             )
         )
     }
@@ -368,7 +369,8 @@ class AuthService(
                     AppResult.Success(
                         SimpleResponse(
                             success = true,
-                            message = locale.getString(StringResourcesKey.REGISTRATION_RESEND_SUCCESS_MESSAGE)
+                            message = locale.getString(StringResourcesKey.REGISTRATION_RESEND_SUCCESS_MESSAGE),
+                            resendCodeTimeInSeconds = RegistrationPolicy.RESEND_COOLDOWN.inWholeSeconds
                         )
                     )
                 }.getOrElse { error ->
@@ -646,7 +648,8 @@ class AuthService(
                 AppResult.Success(
                     MfaSendCodeResponse(
                         newCodeSent = true,
-                        expiresInSeconds = creationResult.expiresInSeconds
+                        expiresInSeconds = creationResult.expiresInSeconds,
+                        resendCodeTimeInSeconds = mfaRateLimitConfig.minWaitSeconds
                     )
                 )
             }
@@ -883,7 +886,8 @@ class AuthService(
                     ForgotPasswordResponse(
                         userId = user.id,
                         newCodeSent = true,
-                        expiresInSeconds = creationResult.expiresInSeconds
+                        expiresInSeconds = creationResult.expiresInSeconds,
+                        resendCodeTimeInSeconds = mfaRateLimitConfig.minWaitSeconds
                     )
                 )
             }
