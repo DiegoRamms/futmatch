@@ -1,4 +1,4 @@
-package com.devapplab.model.user.request
+package model.user.request
 
 import kotlinx.serialization.Serializable
 

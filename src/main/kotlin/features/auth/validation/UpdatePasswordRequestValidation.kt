@@ -1,6 +1,6 @@
 package com.devapplab.features.auth.validation
 
-import com.devapplab.model.user.request.UpdatePasswordRequest
+import model.user.request.UpdatePasswordRequest
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.isValidPassword
 import io.ktor.server.plugins.requestvalidation.*

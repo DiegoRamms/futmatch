@@ -15,7 +15,9 @@ fun Application.configureKoin() {
             repositoryModule,
             serviceModule,
             controllerModule,
-            stringModule
+            stringModule,
+            httpClientModule,
+            configModule
         )
     }
 }

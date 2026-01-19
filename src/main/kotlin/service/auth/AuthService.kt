@@ -21,7 +21,7 @@ import com.devapplab.model.auth.response.*
 import com.devapplab.model.mfa.response.MfaSendCodeResponse
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.UserStatus
-import com.devapplab.model.user.request.UpdatePasswordRequest
+import model.user.request.UpdatePasswordRequest
 import com.devapplab.model.user.response.UpdatePasswordResponse
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.mfa.MfaCodeService

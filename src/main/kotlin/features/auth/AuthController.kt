@@ -3,7 +3,7 @@ package com.devapplab.features.auth
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.request.*
 import com.devapplab.model.auth.response.RefreshJWTRequest
-import com.devapplab.model.user.request.UpdatePasswordRequest
+import model.user.request.UpdatePasswordRequest
 import com.devapplab.service.auth.AuthService
 import com.devapplab.utils.*
 import io.ktor.server.application.*

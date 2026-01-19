@@ -15,7 +15,7 @@ fun CreateMatchRequest.validate(): ValidationResult {
         maxPlayers <= 0 ->
             ValidationResult.Invalid(StringResourcesKey.MATCH_MAX_PLAYERS_INVALID_ERROR.value)
 
-        minPlayersRequired <= 0 || minPlayersRequired > maxPlayers ->
+        minPlayersRequired !in 1..maxPlayers ->
             ValidationResult.Invalid(StringResourcesKey.MATCH_MIN_PLAYERS_INVALID_ERROR.value)
 
         matchPriceInCents <= 0L ->

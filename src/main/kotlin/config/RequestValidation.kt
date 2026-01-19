@@ -7,7 +7,7 @@ import com.devapplab.model.auth.request.*
 import com.devapplab.model.auth.response.RefreshJWTRequest
 import com.devapplab.model.field.request.CreateFieldRequest
 import com.devapplab.model.match.request.CreateMatchRequest
-import com.devapplab.model.user.request.UpdatePasswordRequest
+import model.user.request.UpdatePasswordRequest
 import io.ktor.server.application.*
 import io.ktor.server.plugins.requestvalidation.*
 import model.field.request.UpdateFieldRequest
