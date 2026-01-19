@@ -2,6 +2,8 @@ package service.email
 
 import com.devapplab.model.EmailConfig
 import com.devapplab.service.email.getHtmlTemplate
+import com.devapplab.utils.StringResourcesKey
+import com.devapplab.utils.getString
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -10,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
+import java.util.Locale
 
 
 /**
@@ -27,46 +30,64 @@ class RealEmailServiceTestImp(
     private val logger = LoggerFactory.getLogger(this::class.java)
 
 
-    override suspend fun sendMfaCodeEmail(to: String, code: String): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun sendMfaCodeEmail(to: String, code: String, locale: Locale): Boolean = withContext(Dispatchers.IO) {
+        val title = locale.getString(StringResourcesKey.EMAIL_MFA_TITLE)
+        val message = locale.getString(StringResourcesKey.EMAIL_MFA_MESSAGE)
+        val subject = locale.getString(StringResourcesKey.EMAIL_MFA_SUBJECT)
+        val footerText = locale.getString(StringResourcesKey.EMAIL_FOOTER_TEXT)
+
         val htmlContent = getHtmlTemplate(
-            title = "Your MFA Code",
-            message = "Use the following code to complete your login. This code will expire in 5 minutes.",
-            code = code
+            title = title,
+            message = message,
+            code = code,
+            footerText = footerText
         )
         sendEmail(
             to = "futmatch1411@gmail.com",
-            subject = "Your MFA Code",
-            text = "Your MFA code is: $code. It expires in 5 minutes.",
+            subject = subject,
+            text = "$message $code",
             html = htmlContent,
             category = "MFA Code"
         )
     }
 
-    override suspend fun sendMfaPasswordResetEmail(to: String, code: String): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun sendMfaPasswordResetEmail(to: String, code: String, locale: Locale): Boolean = withContext(Dispatchers.IO) {
+        val title = locale.getString(StringResourcesKey.EMAIL_PASSWORD_RESET_TITLE)
+        val message = locale.getString(StringResourcesKey.EMAIL_PASSWORD_RESET_MESSAGE)
+        val subject = locale.getString(StringResourcesKey.EMAIL_PASSWORD_RESET_SUBJECT)
+        val footerText = locale.getString(StringResourcesKey.EMAIL_FOOTER_TEXT)
+
         val htmlContent = getHtmlTemplate(
-            title = "Password Reset",
-            message = "You requested a password reset. Use the code below to proceed. This code expires in 10 minutes.",
-            code = code
+            title = title,
+            message = message,
+            code = code,
+            footerText = footerText
         )
         sendEmail(
             to = "futmatch1411@gmail.com",
-            subject = "Password Reset Code",
-            text = "Your password reset code is: $code. It expires in 10 minutes.",
+            subject = subject,
+            text = "$message $code",
             html = htmlContent,
             category = "Password Reset"
         )
     }
 
-    override suspend fun sendRegistrationEmail(to: String, code: String): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun sendRegistrationEmail(to: String, code: String, locale: Locale): Boolean = withContext(Dispatchers.IO) {
+        val title = locale.getString(StringResourcesKey.EMAIL_REGISTRATION_TITLE)
+        val message = locale.getString(StringResourcesKey.EMAIL_REGISTRATION_MESSAGE)
+        val subject = locale.getString(StringResourcesKey.EMAIL_REGISTRATION_SUBJECT)
+        val footerText = locale.getString(StringResourcesKey.EMAIL_FOOTER_TEXT)
+
         val htmlContent = getHtmlTemplate(
-            title = "Welcome to Futmatch!",
-            message = "Thank you for registering! Please use the code below to verify your account. This code expires in 1 hour.",
-            code = code
+            title = title,
+            message = message,
+            code = code,
+            footerText = footerText
         )
         sendEmail(
             to = "futmatch1411@gmail.com",
-            subject = "Welcome to Futmatch!",
-            text = "Welcome! Your registration code is: $code. It expires in 1 hour.",
+            subject = subject,
+            text = "$message $code",
             html = htmlContent,
             category = "Registration"
         )

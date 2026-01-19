@@ -1,14 +1,15 @@
 package com.devapplab.service.email
 
- fun getHtmlTemplate(title: String, message: String, code: String): String {
-    val backgroundColor = "#111318" // backgroundDark
-    val containerColor = "#1B2023" // surfaceContainerDark
-    val textColor = "#E1E2E9" // onBackgroundDark
-    val accentColor = "#A7C8FF" // primaryDark
-    val secondaryAccent = "#D7BAFB" // tertiaryDark
-    val surfaceDim = "#0F1417" // surfaceDimDark
+fun getHtmlTemplate(title: String, message: String, code: String, footerText: String): String {
+   // Web 3.0 / Dark Theme Colors
+   val backgroundColor = "#111318" // backgroundDark
+   val containerColor = "#1B2023" // surfaceContainerDark
+   val textColor = "#E1E2E9" // onBackgroundDark
+   val accentColor = "#A7C8FF" // primaryDark
+   val secondaryAccent = "#D7BAFB" // tertiaryDark
+   val surfaceDim = "#0F1417" // surfaceDimDark
 
-    return """
+   return """
             <!DOCTYPE html>
             <html>
             <head>
@@ -127,7 +128,7 @@ package com.devapplab.service.email
                         </div>
                     </div>
                     <div class="footer">
-                        <p>&copy; 2026 Futmatch. Decentralizing Football.</p>
+                        <p>$footerText</p>
                     </div>
                 </div>
             </body>

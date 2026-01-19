@@ -49,7 +49,6 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-// TODO TEST All endpoints
 
 class AuthService(
     private val dbExecutor: DbExecutor,
@@ -162,7 +161,7 @@ class AuthService(
 
         if (shouldSendEmail) {
             runCatching {
-                emailService.sendRegistrationEmail(email, verificationCode)
+                emailService.sendRegistrationEmail(email, verificationCode, locale)
                 logger.info("✅ Sent registration verification code to $email")
             }.onFailure { error ->
                 logger.error("📧 Failed to send registration email to $email", error)
@@ -363,7 +362,7 @@ class AuthService(
 
             ResendRegistrationCodeDecision.SendEmail -> {
                 return runCatching {
-                    emailService.sendRegistrationEmail(email, newVerificationCode)
+                    emailService.sendRegistrationEmail(email, newVerificationCode, locale)
                     logger.info("✅ Resent registration verification code to $email")
 
                     AppResult.Success(
@@ -504,7 +503,7 @@ class AuthService(
                     )
                 }
 
-                return generateAuthenticatedResponse(
+                generateAuthenticatedResponse(
                     locale = locale,
                     userId = user.userId,
                     deviceId = deviceDecision.deviceId,
@@ -628,7 +627,7 @@ class AuthService(
         return when (creationResult) {
             is MfaCreationResult.Created -> {
                 val emailSent = runCatching {
-                    emailService.sendMfaCodeEmail(user.email, code)
+                    emailService.sendMfaCodeEmail(user.email, code, locale)
                     true
                 }.getOrElse { error ->
                     logger.error("📧 Failed to send MFA email userId=${user.id} email=${user.email}", error)
@@ -872,7 +871,7 @@ class AuthService(
         return when (creationResult) {
             is MfaCreationResult.Created -> {
                 runCatching {
-                    emailService.sendMfaPasswordResetEmail(user.email, code)
+                    emailService.sendMfaPasswordResetEmail(user.email, code, locale)
                     logger.info("✅ Sent password reset code to user ${user.id}")
                 }.getOrElse { error ->
                     logger.error("📧 Failed to send password reset email to userId=${user.id}", error)

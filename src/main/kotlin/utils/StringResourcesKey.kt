@@ -127,7 +127,19 @@ enum class StringResourcesKey(val value: String) {
     AUTH_USER_NOT_VERIFIED_TITLE("auth_user_not_verified_title"),
     AUTH_USER_NOT_VERIFIED_DESCRIPTION("auth_user_not_verified_description"),
     AUTH_INVALID_PASSWORD_RESET_TITLE("auth_invalid_password_reset_title"),
-    AUTH_INVALID_PASSWORD_RESET_DESCRIPTION("auth_invalid_password_reset_description");
+    AUTH_INVALID_PASSWORD_RESET_DESCRIPTION("auth_invalid_password_reset_description"),
+
+    // Email Templates
+    EMAIL_MFA_TITLE("email_mfa_title"),
+    EMAIL_MFA_MESSAGE("email_mfa_message"),
+    EMAIL_MFA_SUBJECT("email_mfa_subject"),
+    EMAIL_PASSWORD_RESET_TITLE("email_password_reset_title"),
+    EMAIL_PASSWORD_RESET_MESSAGE("email_password_reset_message"),
+    EMAIL_PASSWORD_RESET_SUBJECT("email_password_reset_subject"),
+    EMAIL_REGISTRATION_TITLE("email_registration_title"),
+    EMAIL_REGISTRATION_MESSAGE("email_registration_message"),
+    EMAIL_REGISTRATION_SUBJECT("email_registration_subject"),
+    EMAIL_FOOTER_TEXT("email_footer_text");
 
 
     companion object {
