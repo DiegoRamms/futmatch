@@ -29,6 +29,9 @@ fun Application.configureDatabase() {
         password = environment.config.propertyOrNull("database.password")?.getString() ?: ""
     )
 
+    // Use ktor.development flag to conditionally add logger
+    val isDevelopment = environment.config.propertyOrNull("ktor.development")?.getString()?.toBoolean() ?: false
+
     transaction(database){
         SchemaUtils.create(UserTable)
         SchemaUtils.create(DeviceTable)
@@ -42,7 +45,9 @@ fun Application.configureDatabase() {
         SchemaUtils.create(LoginAttemptTable)
         SchemaUtils.create(PendingRegistrationTable)
 
-        addLogger(StdOutSqlLogger)
+        if (isDevelopment) {
+            addLogger(StdOutSqlLogger)
+        }
     }
 }
 

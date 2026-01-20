@@ -24,7 +24,7 @@ import java.io.File
 
 fun Application.configureRouting() {
 
-    val environment = environment.config.propertyOrNull("ktor.environment")?.getString() ?: "development"
+    val isDevelopment = environment.config.propertyOrNull("ktor.development")?.getString()?.toBoolean() ?: false
 
     install(StatusPages) {
 
@@ -77,7 +77,7 @@ fun Application.configureRouting() {
         exception<Throwable> { call, cause ->
             val locale = call.retrieveLocale()
             this@configureRouting.log.error("Unhandled exception on ${call.request.path()}", cause)
-            val error = if (environment == "Development") {
+            val error = if (isDevelopment) {
                 AppResult.Failure(
                     ErrorResponse(
                         title = "Unexpected error",

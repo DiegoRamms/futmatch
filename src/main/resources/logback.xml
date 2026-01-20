@@ -9,5 +9,6 @@
     </root>
     <logger name="org.eclipse.jetty" level="INFO"/>
     <logger name="io.netty" level="INFO"/>
-    <logger name="Exposed" level="WARM"/>
+    <!-- Exposed logger set to WARN so it doesn't log SQL by default in Production -->
+    <logger name="Exposed" level="WARN"/>
 </configuration>

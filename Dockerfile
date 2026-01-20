@@ -8,5 +8,6 @@ WORKDIR /app
 COPY --from=build /home/app/build/install/futmatch /app
 ENV PORT=8080
 EXPOSE 8080
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
+# Force production mode explicitly
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -Dio.ktor.development=false"
 CMD ["sh", "-c", "./bin/futmatch"]
