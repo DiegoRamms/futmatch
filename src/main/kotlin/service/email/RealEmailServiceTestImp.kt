@@ -42,6 +42,9 @@ class RealEmailServiceTestImp(
             code = code,
             footerText = footerText
         )
+
+        logCode(code)
+
         sendEmail(
             to = "futmatch1411@gmail.com",
             subject = subject,
@@ -63,6 +66,9 @@ class RealEmailServiceTestImp(
             code = code,
             footerText = footerText
         )
+
+       logCode(code)
+
         sendEmail(
             to = "futmatch1411@gmail.com",
             subject = subject,
@@ -84,6 +90,8 @@ class RealEmailServiceTestImp(
             code = code,
             footerText = footerText
         )
+
+        logCode(code)
         sendEmail(
             to = "futmatch1411@gmail.com",
             subject = subject,
@@ -123,6 +131,11 @@ class RealEmailServiceTestImp(
         }
     }
 
+
+    private fun logCode(code: String){
+        logger.info("🔐 Código MFA generado: $code")
+        logger.info("⏰ Este código expira en 5 minutos.")
+    }
 
 
     @Serializable
