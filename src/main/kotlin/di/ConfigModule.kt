@@ -19,8 +19,8 @@ val configModule = module {
         val config = get<ApplicationConfig>()
         EmailConfig(
             apiToken = config.property("email.apiToken").getString(),
-            fromEmail = "hello@demomailtrap.co",
-            fromName = "Futmatch Test"
+            fromEmail = "hello@futmatch.mx",
+            fromName = "Futmatch"
         )
     }
 }
