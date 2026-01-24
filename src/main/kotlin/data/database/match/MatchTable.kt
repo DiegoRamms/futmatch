@@ -2,7 +2,9 @@ package data.database.match
 
 import com.devapplab.data.database.user.UserTable
 import data.database.field.FieldTable
+import model.match.GenderType
 import model.match.MatchStatus
+import model.user.PlayerLevel
 import org.jetbrains.exposed.sql.ReferenceOption
 import org.jetbrains.exposed.sql.Table
 
@@ -15,8 +17,9 @@ object MatchTable : Table("matches") {
     val maxPlayers = integer("max_players")
     val minPlayersRequired = integer("min_players_required")
     val matchPrice = decimal("match_price", 10, 2)
-    val discount = decimal("discount", 10, 2).default(0.00.toBigDecimal())
     val status = enumerationByName("status", 20, MatchStatus::class)
+    val playerLevel = enumerationByName("player_level", 20, PlayerLevel::class).default(PlayerLevel.ANY)
+    val genderType = enumerationByName("gender_type", 20, GenderType::class).default(GenderType.MIXED)
     val createdAt = long("created_at").default(System.currentTimeMillis())
     val updatedAt = long("updated_at").default(System.currentTimeMillis())
 

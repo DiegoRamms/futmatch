@@ -7,8 +7,13 @@ import com.devapplab.data.database.password_reset.PasswordResetTokensTable
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserTable
 import data.database.device.DeviceTable
+import data.database.discount.DiscountsTable
 import data.database.field.FieldImagesTable
 import data.database.field.FieldTable
+import data.database.location.LocationsTable
+import data.database.match.MatchDiscountsTable
+import data.database.match.MatchPlayersTable
+import data.database.match.MatchResultsTable
 import data.database.match.MatchTable
 import data.database.mfa.MfaCodeTable
 import io.ktor.server.application.*
@@ -32,18 +37,25 @@ fun Application.configureDatabase() {
     // Use ktor.development flag to conditionally add logger
     val isDevelopment = environment.config.propertyOrNull("ktor.development")?.getString()?.toBoolean() ?: false
 
-    transaction(database){
-        SchemaUtils.create(UserTable)
-        SchemaUtils.create(DeviceTable)
-        SchemaUtils.create(MfaCodeTable)
-        SchemaUtils.create(RefreshTokenTable)
-        SchemaUtils.create(FieldTable)
-        SchemaUtils.create(FieldImagesTable)
-        SchemaUtils.create(FieldAdminsTable)
-        SchemaUtils.create(MatchTable)
-        SchemaUtils.create(PasswordResetTokensTable)
-        SchemaUtils.create(LoginAttemptTable)
-        SchemaUtils.create(PendingRegistrationTable)
+    transaction(database) {
+        SchemaUtils.create(
+            UserTable,
+            DeviceTable,
+            MfaCodeTable,
+            RefreshTokenTable,
+            LocationsTable,
+            FieldTable,
+            FieldImagesTable,
+            FieldAdminsTable,
+            DiscountsTable,
+            MatchTable,
+            MatchDiscountsTable,
+            MatchPlayersTable,
+            MatchResultsTable,
+            PasswordResetTokensTable,
+            LoginAttemptTable,
+            PendingRegistrationTable,
+        )
 
         if (isDevelopment) {
             addLogger(StdOutSqlLogger)
