@@ -44,7 +44,7 @@ fun UUID.validateUUID(): Boolean {
 fun String.toUUIDOrNull(): UUID? {
     return try {
         UUID.fromString(this)
-    } catch (e: IllegalArgumentException) {
+    } catch (_: IllegalArgumentException) {
         null
     }
 }

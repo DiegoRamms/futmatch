@@ -9,11 +9,11 @@ import org.jetbrains.exposed.sql.exposedLogger
 import org.koin.ktor.ext.inject
 import kotlin.time.Duration.Companion.days
 
-fun Application.scheduleCleanUp(){
-     monitor.subscribe(ApplicationStarted) {
-         val cleanupDataService  by inject<CleanupDataService>()
+fun Application.scheduleCleanUp() {
+    monitor.subscribe(ApplicationStarted) {
+        val cleanupDataService by inject<CleanupDataService>()
         launch {
-            while (isActive){
+            while (isActive) {
                 delay(1.days)
                 exposedLogger.info("Cleanup Data Service started 🧹")
                 cleanupDataService.cleanupData()

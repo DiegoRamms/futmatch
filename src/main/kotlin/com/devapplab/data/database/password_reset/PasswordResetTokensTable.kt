@@ -2,7 +2,6 @@ package com.devapplab.data.database.password_reset
 
 import com.devapplab.data.database.user.UserTable
 import org.jetbrains.exposed.sql.Table
-import java.util.UUID
 
 object PasswordResetTokensTable : Table("password_reset_tokens") {
     val token = varchar("token", 256)
