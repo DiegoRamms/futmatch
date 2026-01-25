@@ -1,7 +1,7 @@
 package com.devapplab.model.field.mapper
 
 import com.devapplab.model.field.FieldWithImagesBaseInfo
-import com.devapplab.model.field.request.CreateFieldRequest
+import model.field.request.CreateFieldRequest
 import model.field.Field
 import model.field.FieldBaseInfo
 import model.field.FieldImageBaseInfo
@@ -14,7 +14,6 @@ import java.util.*
 fun CreateFieldRequest.toField(adminId: UUID): Field {
     return Field(
         name = name,
-        location = location,
         price = price,
         adminId = adminId,
         description = description,
@@ -27,7 +26,7 @@ fun FieldBaseInfo.toResponse(): FieldResponse {
     return FieldResponse(
         id = this.id,
         name = this.name,
-        location = this.location,
+        locationId = this.locationId,
         price = this.price,
         capacity = this.capacity,
         description = this.description,
@@ -56,7 +55,7 @@ fun UpdateFieldRequest.toField(adminId: UUID): Field {
         id =  fieldId,
         name = name,
         adminId = adminId,
-        location = location,
+        locationId = locationId,
         price = price,
         description = description,
         capacity = capacity,

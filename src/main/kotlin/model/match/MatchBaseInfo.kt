@@ -11,6 +11,6 @@ data class MatchBaseInfo(
     val maxPlayers: Int,
     val minPlayersRequired: Int,
     val matchPrice: BigDecimal,
-    val discountPrice: BigDecimal,
+    val discountPrice: BigDecimal? = null,
     val status: MatchStatus
 )

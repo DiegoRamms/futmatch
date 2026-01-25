@@ -1,6 +1,6 @@
-package com.devapplab.features.field.validation
+package features.field.validation
 
-import com.devapplab.model.field.request.CreateFieldRequest
+import model.field.request.CreateFieldRequest
 import com.devapplab.model.user.FIELD_NAME_MAX_LENGTH
 import com.devapplab.utils.StringResourcesKey
 import io.ktor.server.plugins.requestvalidation.*
@@ -9,10 +9,6 @@ fun CreateFieldRequest.validate(): ValidationResult {
     return when {
         !name.validateName(FIELD_NAME_MAX_LENGTH) ->
             ValidationResult.Invalid(StringResourcesKey.FIELD_NAME_INVALID_ERROR.value)
-
-        !location.validateLocation() ->
-            ValidationResult.Invalid(StringResourcesKey.FIELD_LOCATION_INVALID_ERROR.value)
-
         price <= 0.0 ->
             ValidationResult.Invalid(StringResourcesKey.FIELD_PRICE_INVALID_ERROR.value)
 
@@ -31,8 +27,4 @@ fun CreateFieldRequest.validate(): ValidationResult {
 
 fun String.validateName(maxLength: Int): Boolean {
     return this.isNotBlank() && this.length <= maxLength
-}
-
-fun String.validateLocation(): Boolean {
-    return this.isNotBlank()
 }

@@ -9,7 +9,8 @@ data class UpdateFieldRequest(
     @Serializable(with = UUIDSerializer::class)
     val fieldId: UUID,
     val name: String,
-    val location: String,
+    @Serializable(with = UUIDSerializer::class)
+    val locationId: UUID? = null,
     val price: Double,
     val capacity: Int,
     val description: String,

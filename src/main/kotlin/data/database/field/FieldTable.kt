@@ -9,7 +9,7 @@ import org.jetbrains.exposed.sql.Table
 object FieldTable : Table("field") {
     val id = uuid("id").autoGenerate().uniqueIndex()
     val name = varchar("name", FIELD_NAME_MAX_LENGTH).uniqueIndex()
-    val locationId = uuid("location_id").references(LocationsTable.id)
+    val locationId = uuid("location_id").references(LocationsTable.id).nullable()
     val pricePerPlayer = decimal("price_per_player", 10, 2)
     val capacity = integer("capacity")
     val adminId = uuid("admin_id").references(UserTable.id, onDelete = ReferenceOption.CASCADE)

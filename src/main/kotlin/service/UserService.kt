@@ -1,7 +1,7 @@
 package com.devapplab.service
 
 import com.devapplab.data.database.executor.DbExecutor
-import com.devapplab.data.repository.UserRepository
+import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.mapper.toUserResponse

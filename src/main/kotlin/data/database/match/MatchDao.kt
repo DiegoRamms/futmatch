@@ -20,7 +20,6 @@ class MatchDao {
             it[maxPlayers] = match.maxPlayers
             it[minPlayersRequired] = match.minPlayersRequired
             it[matchPrice] = match.matchPrice
-            it[discount] = match.discount
             it[status] = match.status
         }
 
@@ -45,7 +44,6 @@ class MatchDao {
             maxPlayers = row[MatchTable.maxPlayers],
             minPlayersRequired = row[MatchTable.minPlayersRequired],
             matchPrice = row[MatchTable.matchPrice],
-            discountPrice = row[MatchTable.discount],
             status = row[MatchTable.status]
         )
     }

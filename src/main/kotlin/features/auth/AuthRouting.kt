@@ -1,4 +1,4 @@
-package com.devapplab.features.auth
+package features.auth
 
 import com.devapplab.config.RateLimitType
 import com.devapplab.config.getJWTConfig
@@ -8,15 +8,6 @@ import org.koin.ktor.plugin.scope
 
 fun Route.authRouting() {
     route("/auth") {
-
-        // DEPRECATED: This endpoint is insecure and will be removed. Use /register/start and /register/complete instead.
-        rateLimit(configuration = RateLimitName(RateLimitType.SIGN_IN.value)) {
-            post("/signUp") {
-                val authController = call.scope.get<AuthController>()
-                authController.signUp(call)
-            }
-        }
-
         rateLimit(configuration = RateLimitName(RateLimitType.MFA_VERIFY_REGISTRATION.value)) {
             post("/register/start") {
                 val authController = call.scope.get<AuthController>()

@@ -28,8 +28,8 @@ class FieldDao {
 
         val result = FieldTable.insert {
             it[name] = field.name
-            it[location] = field.location
-            it[price] = field.price.toBigDecimal()
+            it[locationId] = field.locationId
+            it[pricePerPlayer] = field.price.toBigDecimal()
             it[capacity] = field.capacity
             it[adminId] = field.adminId
             it[description] = field.description
@@ -48,8 +48,8 @@ class FieldDao {
     suspend fun updateField(fieldId: UUID, field: Field): Boolean = dbQuery {
         FieldTable.update({ FieldTable.id eq fieldId }) {
             it[name] = field.name
-            it[location] = field.location
-            it[price] = field.price.toBigDecimal()
+            it[locationId] = field.locationId
+            it[pricePerPlayer] = field.price.toBigDecimal()
             it[capacity] = field.capacity
             it[adminId] = field.adminId
             it[description] = field.description
@@ -139,8 +139,8 @@ class FieldDao {
     private fun rowToBaseField(row: ResultRow): FieldBaseInfo = FieldBaseInfo(
         id = row[FieldTable.id],
         name = row[FieldTable.name],
-        location = row[FieldTable.location],
-        price = row[FieldTable.price].toDouble(),
+        locationId = row[FieldTable.locationId],
+        price = row[FieldTable.pricePerPlayer].toDouble(),
         capacity = row[FieldTable.capacity],
         description = row[FieldTable.description],
         rules = row[FieldTable.rules],
@@ -148,8 +148,8 @@ class FieldDao {
 
     private fun rowToField(row: ResultRow): Field = Field(
         name = row[FieldTable.name],
-        location = row[FieldTable.location],
-        price = row[FieldTable.price].toDouble(),
+        locationId = row[FieldTable.locationId],
+        price = row[FieldTable.pricePerPlayer].toDouble(),
         capacity = row[FieldTable.capacity],
         description = row[FieldTable.description],
         rules = row[FieldTable.rules],

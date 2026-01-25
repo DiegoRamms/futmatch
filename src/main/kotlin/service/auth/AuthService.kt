@@ -1,11 +1,12 @@
-package com.devapplab.service.auth
+package service.auth
 
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.RefreshTokenRepository
-import com.devapplab.data.repository.UserRepository
+import data.repository.auth.AuthRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.pending_registrations.PendingRegistrationRepository
+import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.auth.ClaimConfig
@@ -30,12 +31,10 @@ import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.password_reset.PasswordResetTokenService
 import com.devapplab.utils.*
-import data.repository.auth.AuthRepository
 import data.repository.device.DeviceRepository
 import io.ktor.http.*
 import model.auth.RefreshTokenValidationInfo
 import model.mfa.*
-import model.user.User
 import model.user.UserRole
 import org.slf4j.LoggerFactory
 import service.auth.state.CompleteRegistrationAbort
@@ -82,42 +81,6 @@ class AuthService(
     private object RegistrationPolicy {
         val EXPIRATION_DURATION = 1.hours
         val RESEND_COOLDOWN = 60.seconds
-    }
-
-    // DEPRECATED
-    suspend fun addUser(
-        user: User,
-        locale: Locale,
-        deviceInfo: String?
-    ): AppResult<AuthResponse> {
-
-        dbExecutor.tx {
-            loginAttemptRepository.delete(user.email)
-        }
-
-        if (deviceInfo.isNullOrBlank()) {
-            return locale.respondDeviceInfoRequired()
-        }
-        val isEmailAlreadyRegistered = userRepository.isEmailAlreadyRegistered(user.email)
-        if (isEmailAlreadyRegistered) return locale.respondIsEmailAlreadyRegisteredError()
-
-        val isPhoneNumberAlreadyRegistered = userRepository.isPhoneNumberAlreadyRegistered(user.phone)
-        if (isPhoneNumberAlreadyRegistered) return locale.respondIsPhoneAlreadyRegisteredError()
-
-        val userWithPasswordHashed = user.copy(password = hashingService.hash(user.password))
-
-        val authUserSavedData = dbExecutor.tx {
-            authRepository.createUserWithDevice(userWithPasswordHashed, deviceInfo)
-        }
-
-
-        val appResponse = AuthResponse(
-            deviceId = authUserSavedData.deviceId,
-            userId = authUserSavedData.userId,
-            authCode = AuthCode.USER_CREATED
-        )
-
-        return AppResult.Success(appResponse)
     }
 
     suspend fun startRegistration(
@@ -227,7 +190,6 @@ class AuthService(
                 )
 
                 val savedUser = userRepository.create(pendingUserToCreate)
-                    ?: throw CompleteRegistrationAbort(CompleteRegistrationFailure.CreateUserFailed)
 
                 val userId = savedUser.id
                     ?: throw CompleteRegistrationAbort(CompleteRegistrationFailure.MissingUserId)

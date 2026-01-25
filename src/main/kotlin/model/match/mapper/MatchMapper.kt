@@ -32,7 +32,7 @@ fun MatchBaseInfo.toResponse(): MatchResponse {
         maxPlayers = this.maxPlayers,
         minPlayersRequired = this.minPlayersRequired,
         matchPriceInCents = matchPrice.multiply(BigDecimal(100)).longValueExact(),
-        discountPriceInCents = discountPrice.multiply(BigDecimal(100)).longValueExact(),
+        discountPriceInCents = discountPrice?.multiply(BigDecimal(100))?.longValueExact() ?: 0,
         status = this.status
     )
 }

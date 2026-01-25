@@ -1,26 +1,19 @@
-package com.devapplab.features.auth
+package features.auth
 
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.request.*
 import com.devapplab.model.auth.response.RefreshJWTRequest
 import model.user.request.UpdatePasswordRequest
-import com.devapplab.service.auth.AuthService
+import service.auth.AuthService
 import com.devapplab.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import model.mfa.MfaCodeRequest
 import model.mfa.MfaCodeVerificationRequest
-import model.user.toUser
+import model.mfa.VerifyResetMfaRequest
 import java.util.*
 
 class AuthController(private val authService: AuthService) {
-    suspend fun signUp(call: ApplicationCall) {
-        val locale: Locale = call.retrieveLocale()
-        val deviceInfo = call.getUserAgentHeader()
-        val registerUserRequest = call.receive<RegisterUserRequest>()
-        val result = authService.addUser(registerUserRequest.toUser(), locale, deviceInfo)
-        call.respond(result)
-    }
 
     suspend fun startRegistration(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
@@ -90,7 +83,7 @@ class AuthController(private val authService: AuthService) {
 
     suspend fun verifyResetMfa(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
-        val request = call.receive<model.mfa.VerifyResetMfaRequest>()
+        val request = call.receive<VerifyResetMfaRequest>()
         val result = authService.verifyResetMfa(locale, request)
         call.respond(result)
     }

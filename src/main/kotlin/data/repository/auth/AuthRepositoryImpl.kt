@@ -1,25 +1,23 @@
-package com.devapplab.data.repository
+package data.repository.auth
 
 import com.devapplab.data.database.refresh_token.RefreshTokenDao
-import com.devapplab.data.database.user.UserDao
+import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.auth.RefreshTokenPayload
 import data.database.mfa.MfaCodeDao
-import data.repository.auth.AuthRepository
 import data.repository.device.DeviceRepository
 import model.auth.AuthUserSavedData
 import model.user.User
 import java.util.*
 
-
 class AuthRepositoryImpl(
-    private val userDao: UserDao,
+    private val userRepository: UserRepository,
     private val deviceRepository: DeviceRepository,
     private val mfaCodeDao: MfaCodeDao,
     private val refreshTokenDao: RefreshTokenDao,
 ) : AuthRepository {
 
     override fun createUserWithDevice(userWithPasswordHashed: User, deviceInfo: String): AuthUserSavedData {
-        val userId = userDao.addUser(userWithPasswordHashed)
+        val userId = userRepository.addUser(userWithPasswordHashed)
         val deviceId = deviceRepository.saveDevice(userId, deviceInfo)
         return AuthUserSavedData(userId, deviceId)
     }
@@ -30,7 +28,7 @@ class AuthRepositoryImpl(
     }
 
     override fun completeMfaVerification(userId: UUID, deviceId: UUID, mfaCodeId: UUID) {
-        userDao.markEmailAsVerified(userId)
+        userRepository.markEmailAsVerified(userId)
         deviceRepository.markDeviceAsTrusted(deviceId)
         mfaCodeDao.markAsVerified(mfaCodeId)
     }

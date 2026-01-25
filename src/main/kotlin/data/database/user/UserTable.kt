@@ -5,10 +5,9 @@ import model.user.Gender
 import model.user.PlayerLevel
 import model.user.PlayerPosition
 import model.user.UserRole
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.dao.id.UUIDTable
 
-object UserTable : Table("user") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
+object UserTable : UUIDTable("user") {
     val name = varchar("name", USER_NAME_MAX_LENGTH)
     val lastName = varchar("last_name", USER_LAST_NAME_MAX_LENGTH)
     val email = varchar("email", USER_EMAIL_MAX_LENGTH).uniqueIndex()
@@ -25,8 +24,6 @@ object UserTable : Table("user") {
     val role = enumerationByName("role", USER_ROLE_MAX_LENGTH, UserRole::class)
     val createdAt = long("created_at").default(System.currentTimeMillis())
     val updatedAt = long("updated_at").default(System.currentTimeMillis())
-
-    override val primaryKey = PrimaryKey(id)
 }
 
 
