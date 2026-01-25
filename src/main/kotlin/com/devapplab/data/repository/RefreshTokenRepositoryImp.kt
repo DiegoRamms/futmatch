@@ -1,0 +1,34 @@
+package com.devapplab.data.repository
+
+import com.devapplab.config.dbQuery
+import com.devapplab.data.database.refresh_token.RefreshTokenDao
+import com.devapplab.model.auth.RefreshTokenPayload
+import com.devapplab.model.auth.RefreshTokenRecord
+import com.devapplab.model.auth.RefreshTokenValidationInfo
+import java.util.*
+
+class RefreshTokenRepositoryImp(private val refreshTokenDao: RefreshTokenDao) : RefreshTokenRepository {
+
+    override suspend fun saveToken(userId: UUID, deviceId: UUID, refreshTokenPayload: RefreshTokenPayload): UUID =
+        dbQuery {
+            refreshTokenDao.saveToken(
+                userId = userId,
+                deviceId = deviceId,
+                token = refreshTokenPayload.hashedToken,
+                expiresAt = refreshTokenPayload.expiresAt
+            )
+        }
+
+    override suspend fun findLatestTokenByUserId(userId: UUID): RefreshTokenRecord? {
+        return refreshTokenDao.findByTokenByUserId(userId)
+    }
+
+    override fun getValidationInfo(deviceId: UUID): RefreshTokenValidationInfo? {
+        return refreshTokenDao.getRefreshTokenValidationInfo(deviceId)
+    }
+
+    override suspend fun deleteRevokedTokens(): Boolean = dbQuery {
+        refreshTokenDao.deleteRevokedTokens()
+    }
+
+}
