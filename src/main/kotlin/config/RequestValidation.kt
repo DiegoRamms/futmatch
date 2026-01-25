@@ -1,11 +1,11 @@
 package com.devapplab.config
 
 import com.devapplab.features.auth.validation.validate
-import com.devapplab.features.field.validation.validate
+import features.field.validation.validate
 import com.devapplab.features.match.validation.validate
 import com.devapplab.model.auth.request.*
 import com.devapplab.model.auth.response.RefreshJWTRequest
-import com.devapplab.model.field.request.CreateFieldRequest
+import model.field.request.CreateFieldRequest
 import com.devapplab.model.match.request.CreateMatchRequest
 import model.user.request.UpdatePasswordRequest
 import io.ktor.server.application.*

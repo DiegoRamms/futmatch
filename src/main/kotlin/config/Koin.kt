@@ -1,6 +1,8 @@
 package com.devapplab.config
 
 import com.devapplab.di.*
+import di.controllerModule
+import di.daoModule
 import io.ktor.server.application.*
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin

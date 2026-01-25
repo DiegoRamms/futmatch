@@ -3,7 +3,7 @@ package com.devapplab.features.field
 import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.field.mapper.toField
-import com.devapplab.model.field.request.CreateFieldRequest
+import model.field.request.CreateFieldRequest
 import com.devapplab.service.field.FieldService
 import com.devapplab.utils.respond
 import com.devapplab.utils.respondImage

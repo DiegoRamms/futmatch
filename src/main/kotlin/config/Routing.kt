@@ -1,6 +1,6 @@
 package com.devapplab.config
 
-import com.devapplab.features.auth.authRouting
+import features.auth.authRouting
 import com.devapplab.features.field.fieldRouting
 import com.devapplab.features.match.matchRouting
 import com.devapplab.features.user.userRouting

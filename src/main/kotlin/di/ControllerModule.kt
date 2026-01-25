@@ -1,6 +1,6 @@
-package com.devapplab.di
+package di
 
-import com.devapplab.features.auth.AuthController
+import features.auth.AuthController
 import com.devapplab.features.field.FieldController
 import com.devapplab.features.match.MatchController
 import com.devapplab.features.user.UserController

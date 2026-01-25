@@ -1,7 +1,7 @@
 package com.devapplab.data.repository.match
 
 import com.devapplab.data.database.match.MatchDao
-import com.devapplab.data.database.match.MatchWithFieldDao
+import data.database.match.MatchWithFieldDao
 import model.match.Match
 import model.match.MatchBaseInfo
 import model.match.MatchWithFieldBaseInfo

@@ -1,7 +1,7 @@
 package com.devapplab.di
 
 import com.devapplab.service.UserService
-import com.devapplab.service.auth.AuthService
+import service.auth.AuthService
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.auth_token.JWTService
 import com.devapplab.service.auth.auth_token.RefreshTokenServiceImp
