@@ -1,8 +1,7 @@
-package com.devapplab.features.field.validation
+package features.field.validation
 
 import com.devapplab.model.user.FIELD_NAME_MAX_LENGTH
 import com.devapplab.utils.StringResourcesKey
-import features.field.validation.validateName
 import io.ktor.server.plugins.requestvalidation.*
 import model.field.request.UpdateFieldRequest
 
