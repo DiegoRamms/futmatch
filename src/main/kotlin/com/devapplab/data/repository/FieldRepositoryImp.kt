@@ -1,6 +1,5 @@
 package com.devapplab.data.repository
 
-import com.devapplab.config.dbQuery
 import com.devapplab.data.database.field.FieldDao
 import com.devapplab.data.database.field.FieldImageDao
 import com.devapplab.data.database.field.FieldImagesTable
@@ -11,7 +10,7 @@ import org.jetbrains.exposed.sql.or
 import java.util.*
 
 class FieldRepositoryImp : FieldRepository {
-    override suspend fun createField(field: Field): FieldBaseInfo = dbQuery {
+    override fun createField(field: Field): FieldBaseInfo {
         if (FieldDao.find { com.devapplab.data.database.field.FieldTable.name eq field.name }.count() > 0) {
             throw ValueAlreadyExistsException(field.name)
         }
@@ -28,11 +27,11 @@ class FieldRepositoryImp : FieldRepository {
             this.createdAt = now
             this.updatedAt = now
         }
-        dao.toFieldBaseInfo()
+        return dao.toFieldBaseInfo()
     }
 
-    override suspend fun updateField(fieldId: UUID, field: Field): Boolean = dbQuery {
-        FieldDao.findById(fieldId)?.apply {
+    override fun updateField(fieldId: UUID, field: Field): Boolean {
+        return FieldDao.findById(fieldId)?.apply {
             this.name = field.name
             this.locationId = field.locationId
             this.pricePerPlayer = field.price.toBigDecimal()
@@ -44,13 +43,13 @@ class FieldRepositoryImp : FieldRepository {
         } != null
     }
 
-    override suspend fun deleteField(fieldId: UUID): Boolean = dbQuery {
+    override fun deleteField(fieldId: UUID): Boolean {
         FieldDao.findById(fieldId)?.delete()
-        true
+        return true
     }
 
-    override suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo> = dbQuery {
-        FieldDao.find {
+    override fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo> {
+        return FieldDao.find {
             (com.devapplab.data.database.field.FieldTable.adminId eq adminId) or
                     (com.devapplab.data.database.field.FieldAdminsTable.adminId eq adminId)
         }.map { fieldDao ->
@@ -60,19 +59,19 @@ class FieldRepositoryImp : FieldRepository {
         }
     }
 
-    override suspend fun getFields(): List<FieldWithImagesBaseInfo> = dbQuery {
-        FieldDao.all().map { fieldDao ->
+    override fun getFields(): List<FieldWithImagesBaseInfo> {
+        return FieldDao.all().map { fieldDao ->
             val images = FieldImageDao.find { FieldImagesTable.fieldId eq fieldDao.id.value }
                 .map { it.toFieldImageBaseInfo() }
             FieldWithImagesBaseInfo(field = fieldDao.toFieldBaseInfo(), images = images)
         }
     }
 
-    override suspend fun getFieldById(fieldId: UUID): Field? = dbQuery {
-        FieldDao.findById(fieldId)?.toField()
+    override fun getFieldById(fieldId: UUID): Field? {
+        return FieldDao.findById(fieldId)?.toField()
     }
 
-    override suspend fun createImageField(fieldImage: FieldImage): UUID = dbQuery {
+    override fun createImageField(fieldImage: FieldImage): UUID {
         val dao = FieldImageDao.new {
             this.fieldId = fieldImage.fieldId
             this.key = fieldImage.key
@@ -85,11 +84,11 @@ class FieldRepositoryImp : FieldRepository {
             this.createdAt = fieldImage.createdAt ?: System.currentTimeMillis()
             this.updatedAt = fieldImage.updatedAt ?: System.currentTimeMillis()
         }
-        dao.id.value
+        return dao.id.value
     }
 
-    override suspend fun updateImageField(fieldImage: FieldImage, imageId: UUID): Boolean = dbQuery {
-        FieldImageDao.findById(imageId)?.apply {
+    override fun updateImageField(fieldImage: FieldImage, imageId: UUID): Boolean {
+        return FieldImageDao.findById(imageId)?.apply {
             this.key = fieldImage.key
             this.mime = fieldImage.mime
             this.sizeBytes = fieldImage.sizeBytes ?: 0
@@ -99,29 +98,29 @@ class FieldRepositoryImp : FieldRepository {
         } != null
     }
 
-    override suspend fun deleteImageField(imageId: UUID): Boolean = dbQuery {
+    override fun deleteImageField(imageId: UUID): Boolean {
         FieldImageDao.findById(imageId)?.delete()
-        true
+        return true
     }
 
-    override suspend fun getImageByKey(key: String): FieldImage? = dbQuery {
-        FieldImageDao.find { FieldImagesTable.key eq key }.firstOrNull()?.toFieldImage()
+    override fun getImageByKey(key: String): FieldImage? {
+        return FieldImageDao.find { FieldImagesTable.key eq key }.firstOrNull()?.toFieldImage()
     }
 
-    override suspend fun getImageById(id: UUID): FieldImage? = dbQuery {
-        FieldImageDao.findById(id)?.toFieldImage()
+    override fun getImageById(id: UUID): FieldImage? {
+        return FieldImageDao.findById(id)?.toFieldImage()
     }
 
-    override suspend fun getImagesCountByField(fieldId: UUID): Int = dbQuery {
-        FieldImageDao.find { FieldImagesTable.fieldId eq fieldId }.count().toInt()
+    override fun getImagesCountByField(fieldId: UUID): Int {
+        return FieldImageDao.find { FieldImagesTable.fieldId eq fieldId }.count().toInt()
     }
 
-    override suspend fun existsFieldImageAtPosition(fieldId: UUID, position: Int): Boolean = dbQuery {
-        FieldImageDao.find { (FieldImagesTable.fieldId eq fieldId) and (FieldImagesTable.position eq position) }.count() > 0
+    override fun existsFieldImageAtPosition(fieldId: UUID, position: Int): Boolean {
+        return FieldImageDao.find { (FieldImagesTable.fieldId eq fieldId) and (FieldImagesTable.position eq position) }.count() > 0
     }
 
-    override suspend fun isAdminAssignedToField(adminId: UUID, fieldId: UUID): Boolean = dbQuery {
-        FieldDao.findById(fieldId)?.let { field ->
+    override fun isAdminAssignedToField(adminId: UUID, fieldId: UUID): Boolean {
+        return FieldDao.findById(fieldId)?.let { field ->
             field.adminId == adminId || field.admins.any { it.id.value == adminId }
         } ?: false
     }

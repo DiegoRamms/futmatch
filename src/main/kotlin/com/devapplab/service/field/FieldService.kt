@@ -1,5 +1,6 @@
 package com.devapplab.service.field
 
+import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.FieldRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
@@ -18,13 +19,14 @@ import java.util.*
 class FieldService(
     private val fieldRepository: FieldRepository,
     private val imageService: ImageService,
+    private val dbExecutor: DbExecutor
 ) {
 
     private val maxImagesPerField = 4
 
-    suspend fun createField(field: Field): AppResult<FieldResponse> {
+    suspend fun createField(field: Field): AppResult<FieldResponse> = dbExecutor.tx {
         val fielResponse = fieldRepository.createField(field).toResponse()
-        return AppResult.Success(data = fielResponse)
+        AppResult.Success(data = fielResponse)
     }
 
     suspend fun saveFieldImage(
@@ -33,7 +35,7 @@ class FieldService(
         position: Int,
         multiPartData: MultiPartData
     ): AppResult<UUID> {
-        val alreadyExists = fieldRepository.existsFieldImageAtPosition(fieldId, position)
+        val alreadyExists = dbExecutor.tx { fieldRepository.existsFieldImageAtPosition(fieldId, position) }
         if (alreadyExists) {
             return locale.createError(
                 titleKey = StringResourcesKey.FIELD_IMAGE_POSITION_EXISTS_TITLE,
@@ -42,7 +44,7 @@ class FieldService(
             )
         }
 
-        val imagesCount = fieldRepository.getImagesCountByField(fieldId)
+        val imagesCount = dbExecutor.tx { fieldRepository.getImagesCountByField(fieldId) }
         if (imagesCount == maxImagesPerField) {
             return locale.createError(
                 titleKey = StringResourcesKey.FIELD_MAX_IMAGES_REACHED_TITLE,
@@ -64,7 +66,7 @@ class FieldService(
             height = imageSaved.imageMeta.height,
         )
 
-        val imageId = fieldRepository.createImageField(fieldImage)
+        val imageId = dbExecutor.tx { fieldRepository.createImageField(fieldImage) }
 
         return AppResult.Success(imageId, appStatus = HttpStatusCode.Created)
     }
@@ -75,7 +77,7 @@ class FieldService(
         imageName: String?
     ): AppResult<ImageFileInfo> {
 
-        val image = fieldRepository.getImageByKey(imageName ?: "")
+        val image = dbExecutor.tx { fieldRepository.getImageByKey(imageName ?: "") }
             ?: return locale.createError(
                 titleKey = StringResourcesKey.FIELD_IMAGE_NOT_FOUND_TITLE,
                 descriptionKey = StringResourcesKey.FIELD_IMAGE_NOT_FOUND_DESCRIPTION,
@@ -103,7 +105,7 @@ class FieldService(
         imageId: UUID,
         multiPartData: MultiPartData,
     ): AppResult<UUID> {
-        val currentFieldImage = fieldRepository.getImageById(imageId) ?: return locale.createError()
+        val currentFieldImage = dbExecutor.tx { fieldRepository.getImageById(imageId) } ?: return locale.createError()
         val filePath = getFileFromImageMeta(currentFieldImage.fieldId, currentFieldImage.key, currentFieldImage.mime)
         val path = createImagePath(currentFieldImage.fieldId)
         val imageSaved = imageService.saveImages(multiPartData, path).first()
@@ -119,7 +121,7 @@ class FieldService(
             height = imageSaved.imageMeta.height,
         )
 
-        val updated = fieldRepository.updateImageField(fieldImage, imageId)
+        val updated = dbExecutor.tx { fieldRepository.updateImageField(fieldImage, imageId) }
 
         if (updated) {
             imageService.deleteImages(filePath.absolutePath)
@@ -134,7 +136,7 @@ class FieldService(
         imageId: UUID,
     ): AppResult<String> {
 
-        val currentFieldImage = fieldRepository.getImageById(imageId)
+        val currentFieldImage = dbExecutor.tx { fieldRepository.getImageById(imageId) }
             ?: return locale.createError(
                 titleKey = StringResourcesKey.IMAGE_NOT_FOUND_TITLE,
                 descriptionKey = StringResourcesKey.IMAGE_NOT_FOUND_DESCRIPTION
@@ -146,7 +148,7 @@ class FieldService(
             currentFieldImage.mime
         )
 
-        val deleted = fieldRepository.deleteImageField(imageId)
+        val deleted = dbExecutor.tx { fieldRepository.deleteImageField(imageId) }
 
         if (!deleted) {
             return locale.createError(
@@ -166,12 +168,18 @@ class FieldService(
     }
 
     suspend fun ensureAdminAssignedToField(adminId: UUID, fieldId: UUID) {
-        val allowed = fieldRepository.isAdminAssignedToField(adminId, fieldId)
+        val allowed = dbExecutor.tx { fieldRepository.isAdminAssignedToField(adminId, fieldId) }
         if (!allowed) throw AccessDeniedException()
     }
 
     suspend fun updateField(locale: Locale, field: Field): AppResult<Boolean> {
-        val updated = fieldRepository.updateField(field)
+        val fieldId = field.id ?: return locale.createError(
+            titleKey = StringResourcesKey.FIELD_UPDATE_FAILED_TITLE,
+            descriptionKey = StringResourcesKey.FIELD_UPDATE_FAILED_DESCRIPTION,
+            errorCode = ErrorCode.GENERAL_ERROR,
+            status = HttpStatusCode.BadRequest
+        )
+        val updated = dbExecutor.tx { fieldRepository.updateField(fieldId, field) }
         return if (updated) {
             AppResult.Success(true)
         } else {
@@ -188,7 +196,7 @@ class FieldService(
         locale: Locale,
         fieldId: UUID,
     ): AppResult<String> {
-        val wasDeleted = fieldRepository.deleteField(fieldId)
+        val wasDeleted = dbExecutor.tx { fieldRepository.deleteField(fieldId) }
 
         if (!wasDeleted) {
             return locale.createError(
@@ -209,8 +217,8 @@ class FieldService(
         )
     }
 
-    suspend fun getFieldsByAdminId(adminId: UUID): AppResult<List<FieldWithImagesResponse>> {
+    suspend fun getFieldsByAdminId(adminId: UUID): AppResult<List<FieldWithImagesResponse>> = dbExecutor.tx {
         val fields = fieldRepository.getFieldsByAdminId(adminId).map { it.toResponse() }
-        return AppResult.Success(fields)
+        AppResult.Success(fields)
     }
 }
