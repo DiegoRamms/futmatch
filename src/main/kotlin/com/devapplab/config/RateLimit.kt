@@ -42,14 +42,14 @@ fun Application.configureRateLimit() {
 
             requestKey { call ->
                 val ip = call.clientIp()
-                val userId = runCatching { call.getIdentifier(ClaimType.USER_IDENTIFIER) }.getOrNull()
-                if (userId != null) "refresh:user:$userId:ip:$ip" else "refresh:ip:$ip"
+               // val userId = runCatching { call.getIdentifier(ClaimType.USER_IDENTIFIER) }.getOrNull()
+                "refresh:ip:$ip"
             }
 
-            requestWeight { _, key ->
-                val k = key as? String ?: return@requestWeight 20
-                if (k.startsWith("refresh:user:")) 1 else 20
-            }
+//            requestWeight { _, key ->
+//                val k = key as? String ?: return@requestWeight 20
+//                if (k.startsWith("refresh:user:")) 1 else 20
+//            }
         }
 
         register(RateLimitName(RateLimitType.MFA_SEND.value)) {
