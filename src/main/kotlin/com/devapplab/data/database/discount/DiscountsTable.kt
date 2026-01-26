@@ -1,14 +1,9 @@
 package com.devapplab.data.database.discount
 
-import org.jetbrains.exposed.sql.Table
+import com.devapplab.model.discount.DiscountType
+import org.jetbrains.exposed.dao.id.UUIDTable
 
-enum class DiscountType {
-    PERCENTAGE,
-    FIXED_AMOUNT
-}
-
-object DiscountsTable : Table("discounts") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
+object DiscountsTable : UUIDTable("discounts") {
     val code = varchar("code", 50).uniqueIndex().nullable() // Para cupones
     val description = text("description")
     val discountType = enumerationByName("discount_type", 20, DiscountType::class)
@@ -17,5 +12,6 @@ object DiscountsTable : Table("discounts") {
     val validTo = long("valid_to").nullable()
     val isActive = bool("is_active").default(true)
 
-    override val primaryKey = PrimaryKey(id)
+    val createdAt = long("created_at").default(System.currentTimeMillis())
+    val updatedAt = long("updated_at").default(System.currentTimeMillis())
 }
