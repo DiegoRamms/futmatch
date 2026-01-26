@@ -24,7 +24,6 @@ val daoModule = module {
     singleOf(::DeviceDAO)
     singleOf(::MfaCodeDao)
     singleOf(::FieldDao)
-    singleOf(::FieldImageDao)
     singleOf(::MatchDao)
     singleOf(::MatchWithFieldDao)
     singleOf(::PasswordResetTokenDaoImpl) { bind<PasswordResetTokenDao>() }

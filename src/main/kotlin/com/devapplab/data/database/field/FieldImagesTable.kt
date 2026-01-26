@@ -1,10 +1,9 @@
 package com.devapplab.data.database.field
 
+import org.jetbrains.exposed.dao.id.UUIDTable
 import org.jetbrains.exposed.sql.ReferenceOption
-import org.jetbrains.exposed.sql.Table
 
-object FieldImagesTable : Table("field_images") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
+object FieldImagesTable : UUIDTable("field_images") {
     val fieldId = uuid("field_id").references(FieldTable.id, onDelete = ReferenceOption.CASCADE)
 
     val key = text("key")
@@ -20,7 +19,4 @@ object FieldImagesTable : Table("field_images") {
     // Timestamps en epoch millis
     val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
     val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
-
-
-    override val primaryKey = PrimaryKey(id)
 }

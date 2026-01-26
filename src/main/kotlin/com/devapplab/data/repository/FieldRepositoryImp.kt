@@ -1,182 +1,171 @@
 package com.devapplab.data.repository
 
 import com.devapplab.config.dbQuery
-import com.devapplab.data.database.field.*
+import com.devapplab.data.database.field.FieldDao
+import com.devapplab.data.database.field.FieldImageDao
+import com.devapplab.data.database.field.FieldImagesTable
 import com.devapplab.model.field.*
 import com.devapplab.utils.ValueAlreadyExistsException
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.or
 import java.util.*
 
-class FieldRepositoryImp(private val fieldImageDao: FieldImageDao) : FieldRepository {
+class FieldRepositoryImp : FieldRepository {
     override suspend fun createField(field: Field): FieldBaseInfo = dbQuery {
-        val exists = FieldTable
-            .select(FieldTable.name).where { FieldTable.name eq field.name }
-            .limit(1)
-            .count() > 0
-
-        if (exists) {
+        if (FieldDao.find { com.devapplab.data.database.field.FieldTable.name eq field.name }.count() > 0) {
             throw ValueAlreadyExistsException(field.name)
         }
 
-        val result = FieldTable.insert {
-            it[name] = field.name
-            it[locationId] = field.locationId
-            it[pricePerPlayer] = field.price.toBigDecimal()
-            it[capacity] = field.capacity
-            it[adminId] = field.adminId
-            it[description] = field.description
-            it[rules] = field.rules
-            it[createdAt] = System.currentTimeMillis()
-            it[updatedAt] = System.currentTimeMillis()
-        }.resultedValues
-
-
-        val resultRow = result?.firstOrNull()
-            ?: throw IllegalStateException("No ResultRow returned by insert. The DB or driver might not support RETURN_GENERATED_KEYS for UUIDs.")
-
-        rowToBaseField(resultRow)
+        val now = System.currentTimeMillis()
+        val dao = FieldDao.new {
+            this.name = field.name
+            this.locationId = field.locationId
+            this.pricePerPlayer = field.price.toBigDecimal()
+            this.capacity = field.capacity
+            this.adminId = field.adminId
+            this.description = field.description
+            this.rules = field.rules
+            this.createdAt = now
+            this.updatedAt = now
+        }
+        dao.toFieldBaseInfo()
     }
 
     override suspend fun updateField(fieldId: UUID, field: Field): Boolean = dbQuery {
-        FieldTable.update({ FieldTable.id eq fieldId }) {
-            it[name] = field.name
-            it[locationId] = field.locationId
-            it[pricePerPlayer] = field.price.toBigDecimal()
-            it[capacity] = field.capacity
-            it[adminId] = field.adminId
-            it[description] = field.description
-            it[rules] = field.rules
-            it[updatedAt] = System.currentTimeMillis()
-        } > 0
+        FieldDao.findById(fieldId)?.apply {
+            this.name = field.name
+            this.locationId = field.locationId
+            this.pricePerPlayer = field.price.toBigDecimal()
+            this.capacity = field.capacity
+            this.adminId = field.adminId
+            this.description = field.description
+            this.rules = field.rules
+            this.updatedAt = System.currentTimeMillis()
+        } != null
     }
 
     override suspend fun deleteField(fieldId: UUID): Boolean = dbQuery {
-        FieldTable.deleteWhere { FieldTable.id eq fieldId } > 0
+        FieldDao.findById(fieldId)?.delete()
+        true
     }
 
     override suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo> = dbQuery {
-        FieldTable
-            .leftJoin(FieldAdminsTable, { id }, { fieldId })
-            .leftJoin(FieldImagesTable, { FieldTable.id }, { fieldId })
-            .selectAll().where {
-                (FieldTable.adminId eq adminId) or (FieldAdminsTable.adminId eq adminId)
-            }
-            .map { row ->
-                val field = rowToBaseField(row)
-
-                val image = row.getOrNull(FieldImagesTable.id)?.let {
-                    rowToFieldImageBaseInfo(row)
-                }
-
-                field to image
-            }
-            .groupBy { it.first }
-            .map { (field, pairs) ->
-                val images = pairs.mapNotNull { it.second }
-                FieldWithImagesBaseInfo(
-                    field = field,
-                    images = images
-                )
-            }
+        FieldDao.find {
+            (com.devapplab.data.database.field.FieldTable.adminId eq adminId) or
+                    (com.devapplab.data.database.field.FieldAdminsTable.adminId eq adminId)
+        }.map { fieldDao ->
+            val images = FieldImageDao.find { FieldImagesTable.fieldId eq fieldDao.id.value }
+                .map { it.toFieldImageBaseInfo() }
+            FieldWithImagesBaseInfo(field = fieldDao.toFieldBaseInfo(), images = images)
+        }
     }
 
     override suspend fun getFields(): List<FieldWithImagesBaseInfo> = dbQuery {
-        FieldTable
-            .leftJoin(FieldImagesTable, { id }, { fieldId })
-            .selectAll()
-            .map { row ->
-                val field = rowToBaseField(row)
-
-                val image = row.getOrNull(FieldImagesTable.id)?.let {
-                    rowToFieldImageBaseInfo(row)
-                }
-
-                field to image
-            }
-            .groupBy { it.first }
-            .map { (field, pairs) ->
-                val images = pairs.mapNotNull { it.second }
-                FieldWithImagesBaseInfo(
-                    field = field,
-                    images = images
-                )
-            }
+        FieldDao.all().map { fieldDao ->
+            val images = FieldImageDao.find { FieldImagesTable.fieldId eq fieldDao.id.value }
+                .map { it.toFieldImageBaseInfo() }
+            FieldWithImagesBaseInfo(field = fieldDao.toFieldBaseInfo(), images = images)
+        }
     }
 
     override suspend fun getFieldById(fieldId: UUID): Field? = dbQuery {
-        FieldTable.selectAll().where { FieldTable.id eq fieldId }
-            .limit(1)
-            .mapNotNull(::rowToField)
-            .singleOrNull()
+        FieldDao.findById(fieldId)?.toField()
     }
 
-    override suspend fun createImageField(fieldImage: FieldImage): UUID {
-        return fieldImageDao.addFieldImage(fieldImage)
+    override suspend fun createImageField(fieldImage: FieldImage): UUID = dbQuery {
+        val dao = FieldImageDao.new {
+            this.fieldId = fieldImage.fieldId
+            this.key = fieldImage.key
+            this.position = fieldImage.position
+            this.mime = fieldImage.mime
+            this.sizeBytes = fieldImage.sizeBytes ?: 0
+            this.width = fieldImage.width
+            this.height = fieldImage.height
+            this.isPrimary = fieldImage.isPrimary
+            this.createdAt = fieldImage.createdAt ?: System.currentTimeMillis()
+            this.updatedAt = fieldImage.updatedAt ?: System.currentTimeMillis()
+        }
+        dao.id.value
     }
 
-    override suspend fun updateImageField(fieldImage: FieldImage, imageId: UUID): Boolean {
-        return fieldImageDao.updateFieldImage(fieldImage, imageId)
+    override suspend fun updateImageField(fieldImage: FieldImage, imageId: UUID): Boolean = dbQuery {
+        FieldImageDao.findById(imageId)?.apply {
+            this.key = fieldImage.key
+            this.mime = fieldImage.mime
+            this.sizeBytes = fieldImage.sizeBytes ?: 0
+            this.width = fieldImage.width
+            this.height = fieldImage.height
+            this.updatedAt = fieldImage.updatedAt ?: System.currentTimeMillis()
+        } != null
     }
 
-    override suspend fun deleteImageField(imageId: UUID): Boolean {
-        return fieldImageDao.deleteImageField(imageId)
+    override suspend fun deleteImageField(imageId: UUID): Boolean = dbQuery {
+        FieldImageDao.findById(imageId)?.delete()
+        true
     }
 
-    override suspend fun getImageByKey(key: String): FieldImage? {
-        return fieldImageDao.getImageByKey(key)
+    override suspend fun getImageByKey(key: String): FieldImage? = dbQuery {
+        FieldImageDao.find { FieldImagesTable.key eq key }.firstOrNull()?.toFieldImage()
     }
 
-    override suspend fun getImageById(id: UUID): FieldImage? {
-        return fieldImageDao.getImageById(id)
+    override suspend fun getImageById(id: UUID): FieldImage? = dbQuery {
+        FieldImageDao.findById(id)?.toFieldImage()
     }
 
-    override suspend fun getImagesCountByField(fieldId: UUID): Int {
-        return fieldImageDao.getImagesCountByField(fieldId)
+    override suspend fun getImagesCountByField(fieldId: UUID): Int = dbQuery {
+        FieldImageDao.find { FieldImagesTable.fieldId eq fieldId }.count().toInt()
     }
 
-    override suspend fun existsFieldImageAtPosition(fieldId: UUID, position: Int): Boolean {
-        return fieldImageDao.existsFieldImageAtPosition(fieldId, position)
+    override suspend fun existsFieldImageAtPosition(fieldId: UUID, position: Int): Boolean = dbQuery {
+        FieldImageDao.find { (FieldImagesTable.fieldId eq fieldId) and (FieldImagesTable.position eq position) }.count() > 0
     }
 
     override suspend fun isAdminAssignedToField(adminId: UUID, fieldId: UUID): Boolean = dbQuery {
-        FieldTable
-            .leftJoin(FieldAdminsTable, { id }, { FieldAdminsTable.fieldId })
-            .selectAll().where {
-                (FieldTable.id eq fieldId) and (
-                        (FieldTable.adminId eq adminId) or
-                                (FieldAdminsTable.adminId eq adminId)
-                        )
-            }
-            .limit(1)
-            .any()
+        FieldDao.findById(fieldId)?.let { field ->
+            field.adminId == adminId || field.admins.any { it.id.value == adminId }
+        } ?: false
     }
 
-
-    private fun rowToBaseField(row: ResultRow): FieldBaseInfo = FieldBaseInfo(
-        id = row[FieldTable.id.],
-        name = row[FieldTable.name],
-        locationId = row[FieldTable.locationId],
-        price = row[FieldTable.pricePerPlayer].toDouble(),
-        capacity = row[FieldTable.capacity],
-        description = row[FieldTable.description],
-        rules = row[FieldTable.rules],
+    private fun FieldDao.toFieldBaseInfo(): FieldBaseInfo = FieldBaseInfo(
+        id = this.id.value,
+        name = this.name,
+        locationId = this.locationId,
+        price = this.pricePerPlayer.toDouble(),
+        capacity = this.capacity,
+        description = this.description,
+        rules = this.rules,
     )
 
-    private fun rowToField(row: ResultRow): Field = Field(
-        name = row[FieldTable.name],
-        locationId = row[FieldTable.locationId],
-        price = row[FieldTable.pricePerPlayer].toDouble(),
-        capacity = row[FieldTable.capacity],
-        description = row[FieldTable.description],
-        rules = row[FieldTable.rules],
-        adminId = row[FieldTable.adminId]
+    private fun FieldDao.toField(): Field = Field(
+        id = this.id.value,
+        name = this.name,
+        locationId = this.locationId,
+        price = this.pricePerPlayer.toDouble(),
+        capacity = this.capacity,
+        description = this.description,
+        rules = this.rules,
+        adminId = this.adminId
     )
 
-    private fun rowToFieldImageBaseInfo(row: ResultRow): FieldImageBaseInfo = FieldImageBaseInfo(
-        id = row[FieldImagesTable.id],
-        fieldId = row[FieldImagesTable.fieldId],
-        imagePath = row[FieldImagesTable.key],
-        position = row[FieldImagesTable.position]
+    private fun FieldImageDao.toFieldImageBaseInfo(): FieldImageBaseInfo = FieldImageBaseInfo(
+        id = this.id.value,
+        fieldId = this.fieldId,
+        imagePath = this.key,
+        position = this.position
     )
+
+    private fun FieldImageDao.toFieldImage(): FieldImage =
+        FieldImage(
+            imageId = this.id.value,
+            fieldId = this.fieldId,
+            key = this.key,
+            position = this.position,
+            mime = this.mime,
+            sizeBytes = this.sizeBytes,
+            width = this.width,
+            height = this.height,
+            isPrimary = this.isPrimary,
+            createdAt = this.createdAt,
+            updatedAt = this.updatedAt
+        )
 }

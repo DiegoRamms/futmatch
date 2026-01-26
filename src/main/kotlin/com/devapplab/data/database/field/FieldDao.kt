@@ -1,5 +1,6 @@
 package com.devapplab.data.database.field
 
+import com.devapplab.data.database.user.UserDAO
 import org.jetbrains.exposed.dao.UUIDEntity
 import org.jetbrains.exposed.dao.UUIDEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -17,4 +18,6 @@ class FieldDao(id: EntityID<UUID>) : UUIDEntity(id) {
     var rules by FieldTable.rules
     var createdAt by FieldTable.createdAt
     var updatedAt by FieldTable.updatedAt
+
+    val admins by UserDAO via FieldAdminsTable
 }
