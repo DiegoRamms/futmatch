@@ -16,8 +16,9 @@ interface FieldRepository {
     suspend fun getImagesCountByField(fieldId: UUID): Int
     suspend fun existsFieldImageAtPosition(fieldId: UUID, position: Int): Boolean
     suspend fun isAdminAssignedToField(adminId: UUID, fieldId: UUID): Boolean
-    suspend fun updateField(field: Field): Boolean
+    suspend fun updateField(fieldId: UUID, field: Field): Boolean
     suspend fun deleteField(fieldId: UUID): Boolean
     suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo>
     suspend fun getFields(): List<FieldWithImagesBaseInfo>
+    suspend fun getFieldById(fieldId: UUID): Field?
 }
