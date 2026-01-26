@@ -1,7 +1,11 @@
 package com.devapplab.di
 
 import com.devapplab.service.UserService
-import com.devapplab.service.auth.AuthService
+import com.devapplab.service.auth.AuthenticatedResponseGenerator
+import com.devapplab.service.auth.AuthTokenManagementService
+import com.devapplab.service.auth.PasswordResetService
+import com.devapplab.service.auth.RegistrationService
+import com.devapplab.service.auth.SignInService
 import com.devapplab.service.auth.auth_token.JWTService
 import com.devapplab.service.auth.auth_token.RefreshTokenServiceImp
 import com.devapplab.service.auth.mfa.MfaCodeService
@@ -19,7 +23,11 @@ import org.koin.dsl.module
 val serviceModule = module {
 
     singleOf(::UserService)
-    singleOf(::AuthService)
+    singleOf(::RegistrationService)
+    singleOf(::AuthenticatedResponseGenerator)
+    singleOf(::SignInService)
+    singleOf(::PasswordResetService)
+    singleOf(::AuthTokenManagementService)
     singleOf(::HashingServiceImpl) { bind<com.devapplab.service.hashing.HashingService>() }
     singleOf(::JWTService) { bind<com.devapplab.service.auth.auth_token.AuthTokenService>() }
     singleOf(::RefreshTokenServiceImp) { bind<com.devapplab.service.auth.refresh_token.RefreshTokenService>() }
