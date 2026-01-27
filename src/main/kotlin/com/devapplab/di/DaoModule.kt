@@ -8,13 +8,11 @@ import com.devapplab.data.database.password_reset.PasswordResetTokenDaoImpl
 import com.devapplab.data.database.pending_registrations.PendingRegistrationDao
 import com.devapplab.data.database.pending_registrations.PendingRegistrationDaoImpl
 import com.devapplab.data.database.refresh_token.RefreshTokenDao
-import com.devapplab.data.database.user.UserDAO
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 val daoModule = module {
-    singleOf(::UserDAO)
     singleOf(::RefreshTokenDao)
     singleOf(::DeviceDAO)
     singleOf(::MfaCodeDao)

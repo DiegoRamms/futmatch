@@ -1,181 +1,169 @@
 package com.devapplab.data.repository.user
 
 import com.devapplab.config.dbQuery
-import com.devapplab.data.database.user.UserDAO
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
-import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import java.util.*
 
 class UserRepositoryImpl : UserRepository {
 
     override fun addUser(user: User): UUID {
-        return transaction {
-            UserDAO.new {
-                name = user.name
-                lastName = user.lastName
-                email = user.email
-                password = user.password
-                phone = user.phone
-                status = user.status
-                gender = user.gender
-                country = user.country
-                birthDate = user.birthDate
-                playerPosition = user.playerPosition
-                profilePic = user.profilePic
-                level = user.level
-                role = user.role
-            }.id.value
-        }
+        return UserTable.insert {
+            it[name] = user.name
+            it[lastName] = user.lastName
+            it[email] = user.email
+            it[password] = user.password
+            it[phone] = user.phone
+            it[status] = user.status
+            it[gender] = user.gender
+            it[country] = user.country
+            it[birthDate] = user.birthDate
+            it[playerPosition] = user.playerPosition
+            it[profilePic] = user.profilePic
+            it[level] = user.level
+            it[role] = user.role
+        }[UserTable.id]
     }
 
     override fun create(pendingUser: PendingUser): User {
-        return transaction {
-            UserDAO.new {
-                name = pendingUser.name
-                lastName = pendingUser.lastName
-                email = pendingUser.email
-                password = pendingUser.password
-                phone = pendingUser.phone
-                status = pendingUser.status
-                gender = pendingUser.gender
-                country = pendingUser.country
-                birthDate = pendingUser.birthDate
-                playerPosition = pendingUser.playerPosition
-                profilePic = pendingUser.profilePic
-                level = pendingUser.level
-                role = pendingUser.userRole
-                isEmailVerified = pendingUser.isEmailVerified
-                createdAt = pendingUser.createdAt
-                updatedAt = pendingUser.updatedAt
-            }.toUser()
-        }
+        val resultRow = UserTable.insert {
+            it[name] = pendingUser.name
+            it[lastName] = pendingUser.lastName
+            it[email] = pendingUser.email
+            it[password] = pendingUser.password
+            it[phone] = pendingUser.phone
+            it[status] = pendingUser.status
+            it[gender] = pendingUser.gender
+            it[country] = pendingUser.country
+            it[birthDate] = pendingUser.birthDate
+            it[playerPosition] = pendingUser.playerPosition
+            it[profilePic] = pendingUser.profilePic
+            it[level] = pendingUser.level
+            it[role] = pendingUser.userRole
+            it[isEmailVerified] = pendingUser.isEmailVerified
+            it[createdAt] = pendingUser.createdAt
+            it[updatedAt] = pendingUser.updatedAt
+        }.resultedValues?.firstOrNull()  ?: throw IllegalStateException("Create User Error")
+        return resultRow.toUser()
     }
 
     override fun getUserById(userId: UUID): UserBaseInfo? {
-        return transaction {
-            UserDAO.findById(userId)?.toUserBaseInfo()
-        }
+        return UserTable.selectAll().where { UserTable.id eq userId }
+            .singleOrNull()
+            ?.toUserBaseInfo()
     }
 
     override fun findByEmail(email: String): UserBaseInfo? {
-        return transaction {
-            UserDAO.find { UserTable.email eq email }.firstOrNull()?.toUserBaseInfo()
-        }
+        return UserTable.selectAll().where { UserTable.email eq email }
+            .firstOrNull()
+            ?.toUserBaseInfo()
     }
 
     override fun isEmailAlreadyRegistered(email: String): Boolean {
-        return transaction {
-            UserDAO.find { UserTable.email eq email }.firstOrNull() != null
-        }
+        return UserTable.selectAll().where { UserTable.email eq email }.any()
     }
 
     override suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean = dbQuery {
-        UserDAO.find { UserTable.phone eq phone }.firstOrNull() != null
+        UserTable.selectAll().where { UserTable.phone eq phone }.any()
     }
 
     override suspend fun isEmailVerified(userId: UUID): Boolean = dbQuery {
-        UserDAO.findById(userId)?.isEmailVerified ?: false
+        UserTable.selectAll().where { UserTable.id eq userId }
+            .firstOrNull()
+            ?.get(UserTable.isEmailVerified) ?: false
     }
 
     override fun getUserSignInInfo(email: String): UserSignInInfo? {
-        return transaction {
-            UserDAO.find { UserTable.email eq email }.firstOrNull()?.let {
-                UserSignInInfo(
-                    userId = it.id.value,
-                    userRole = it.role,
-                    password = it.password,
-                    status = it.status,
-                    isEmailVerified = it.isEmailVerified
-                )
-            }
+        return UserTable.selectAll().where { UserTable.email eq email }.firstOrNull()?.let {
+            UserSignInInfo(
+                userId = it[UserTable.id],
+                userRole = it[UserTable.role],
+                password = it[UserTable.password],
+                status = it[UserTable.status],
+                isEmailVerified = it[UserTable.isEmailVerified]
+            )
         }
     }
 
     override suspend fun updateUser(id: UUID, updatedUser: User): Boolean = dbQuery {
-        val user = UserDAO.findById(id) ?: return@dbQuery false
-        user.apply {
-            name = updatedUser.name
-            lastName = updatedUser.lastName
-            email = updatedUser.email
-            password = updatedUser.password
-            phone = updatedUser.phone
-            status = updatedUser.status
-            country = updatedUser.country
-            birthDate = updatedUser.birthDate
-            playerPosition = updatedUser.playerPosition
-            profilePic = updatedUser.profilePic
-            level = updatedUser.level
-            updatedAt = System.currentTimeMillis()
-        }
-        true
+        UserTable.update({ UserTable.id eq id }) {
+            it[name] = updatedUser.name
+            it[lastName] = updatedUser.lastName
+            it[email] = updatedUser.email
+            it[password] = updatedUser.password
+            it[phone] = updatedUser.phone
+            it[status] = updatedUser.status
+            it[country] = updatedUser.country
+            it[birthDate] = updatedUser.birthDate
+            it[playerPosition] = updatedUser.playerPosition
+            it[profilePic] = updatedUser.profilePic
+            it[level] = updatedUser.level
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
     }
 
     override fun updatePassword(userId: UUID, hashedPassword: String): Boolean {
-        return transaction {
-            UserDAO.findById(userId)?.apply {
-                password = hashedPassword
-                updatedAt = System.currentTimeMillis()
-            } != null
-        }
+        return UserTable.update({ UserTable.id eq userId }) {
+            it[password] = hashedPassword
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
     }
 
     override fun markEmailAsVerified(userId: UUID): Boolean {
-        return transaction {
-            UserDAO.findById(userId)?.apply {
-                isEmailVerified = true
-                updatedAt = System.currentTimeMillis()
-            } != null
-        }
+        return UserTable.update({ UserTable.id eq userId }) {
+            it[isEmailVerified] = true
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
     }
 
     override suspend fun deleteUser(id: UUID): Boolean = dbQuery {
-        UserDAO.findById(id)?.delete()
-        true
+        UserTable.deleteWhere { UserTable.id eq id } > 0
     }
 
-    private fun UserDAO.toUser(): User {
+    private fun ResultRow.toUser(): User {
         return User(
-            id = id.value,
-            name = name,
-            lastName = lastName,
-            email = email,
-            password = password,
-            phone = phone,
-            status = status,
-            country = country,
-            birthDate = birthDate,
-            playerPosition = playerPosition,
-            profilePic = profilePic,
-            level = level,
-            createdAt = createdAt,
-            gender = gender,
-            updatedAt = updatedAt,
-            role = role
+            id = this[UserTable.id],
+            name = this[UserTable.name],
+            lastName = this[UserTable.lastName],
+            email = this[UserTable.email],
+            password = this[UserTable.password],
+            phone = this[UserTable.phone],
+            status = this[UserTable.status],
+            country = this[UserTable.country],
+            birthDate = this[UserTable.birthDate],
+            playerPosition = this[UserTable.playerPosition],
+            profilePic = this[UserTable.profilePic],
+            level = this[UserTable.level],
+            createdAt = this[UserTable.createdAt],
+            gender = this[UserTable.gender],
+            updatedAt = this[UserTable.updatedAt],
+            role = this[UserTable.role]
         )
     }
 
-    private fun UserDAO.toUserBaseInfo(): UserBaseInfo {
+    private fun ResultRow.toUserBaseInfo(): UserBaseInfo {
         return UserBaseInfo(
-            id = id.value,
-            name = name,
-            lastName = lastName,
-            email = email,
-            phone = phone,
-            status = status,
-            country = country,
-            birthDate = birthDate,
-            playerPosition = playerPosition,
-            profilePic = profilePic,
-            level = level,
-            createdAt = createdAt,
-            updatedAt = updatedAt,
-            gender = gender,
-            isEmailVerified = isEmailVerified,
-            userRole = role
+            id = this[UserTable.id],
+            name = this[UserTable.name],
+            lastName = this[UserTable.lastName],
+            email = this[UserTable.email],
+            phone = this[UserTable.phone],
+            status = this[UserTable.status],
+            country = this[UserTable.country],
+            birthDate = this[UserTable.birthDate],
+            playerPosition = this[UserTable.playerPosition],
+            profilePic = this[UserTable.profilePic],
+            level = this[UserTable.level],
+            createdAt = this[UserTable.createdAt],
+            updatedAt = this[UserTable.updatedAt],
+            gender = this[UserTable.gender],
+            isEmailVerified = this[UserTable.isEmailVerified],
+            userRole = this[UserTable.role]
         )
     }
 }

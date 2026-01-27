@@ -1,9 +1,10 @@
 package com.devapplab.data.database.user
 
 import com.devapplab.model.user.*
-import org.jetbrains.exposed.dao.id.UUIDTable
+import org.jetbrains.exposed.sql.Table
 
-object UserTable : UUIDTable("user") {
+object UserTable : Table("users") {
+    val id = uuid("id").autoGenerate().uniqueIndex()
     val name = varchar("name", USER_NAME_MAX_LENGTH)
     val lastName = varchar("last_name", USER_LAST_NAME_MAX_LENGTH)
     val email = varchar("email", USER_EMAIL_MAX_LENGTH).uniqueIndex()
@@ -20,6 +21,8 @@ object UserTable : UUIDTable("user") {
     val role = enumerationByName("role", USER_ROLE_MAX_LENGTH, UserRole::class)
     val createdAt = long("created_at").default(System.currentTimeMillis())
     val updatedAt = long("updated_at").default(System.currentTimeMillis())
+
+    override val primaryKey = PrimaryKey(id)
 }
 
 
