@@ -1,8 +1,13 @@
 package com.devapplab.data.repository.password_reset
 
-import com.devapplab.data.database.password_reset.PasswordResetTokenDao
+import com.devapplab.data.database.password_reset.PasswordResetTokensTable
 import com.devapplab.model.password_reset.PasswordResetTokenRecord
-import java.util.UUID
+import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.selectAll
+import java.util.*
 
 interface PasswordResetTokenRepository {
     fun create(token: String, userId: UUID, expiresAt: Long): PasswordResetTokenRecord?
@@ -11,20 +16,34 @@ interface PasswordResetTokenRepository {
     fun deleteByUserId(userId: UUID)
 }
 
-class PasswordResetTokenRepositoryImpl(private val dao: PasswordResetTokenDao) : PasswordResetTokenRepository {
+class PasswordResetTokenRepositoryImpl : PasswordResetTokenRepository {
     override fun create(token: String, userId: UUID, expiresAt: Long): PasswordResetTokenRecord? {
-        return dao.create(token, userId, expiresAt)
+        return PasswordResetTokensTable.insert {
+            it[PasswordResetTokensTable.token] = token
+            it[PasswordResetTokensTable.userId] = userId
+            it[PasswordResetTokensTable.expiresAt] = expiresAt
+        }.resultedValues?.singleOrNull()?.let(::toPasswordResetTokenRecord)
     }
 
     override fun findByToken(token: String): PasswordResetTokenRecord? {
-        return dao.findByToken(token)
+        return PasswordResetTokensTable.selectAll().where { PasswordResetTokensTable.token eq token }
+            .singleOrNull()
+            ?.let(::toPasswordResetTokenRecord)
     }
 
     override fun delete(token: String) {
-        dao.delete(token)
+        PasswordResetTokensTable.deleteWhere { PasswordResetTokensTable.token eq token }
     }
 
     override fun deleteByUserId(userId: UUID) {
-        dao.deleteByUserId(userId)
+        PasswordResetTokensTable.deleteWhere { PasswordResetTokensTable.userId eq userId }
+    }
+
+    private fun toPasswordResetTokenRecord(row: ResultRow): PasswordResetTokenRecord {
+        return PasswordResetTokenRecord(
+            token = row[PasswordResetTokensTable.token],
+            userId = row[PasswordResetTokensTable.userId],
+            expiresAt = row[PasswordResetTokensTable.expiresAt]
+        )
     }
 }
