@@ -12,7 +12,6 @@ class LocationRepositoryImp: LocationRepository {
     override suspend fun addLocation(location: Location): UUID {
         return dbQuery {
             LocationsTable.insert {
-                it[id] = location.id
                 it[address] = location.address
                 it[city] = location.city
                 it[country] = location.country
