@@ -1,5 +1,6 @@
 package com.devapplab.model.field.response
 
+import com.devapplab.model.location.Location
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -14,5 +15,6 @@ data class FieldResponse(
     val price: Double,
     val capacity: Int,
     val description: String,
-    val rules: String
+    val rules: String,
+    val location: Location? = null
 )

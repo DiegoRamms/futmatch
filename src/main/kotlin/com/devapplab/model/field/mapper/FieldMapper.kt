@@ -30,7 +30,8 @@ fun FieldBaseInfo.toResponse(): FieldResponse {
         price = this.price,
         capacity = this.capacity,
         description = this.description,
-        rules = this.rules
+        rules = this.rules,
+        location = this.location
     )
 }
 

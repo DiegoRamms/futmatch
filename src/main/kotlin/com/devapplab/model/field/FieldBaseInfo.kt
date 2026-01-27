@@ -1,5 +1,6 @@
 package com.devapplab.model.field
 
+import com.devapplab.model.location.Location
 import java.util.*
 
 
@@ -11,4 +12,5 @@ data class FieldBaseInfo(
     val capacity: Int,
     val description: String,
     val rules: String,
+    val location: Location? = null
 )

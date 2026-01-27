@@ -4,7 +4,9 @@ import com.devapplab.config.dbQuery
 import com.devapplab.data.database.field.FieldAdminsTable
 import com.devapplab.data.database.field.FieldImagesTable
 import com.devapplab.data.database.field.FieldTable
+import com.devapplab.data.database.location.LocationsTable
 import com.devapplab.model.field.*
+import com.devapplab.model.location.Location
 import com.devapplab.utils.ValueAlreadyExistsException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -67,6 +69,7 @@ class FieldRepositoryImp : FieldRepository {
                 .map { it[FieldAdminsTable.fieldId] }
 
             val fieldsQuery = FieldTable
+                .leftJoin(LocationsTable)
                 .selectAll()
                 .where { (FieldTable.adminId eq adminId) or (FieldTable.id inList coAdminFieldIds) }
 
@@ -88,7 +91,11 @@ class FieldRepositoryImp : FieldRepository {
 
     override suspend fun getFields(): List<FieldWithImagesBaseInfo> {
         return dbQuery {
-            val fields = FieldTable.selectAll().map { it.toFieldBaseInfo() }
+            val fields = FieldTable
+                .leftJoin(LocationsTable)
+                .selectAll()
+                .map { it.toFieldBaseInfo() }
+
             if (fields.isEmpty()) return@dbQuery emptyList()
 
             val fieldIds = fields.map { it.id }
@@ -194,15 +201,28 @@ class FieldRepositoryImp : FieldRepository {
         }
     }
 
-    private fun ResultRow.toFieldBaseInfo(): FieldBaseInfo = FieldBaseInfo(
-        id = this[FieldTable.id],
-        name = this[FieldTable.name],
-        locationId = this[FieldTable.locationId],
-        price = this[FieldTable.pricePerPlayer].toDouble(),
-        capacity = this[FieldTable.capacity],
-        description = this[FieldTable.description],
-        rules = this[FieldTable.rules],
-    )
+    private fun ResultRow.toFieldBaseInfo(): FieldBaseInfo {
+        val location = this.getOrNull(LocationsTable.id)?.let {
+            Location(
+                id = it,
+                address = this[LocationsTable.address],
+                city = this[LocationsTable.city],
+                country = this[LocationsTable.country],
+                latitude = this[LocationsTable.latitude],
+                longitude = this[LocationsTable.longitude]
+            )
+        }
+        return FieldBaseInfo(
+            id = this[FieldTable.id],
+            name = this[FieldTable.name],
+            locationId = this[FieldTable.locationId],
+            price = this[FieldTable.pricePerPlayer].toDouble(),
+            capacity = this[FieldTable.capacity],
+            description = this[FieldTable.description],
+            rules = this[FieldTable.rules],
+            location = location
+        )
+    }
 
     private fun ResultRow.toField(): Field = Field(
         id = this[FieldTable.id],

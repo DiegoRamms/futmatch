@@ -38,18 +38,12 @@ fun Application.configureRateLimit() {
         }
 
         register(RateLimitName(RateLimitType.REFRESH_TOKEN.value)) {
-            rateLimiter(limit = 10, refillPeriod = 60.seconds)
+            rateLimiter(limit = 5, refillPeriod = 5.minutes)
 
             requestKey { call ->
                 val ip = call.clientIp()
-               // val userId = runCatching { call.getIdentifier(ClaimType.USER_IDENTIFIER) }.getOrNull()
                 "refresh:ip:$ip"
             }
-
-//            requestWeight { _, key ->
-//                val k = key as? String ?: return@requestWeight 20
-//                if (k.startsWith("refresh:user:")) 1 else 20
-//            }
         }
 
         register(RateLimitName(RateLimitType.MFA_SEND.value)) {
