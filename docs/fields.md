@@ -1,0 +1,251 @@
+# Documentación de Endpoints de Canchas (Fields)
+
+Este documento describe los endpoints para la gestión de canchas, incluyendo creación, actualización, y manejo de imágenes.
+
+## Conceptos Comunes
+
+### Autenticación
+
+Todos los endpoints, a menos que se indique lo contrario, son protegidos y requieren un token de acceso de administrador.
+
+-   **Header Requerido:** `Authorization: Bearer <access_token>`
+
+### Respuestas
+
+Todos los endpoints retornan un objeto `AppResult` estandarizado.
+
+-   **Éxito:** `{"status":"success","data":{...}}`
+-   **Fallo:** `{"status":"error","error":{...}}`
+
+### Localización
+
+Para recibir respuestas localizadas, incluye el header `Accept-Language` (ej. `en-US`, `es-MX`).
+
+---
+
+## 1. Gestión de Canchas
+
+### 1.1 Crear Cancha
+
+Crea una nueva cancha.
+
+-   **Método:** `POST`
+-   **Path:** `/fields/create`
+-   **Rol Requerido:** `ADMIN` o `BOTH`
+
+#### Ejemplo de Solicitud:
+```json
+{
+    "name": "Cancha Central",
+    "price": 15.50,
+    "capacity": 10,
+    "description": "Nuestra mejor cancha con césped artificial.",
+    "rules": "No se permiten tacos de metal."
+}
+```
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": {
+        "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "name": "Cancha Central",
+        "locationId": null,
+        "price": 15.50,
+        "capacity": 10,
+        "description": "Nuestra mejor cancha con césped artificial.",
+        "rules": "No se permiten tacos de metal.",
+        "location": null
+    }
+}
+```
+
+### 1.2 Actualizar Cancha
+
+Actualiza la información de una cancha existente.
+
+-   **Método:** `POST`
+-   **Path:** `/fields/update`
+-   **Rol Requerido:** `ADMIN` o `BOTH`
+
+#### Ejemplo de Solicitud:
+```json
+{
+    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "name": "Cancha Principal (Renovada)",
+    "locationId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+    "price": 20.00,
+    "capacity": 12,
+    "description": "Césped recién renovado.",
+    "rules": "No se permiten tacos de metal. Respetar horarios."
+}
+```
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": true
+}
+```
+
+### 1.3 Eliminar Cancha
+
+Elimina una cancha y todos sus datos asociados (imágenes, etc.).
+
+-   **Método:** `DELETE`
+-   **Path:** `/fields/delete/{fieldId}`
+-   **Rol Requerido:** `ADMIN` o `BOTH`
+
+#### Parámetros de Ruta:
+-   `fieldId` (UUID): El ID de la cancha a eliminar.
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": "La cancha se ha eliminado correctamente."
+}
+```
+
+### 1.4 Obtener Canchas por Administrador
+
+Obtiene una lista de todas las canchas asociadas a la cuenta del administrador que realiza la solicitud.
+
+-   **Método:** `GET`
+-   **Path:** `/fields/by-admin`
+-   **Rol Requerido:** `ADMIN` o `BOTH`
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "field": {
+                "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                "name": "Cancha Principal (Renovada)",
+                "locationId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+                "price": 20.00,
+                "capacity": 12,
+                "description": "Césped recién renovado.",
+                "rules": "No se permiten tacos de metal. Respetar horarios.",
+                "location": {
+                    "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+                    "address": "123 Calle Falsa",
+                    "city": "Springfield",
+                    "country": "US",
+                    "latitude": 40.7128,
+                    "longitude": -74.0060
+                }
+            },
+            "images": [
+                {
+                    "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+                    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "imagePath": "some_image_key.jpg",
+                    "position": 0
+                }
+            ]
+        }
+    ]
+}
+```
+
+---
+
+## 2. Gestión de Imágenes de Cancha
+
+### 2.1 Subir Nueva Imagen
+
+Sube una imagen para una cancha en una posición específica (0-3).
+
+-   **Método:** `POST`
+-   **Path:** `/fields/{fieldId}/{position}/images`
+-   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Headers:** `Content-Type: multipart/form-data`
+
+#### Parámetros de Ruta:
+-   `fieldId` (UUID): El ID de la cancha.
+-   `position` (Int): La posición de la imagen (ej. 0 para la imagen principal).
+
+#### Cuerpo de la Solicitud:
+Debe ser `form-data` con una parte (`part`) que contenga el archivo de la imagen.
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": "d4e5f6a7-b8c9-0123-4567-890abcdef123"
+}
+```
+*La data es el UUID de la nueva imagen creada.*
+
+### 2.2 Actualizar Imagen
+
+Reemplaza una imagen existente.
+
+-   **Método:** `POST`
+-   **Path:** `/fields/image/{fieldId}/{imageId}`
+-   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Headers:** `Content-Type: multipart/form-data`
+
+#### Parámetros de Ruta:
+-   `fieldId` (UUID): El ID de la cancha a la que pertenece la imagen.
+-   `imageId` (UUID): El ID de la imagen a reemplazar.
+
+#### Cuerpo de la Solicitud:
+Debe ser `form-data` con una parte (`part`) que contenga el nuevo archivo de la imagen.
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": "c3d4e5f6-a7b8-9012-3456-7890abcdef12"
+}
+```
+*La data es el UUID de la imagen actualizada.*
+
+
+### 2.3 Eliminar Imagen
+
+Elimina una imagen de una cancha.
+
+-   **Método:** `DELETE`
+-   **Path:** `/fields/delete/image/{fieldId}/{imageId}`
+-   **Rol Requerido:** `ADMIN` o `BOTH`
+
+#### Parámetros de Ruta:
+-   `fieldId` (UUID): El ID de la cancha a la que pertenece la imagen.
+-   `imageId` (UUID): El ID de la imagen a eliminar.
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": "La imagen ha sido eliminada correctamente."
+}
+```
+
+### 2.4 Obtener Imagen
+
+Obtiene el archivo de imagen de una cancha.
+
+-   **Método:** `GET`
+-   **Path:** `/fields/image/{fieldId}/{imageName}`
+-   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Header Requerido:** `Authorization: Bearer <access_token>`
+
+#### Parámetros de Ruta:
+-   `fieldId` (UUID): El ID de la cancha.
+-   `imageName` (String): El nombre (o `key`) del archivo de imagen.
+
+#### Respuesta Exitosa:
+El servidor responderá con el archivo de imagen y el `Content-Type` adecuado (ej. `image/jpeg`).
+```
+Status: 200 OK
+Content-Type: image/jpeg
+
+[...datos binarios de la imagen...]
+```
