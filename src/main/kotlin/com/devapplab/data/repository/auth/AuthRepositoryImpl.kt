@@ -1,7 +1,7 @@
 package com.devapplab.data.repository.auth
 
-import com.devapplab.data.database.refresh_token.RefreshTokenDao
 import com.devapplab.data.repository.MfaCodeRepository
+import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.auth.RefreshTokenPayload
@@ -11,7 +11,7 @@ class AuthRepositoryImpl(
     private val userRepository: UserRepository,
     private val deviceRepository: DeviceRepository,
     private val mfaCodeRepository: MfaCodeRepository,
-    private val refreshTokenDao: RefreshTokenDao,
+    private val refreshTokenRepository: RefreshTokenRepository
 ) : AuthRepository {
 
     override fun createDevice(userId: UUID, deviceInfo: String, isTrusted: Boolean): UUID {
@@ -31,16 +31,16 @@ class AuthRepositoryImpl(
 
     override fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload) {
         deviceRepository.changeDeviceLastUsed(deviceId)
-        refreshTokenDao.saveToken(
+        refreshTokenRepository.saveToken(
             userId = userId,
             deviceId = deviceId,
             token = newPayload.hashedToken,
             expiresAt = newPayload.expiresAt
         )
-        refreshTokenDao.revokeToken(deviceId)
+        refreshTokenRepository.revokeToken(deviceId)
     }
 
     override fun revokeRefreshToken(deviceId: UUID): Boolean {
-        return refreshTokenDao.revokeCurrentToken(deviceId)
+        return refreshTokenRepository.revokeCurrentToken(deviceId)
     }
 }
