@@ -1,9 +1,10 @@
 package com.devapplab.data.database.login_attempt
 
 import com.devapplab.model.user.USER_EMAIL_MAX_LENGTH
-import org.jetbrains.exposed.dao.id.UUIDTable
+import org.jetbrains.exposed.sql.Table
 
-object LoginAttemptTable : UUIDTable("login_attempt") {
+object LoginAttemptTable : Table("login_attempts") {
+    val id = uuid("id").autoGenerate().uniqueIndex()
     val email = varchar("email", USER_EMAIL_MAX_LENGTH).index()
 
     val attempts = integer("attempts").default(0)
@@ -12,4 +13,6 @@ object LoginAttemptTable : UUIDTable("login_attempt") {
 
     val createdAt = long("created_at").default(System.currentTimeMillis())
     val updatedAt = long("updated_at").default(System.currentTimeMillis())
+
+    override val primaryKey = PrimaryKey(id)
 }

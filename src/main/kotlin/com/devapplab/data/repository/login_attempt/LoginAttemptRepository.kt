@@ -1,8 +1,9 @@
 package com.devapplab.data.repository.login_attempt
 
-import com.devapplab.data.database.login_attempt.LoginAttemptDAO
 import com.devapplab.data.database.login_attempt.LoginAttemptTable
 import com.devapplab.model.login_attempt.LoginAttempt
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 
 interface LoginAttemptRepository {
     fun findByEmail(email: String): LoginAttempt?
@@ -14,9 +15,9 @@ interface LoginAttemptRepository {
 class LoginAttemptRepositoryImpl : LoginAttemptRepository {
 
     override fun findByEmail(email: String): LoginAttempt? {
-        return LoginAttemptDAO
-            .find { LoginAttemptTable.email eq email }
-            .limit(1)
+        return LoginAttemptTable
+            .selectAll()
+            .where { LoginAttemptTable.email eq email }
             .firstOrNull()
             ?.toDomain()
     }
@@ -24,16 +25,17 @@ class LoginAttemptRepositoryImpl : LoginAttemptRepository {
     override fun create(email: String): LoginAttempt {
         val now = System.currentTimeMillis()
 
-        val dao = LoginAttemptDAO.new {
-            this.email = email
-            this.attempts = 1
-            this.lastAttemptAt = now
-            this.lockedUntil = null
-            this.createdAt = now
-            this.updatedAt = now
-        }
+        val resultRow = LoginAttemptTable.insert {
+            it[this.email] = email
+            it[this.attempts] = 1
+            it[this.lastAttemptAt] = now
+            it[this.lockedUntil] = null
+            it[this.createdAt] = now
+            it[this.updatedAt] = now
+        }.resultedValues?.firstOrNull()
+        ?: throw IllegalStateException("No ResultRow returned by insert. create LoginAttemp")
 
-        return dao.toDomain()
+        return resultRow.toDomain()
     }
 
     override fun update(
@@ -42,40 +44,33 @@ class LoginAttemptRepositoryImpl : LoginAttemptRepository {
         lastAttemptAt: Long,
         lockedUntil: Long?
     ): LoginAttempt? {
-        val dao = LoginAttemptDAO
-            .find { LoginAttemptTable.email eq email }
-            .limit(1)
-            .firstOrNull()
-            ?: return null
+        val updatedRows = LoginAttemptTable.update({ LoginAttemptTable.email eq email }) {
+            it[this.attempts] = attempts
+            it[this.lastAttemptAt] = lastAttemptAt
+            it[this.lockedUntil] = lockedUntil
+            it[updatedAt] = System.currentTimeMillis()
+        }
 
-        dao.attempts = attempts
-        dao.lastAttemptAt = lastAttemptAt
-        dao.lockedUntil = lockedUntil
-        dao.updatedAt = System.currentTimeMillis()
-
-        return dao.toDomain()
+        return if (updatedRows > 0) {
+            findByEmail(email)
+        } else {
+            null
+        }
     }
 
     override fun delete(email: String): Boolean {
-        val dao = LoginAttemptDAO
-            .find { LoginAttemptTable.email eq email }
-            .limit(1)
-            .firstOrNull()
-            ?: return false
-
-        dao.delete()
-        return true
+        return LoginAttemptTable.deleteWhere { LoginAttemptTable.email eq email } > 0
     }
 
-    private fun LoginAttemptDAO.toDomain(): LoginAttempt {
+    private fun ResultRow.toDomain(): LoginAttempt {
         return LoginAttempt(
-            id = this.id.value,
-            email = this.email,
-            attempts = this.attempts,
-            lastAttemptAt = this.lastAttemptAt,
-            lockedUntil = this.lockedUntil,
-            createdAt = this.createdAt,
-            updatedAt = this.updatedAt
+            id = this[LoginAttemptTable.id],
+            email = this[LoginAttemptTable.email],
+            attempts = this[LoginAttemptTable.attempts],
+            lastAttemptAt = this[LoginAttemptTable.lastAttemptAt],
+            lockedUntil = this[LoginAttemptTable.lockedUntil],
+            createdAt = this[LoginAttemptTable.createdAt],
+            updatedAt = this[LoginAttemptTable.updatedAt]
         )
     }
 }
