@@ -1,10 +1,11 @@
 package com.devapplab.data.database.discount
 
 import com.devapplab.model.discount.DiscountType
-import org.jetbrains.exposed.dao.id.UUIDTable
+import org.jetbrains.exposed.sql.Table
 
-object DiscountsTable : UUIDTable("discounts") {
-    val code = varchar("code", 50).uniqueIndex().nullable() // Para cupones
+object DiscountsTable : Table("discounts") {
+    val id = uuid("id").autoGenerate().uniqueIndex()
+    val code = varchar("code", 50).uniqueIndex().nullable()
     val description = text("description")
     val discountType = enumerationByName("discount_type", 20, DiscountType::class)
     val value = decimal("value", 10, 2)
@@ -14,4 +15,6 @@ object DiscountsTable : UUIDTable("discounts") {
 
     val createdAt = long("created_at").default(System.currentTimeMillis())
     val updatedAt = long("updated_at").default(System.currentTimeMillis())
+
+    override val primaryKey = PrimaryKey(id)
 }
