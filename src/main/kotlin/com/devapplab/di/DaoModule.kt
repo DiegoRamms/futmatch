@@ -1,7 +1,6 @@
 package com.devapplab.di
 
 import com.devapplab.data.database.device.DeviceDAO
-import com.devapplab.data.database.location.LocationDao
 import com.devapplab.data.database.login_attempt.LoginAttemptDAO
 import com.devapplab.data.database.mfa.MfaCodeDao
 import com.devapplab.data.database.password_reset.PasswordResetTokenDao
@@ -22,5 +21,4 @@ val daoModule = module {
     singleOf(::PasswordResetTokenDaoImpl) { bind<PasswordResetTokenDao>() }
     singleOf(::LoginAttemptDAO)
     singleOf(::PendingRegistrationDaoImpl) { bind<PendingRegistrationDao>() }
-    singleOf(::LocationDao)
 }
