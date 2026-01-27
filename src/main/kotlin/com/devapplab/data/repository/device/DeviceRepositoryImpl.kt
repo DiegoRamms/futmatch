@@ -1,53 +1,52 @@
 package com.devapplab.data.repository.device
 
-import com.devapplab.data.database.device.DeviceDAO
 import com.devapplab.data.database.device.DeviceTable
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.update
 import java.util.*
 
 class DeviceRepositoryImpl : DeviceRepository {
 
     override fun saveDevice(userId: UUID, deviceInfo: String, isTrusted: Boolean): UUID {
         val now = System.currentTimeMillis()
-
-        val dao = DeviceDAO.new {
-            this.userId = userId
-            this.deviceInfo = deviceInfo
-            this.isTrusted = isTrusted
-            this.isActive = true
-            this.lastUsedAt = now
-            this.createdAt = now
-        }
-
-        return dao.id.value
+        return DeviceTable.insert {
+            it[this.userId] = userId
+            it[this.deviceInfo] = deviceInfo
+            it[this.isTrusted] = isTrusted
+            it[this.isActive] = true
+            it[this.lastUsedAt] = now
+            it[this.createdAt] = now
+        }[DeviceTable.id]
     }
 
     override fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
-        return DeviceDAO.find {
+        return DeviceTable.selectAll().where {
             (DeviceTable.id eq deviceId) and
                     (DeviceTable.userId eq userId) and
                     (DeviceTable.isActive eq true)
-        }.limit(1).empty().not()
+        }.any()
     }
 
     override fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
-        return DeviceDAO.find {
+        return DeviceTable.selectAll().where {
             (DeviceTable.id eq deviceId) and
                     (DeviceTable.userId eq userId) and
                     (DeviceTable.isActive eq true) and
                     (DeviceTable.isTrusted eq true)
-        }.limit(1).empty().not()
+        }.any()
     }
 
     override fun markDeviceAsTrusted(deviceId: UUID): Boolean {
-        val dao = DeviceDAO.findById(deviceId) ?: return false
-        dao.isTrusted = true
-        return true
+        return DeviceTable.update({ DeviceTable.id eq deviceId }) {
+            it[isTrusted] = true
+        } > 0
     }
 
     override fun changeDeviceLastUsed(deviceId: UUID): Boolean {
-        val dao = DeviceDAO.findById(deviceId) ?: return false
-        dao.lastUsedAt = System.currentTimeMillis()
-        return true
+        return DeviceTable.update({ DeviceTable.id eq deviceId }) {
+            it[lastUsedAt] = System.currentTimeMillis()
+        } > 0
     }
 }

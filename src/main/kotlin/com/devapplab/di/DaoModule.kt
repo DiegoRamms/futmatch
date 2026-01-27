@@ -1,6 +1,5 @@
 package com.devapplab.di
 
-import com.devapplab.data.database.device.DeviceDAO
 import com.devapplab.data.database.login_attempt.LoginAttemptDAO
 import com.devapplab.data.database.mfa.MfaCodeDao
 import com.devapplab.data.database.password_reset.PasswordResetTokenDao
@@ -14,7 +13,6 @@ import org.koin.dsl.module
 
 val daoModule = module {
     singleOf(::RefreshTokenDao)
-    singleOf(::DeviceDAO)
     singleOf(::MfaCodeDao)
     singleOf(::PasswordResetTokenDaoImpl) { bind<PasswordResetTokenDao>() }
     singleOf(::LoginAttemptDAO)
