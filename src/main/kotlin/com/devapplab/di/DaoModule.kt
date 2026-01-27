@@ -1,6 +1,5 @@
 package com.devapplab.di
 
-import com.devapplab.data.database.mfa.MfaCodeDao
 import com.devapplab.data.database.password_reset.PasswordResetTokenDao
 import com.devapplab.data.database.password_reset.PasswordResetTokenDaoImpl
 import com.devapplab.data.database.pending_registrations.PendingRegistrationDao
@@ -12,7 +11,6 @@ import org.koin.dsl.module
 
 val daoModule = module {
     singleOf(::RefreshTokenDao)
-    singleOf(::MfaCodeDao)
     singleOf(::PasswordResetTokenDaoImpl) { bind<PasswordResetTokenDao>() }
     singleOf(::PendingRegistrationDaoImpl) { bind<PendingRegistrationDao>() }
 }

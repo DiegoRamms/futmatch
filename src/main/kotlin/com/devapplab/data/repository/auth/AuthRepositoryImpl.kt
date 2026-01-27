@@ -1,7 +1,7 @@
 package com.devapplab.data.repository.auth
 
-import com.devapplab.data.database.mfa.MfaCodeDao
 import com.devapplab.data.database.refresh_token.RefreshTokenDao
+import com.devapplab.data.repository.MfaCodeRepository
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.auth.RefreshTokenPayload
@@ -10,7 +10,7 @@ import java.util.*
 class AuthRepositoryImpl(
     private val userRepository: UserRepository,
     private val deviceRepository: DeviceRepository,
-    private val mfaCodeDao: MfaCodeDao,
+    private val mfaCodeRepository: MfaCodeRepository,
     private val refreshTokenDao: RefreshTokenDao,
 ) : AuthRepository {
 
@@ -22,11 +22,11 @@ class AuthRepositoryImpl(
     override fun completeMfaVerification(userId: UUID, deviceId: UUID, mfaCodeId: UUID) {
         userRepository.markEmailAsVerified(userId)
         deviceRepository.markDeviceAsTrusted(deviceId)
-        mfaCodeDao.markAsVerified(mfaCodeId)
+        mfaCodeRepository.markAsVerified(mfaCodeId)
     }
 
     override fun completeForgotPasswordMfaVerification(mfaCodeId: UUID) {
-        mfaCodeDao.markAsVerified(mfaCodeId)
+        mfaCodeRepository.markAsVerified(mfaCodeId)
     }
 
     override fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload) {
