@@ -65,6 +65,29 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun getAllMatches(): List<MatchWithFieldBaseInfo> {
+        return dbQuery {
+            (MatchTable innerJoin FieldTable)
+                .leftJoin(LocationsTable)
+                .selectAll()
+                .map { row ->
+                    MatchWithFieldBaseInfo(
+                        matchId = row[MatchTable.id],
+                        fieldId = row[FieldTable.id],
+                        fieldName = row[FieldTable.name],
+                        fieldLocation = row.getOrNull(LocationsTable.address) ?: "",
+                        matchDateTime = row[MatchTable.dateTime],
+                        matchDateTimeEnd = row[MatchTable.dateTimeEnd],
+                        matchPrice = row[MatchTable.matchPrice],
+                        discount = BigDecimal.ZERO, // Cannot determine discount from current info
+                        maxPlayers = row[MatchTable.maxPlayers],
+                        minPlayersRequired = row[MatchTable.minPlayersRequired],
+                        status = row[MatchTable.status]
+                    )
+                }
+        }
+    }
+
     override suspend fun cancelMatch(matchId: UUID): Boolean {
         return dbQuery {
             MatchTable.update({ MatchTable.id eq matchId }) {

@@ -18,6 +18,11 @@ fun Route.matchRouting() {
             val matchController = call.scope.get<MatchController>()
             matchController.getMatchesByFieldId(call)
         }
+        get("admin/matches") {
+            call.requireRole(UserRole.ADMIN, UserRole.BOTH)
+            val matchController = call.scope.get<MatchController>()
+            matchController.getAllMatches(call)
+        }
         patch("admin/cancel/{matchId}") {
             call.requireRole(UserRole.ADMIN, UserRole.BOTH)
             val matchController = call.scope.get<MatchController>()

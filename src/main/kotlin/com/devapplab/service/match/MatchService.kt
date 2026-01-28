@@ -19,6 +19,11 @@ class MatchService(private val matchRepository: MatchRepository) {
         return AppResult.Success(matches)
     }
 
+    suspend fun getAllMatches(): AppResult<List<MatchWithFieldResponse>> {
+        val matches = matchRepository.getAllMatches().map { it.toResponse() }
+        return AppResult.Success(matches)
+    }
+
     suspend fun cancelMatch(matchUuid: UUID): AppResult<Boolean> {
         return AppResult.Success(matchRepository.cancelMatch(matchUuid))
     }

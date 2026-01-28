@@ -25,6 +25,11 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(result)
     }
 
+    suspend fun getAllMatches(call: ApplicationCall) {
+        val result = matchService.getAllMatches()
+        call.respond(result)
+    }
+
     suspend fun cancelMatch(call: ApplicationCall) {
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't cancel match")
         val result = matchService.cancelMatch(matchId)
