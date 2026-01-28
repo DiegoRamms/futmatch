@@ -4,6 +4,7 @@ import com.devapplab.config.dbQuery
 import com.devapplab.data.database.field.FieldTable
 import com.devapplab.data.database.location.LocationsTable
 import com.devapplab.data.database.match.MatchTable
+import com.devapplab.model.location.Location
 import com.devapplab.model.match.Match
 import com.devapplab.model.match.MatchBaseInfo
 import com.devapplab.model.match.MatchStatus
@@ -48,11 +49,22 @@ class MatchRepositoryImp : MatchRepository {
                 .selectAll()
                 .where { MatchTable.fieldId eq fieldId }
                 .map { row ->
+                    val location = if (row.getOrNull(LocationsTable.id) != null) {
+                        Location(
+                            id = row[LocationsTable.id],
+                            address = row[LocationsTable.address],
+                            city = row[LocationsTable.city],
+                            country = row[LocationsTable.country],
+                            latitude = row[LocationsTable.latitude],
+                            longitude = row[LocationsTable.longitude]
+                        )
+                    } else null
+
                     MatchWithFieldBaseInfo(
                         matchId = row[MatchTable.id],
                         fieldId = row[FieldTable.id],
                         fieldName = row[FieldTable.name],
-                        fieldLocation = row.getOrNull(LocationsTable.address) ?: "",
+                        fieldLocation = location,
                         matchDateTime = row[MatchTable.dateTime],
                         matchDateTimeEnd = row[MatchTable.dateTimeEnd],
                         matchPrice = row[MatchTable.matchPrice],
@@ -71,11 +83,22 @@ class MatchRepositoryImp : MatchRepository {
                 .leftJoin(LocationsTable)
                 .selectAll()
                 .map { row ->
+                    val location = if (row.getOrNull(LocationsTable.id) != null) {
+                        Location(
+                            id = row[LocationsTable.id],
+                            address = row[LocationsTable.address],
+                            city = row[LocationsTable.city],
+                            country = row[LocationsTable.country],
+                            latitude = row[LocationsTable.latitude],
+                            longitude = row[LocationsTable.longitude]
+                        )
+                    } else null
+
                     MatchWithFieldBaseInfo(
                         matchId = row[MatchTable.id],
                         fieldId = row[FieldTable.id],
                         fieldName = row[FieldTable.name],
-                        fieldLocation = row.getOrNull(LocationsTable.address) ?: "",
+                        fieldLocation = location,
                         matchDateTime = row[MatchTable.dateTime],
                         matchDateTimeEnd = row[MatchTable.dateTimeEnd],
                         matchPrice = row[MatchTable.matchPrice],
