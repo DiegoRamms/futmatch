@@ -11,6 +11,7 @@ data class AuthResponse(
     @Serializable(with = UUIDSerializer::class)
     val deviceId: UUID? = null,
     val authTokenResponse: AuthTokenResponse? = null,
+    val firebaseToken: String? = null,
     val authCode: AuthCode
 
 )

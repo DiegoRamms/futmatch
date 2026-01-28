@@ -12,6 +12,7 @@ import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.clean.CleanupDataService
 import com.devapplab.service.email.RealEmailServiceTestImp
 import com.devapplab.service.field.FieldService
+import com.devapplab.service.firebase.FirebaseService
 import com.devapplab.service.hashing.HashingServiceImpl
 import com.devapplab.service.image.ImageServiceImp
 import com.devapplab.service.match.MatchService
@@ -39,4 +40,5 @@ val serviceModule = module {
     singleOf(::ImageServiceImp) { bind<com.devapplab.service.image.ImageService>() }
     singleOf(::CleanupDataService)
     singleOf(::PasswordResetTokenServiceImpl) { bind<com.devapplab.service.password_reset.PasswordResetTokenService>()  }
+    singleOf(::FirebaseService)
 }

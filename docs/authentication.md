@@ -19,9 +19,13 @@ To receive localized responses, include an `Accept-Language` header with one of 
 
 Most authentication and registration endpoints require device information for security purposes. This should be sent in the `User-Agent` header.
 
+### Firebase Integration
+
+Successful authentication responses now include a `firebaseToken`. This is a Custom Token that the client should use to authenticate with the Firebase SDK (`signInWithCustomToken`).
+
 ---
 
-## 1. Registration Fl ow
+## 1. Registration Flow
 
 The registration process follows a 2-step verification flow.
 
@@ -80,7 +84,7 @@ Completes the registration using the verification code sent to the email.
 ```
 
 #### Example Success Response:
-Returns full authentication tokens upon successful verification.
+Returns full authentication tokens upon successful verification, including the Firebase Custom Token.
 
 ```json
 {
@@ -92,6 +96,7 @@ Returns full authentication tokens upon successful verification.
             "accessToken": "ey...",
             "refreshToken": "ey..."
         },
+        "firebaseToken": "ey_firebase_custom_token...",
         "authCode": "SUCCESS"
     }
 }
@@ -159,6 +164,7 @@ Authenticates a user and returns JWT tokens or an MFA challenge.
             "accessToken": "ey...",
             "refreshToken": "ey..."
         },
+        "firebaseToken": "ey_firebase_custom_token...",
         "authCode": "SUCCESS"
     }
 }
@@ -220,6 +226,23 @@ Verifies the MFA code and completes the Sign In.
 }
 ```
 
+#### Example Success Response:
+```json
+{
+    "status": "success",
+    "data": {
+        "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "deviceId": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+        "authTokenResponse": {
+            "accessToken": "ey...",
+            "refreshToken": "ey..."
+        },
+        "firebaseToken": "ey_firebase_custom_token...",
+        "authCode": "SUCCESS"
+    }
+}
+```
+
 ---
 
 ## 3. Session Management
@@ -231,7 +254,7 @@ Obtains a new access token using a refresh token.
 *   **Method:** `POST`
 *   **Path:** `/auth/refresh`
 *   **Headers:** Requires `Authorization: Bearer <refresh_token>`
-*   **Description:** Provides a new `accessToken`. If the refresh token is near expiration, it will be rotated (a new `refreshToken` will be returned).
+*   **Description:** Provides a new `accessToken`. If the refresh token is near expiration, it will be rotated (a new `refreshToken` will be returned). **Note:** This endpoint does NOT return a new `firebaseToken`, as the Firebase SDK handles its own session refresh.
 
 #### Example Request Body:
 ```json

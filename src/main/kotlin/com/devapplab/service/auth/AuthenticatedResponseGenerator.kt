@@ -12,6 +12,7 @@ import com.devapplab.model.auth.response.AuthTokenResponse
 import com.devapplab.model.user.UserRole
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
+import com.devapplab.service.firebase.FirebaseService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
@@ -22,7 +23,8 @@ class AuthenticatedResponseGenerator(
     private val dbExecutor: DbExecutor,
     private val authTokenService: AuthTokenService,
     private val refreshTokenService: RefreshTokenService,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val firebaseService: FirebaseService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -35,10 +37,30 @@ class AuthenticatedResponseGenerator(
     ): AppResult<AuthResponse> {
         val start = System.currentTimeMillis()
 
+        // 1. Generate Firebase Custom Token
+        val firebaseToken = firebaseService.createCustomToken(
+            userId = userId.toString(),
+            claims = mapOf("role" to userRole.name)
+        )
+
+        if (firebaseToken == null) {
+            logger.error("🔥 Failed to generate Firebase token for userId=$userId")
+            return locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError,
+                errorCode = ErrorCode.GENERAL_ERROR
+            )
+        }
+
+        // 2. Generate JWT Access Token
         val claimConfig = ClaimConfig(userId, userRole)
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
+        
+        // 3. Generate Refresh Token
         val refreshTokenPayload = refreshTokenService.generateRefreshToken(jwtConfig.refreshTokenLifetime)
 
+        // 4. Persist Refresh Token (DB Transaction)
         val rotated = runCatching {
             dbExecutor.tx {
                 authRepository.rotateRefreshToken(userId, deviceId, refreshTokenPayload)
@@ -59,7 +81,7 @@ class AuthenticatedResponseGenerator(
         }
 
         val duration = System.currentTimeMillis() - start
-        logger.info("✅ JWT + RefreshToken generated in $duration ms")
+        logger.info("✅ Auth tokens generated in $duration ms")
 
         return AppResult.Success(
             AuthResponse(
@@ -67,6 +89,7 @@ class AuthenticatedResponseGenerator(
                     accessToken = accessToken,
                     refreshToken = refreshTokenPayload.plainToken
                 ),
+                firebaseToken = firebaseToken,
                 userId = userId,
                 deviceId = deviceId,
                 authCode = AuthCode.SUCCESS
