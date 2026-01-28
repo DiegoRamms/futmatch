@@ -4,6 +4,7 @@ import com.devapplab.model.match.Match
 import com.devapplab.model.match.MatchBaseInfo
 import com.devapplab.model.match.MatchWithFieldBaseInfo
 import com.devapplab.model.match.request.CreateMatchRequest
+import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.model.match.response.MatchResponse
 import com.devapplab.model.match.response.MatchWithFieldResponse
 import java.math.BigDecimal
@@ -11,6 +12,21 @@ import java.util.*
 
 fun CreateMatchRequest.toMatch(adminId: UUID): Match {
     return Match(
+        fieldId = this.fieldId,
+        adminId = adminId,
+        dateTime = this.dateTime,
+        dateTimeEnd = this.dateTimeEnd,
+        maxPlayers = this.maxPlayers,
+        minPlayersRequired = this.minPlayersRequired,
+        matchPrice = matchPriceInCents.toBigDecimal().movePointLeft(2),
+        discount = discountInCents.toBigDecimal().movePointLeft(2),
+        status = this.status
+    )
+}
+
+fun UpdateMatchRequest.toMatch(adminId: UUID, matchId: UUID): Match {
+    return Match(
+        id = matchId,
         fieldId = this.fieldId,
         adminId = adminId,
         dateTime = this.dateTime,

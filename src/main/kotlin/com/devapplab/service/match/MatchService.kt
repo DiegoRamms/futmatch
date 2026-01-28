@@ -22,4 +22,8 @@ class MatchService(private val matchRepository: MatchRepository) {
     suspend fun cancelMatch(matchUuid: UUID): AppResult<Boolean> {
         return AppResult.Success(matchRepository.cancelMatch(matchUuid))
     }
+
+    suspend fun updateMatch(matchId: UUID, match: Match): AppResult<Boolean> {
+        return AppResult.Success(matchRepository.updateMatch(matchId, match))
+    }
 }

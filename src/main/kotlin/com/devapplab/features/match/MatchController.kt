@@ -4,6 +4,7 @@ import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.match.mapper.toMatch
 import com.devapplab.model.match.request.CreateMatchRequest
+import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.utils.respond
 import com.devapplab.utils.toUUIDOrNull
 import io.ktor.server.application.*
@@ -27,6 +28,14 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
     suspend fun cancelMatch(call: ApplicationCall) {
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't cancel match")
         val result = matchService.cancelMatch(matchId)
+        call.respond(result)
+    }
+
+    suspend fun updateMatch(call: ApplicationCall) {
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't update match")
+        val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val request = call.receive<UpdateMatchRequest>()
+        val result = matchService.updateMatch(matchId, request.toMatch(adminId, matchId))
         call.respond(result)
     }
 }

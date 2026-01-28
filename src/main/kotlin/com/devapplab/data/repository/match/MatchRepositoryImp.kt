@@ -73,4 +73,19 @@ class MatchRepositoryImp : MatchRepository {
             } > 0
         }
     }
+
+    override suspend fun updateMatch(matchId: UUID, match: Match): Boolean {
+        return dbQuery {
+            MatchTable.update({ MatchTable.id eq matchId }) {
+                it[fieldId] = match.fieldId
+                it[dateTime] = match.dateTime
+                it[dateTimeEnd] = match.dateTimeEnd
+                it[maxPlayers] = match.maxPlayers
+                it[minPlayersRequired] = match.minPlayersRequired
+                it[matchPrice] = match.matchPrice
+                it[status] = match.status
+                it[updatedAt] = System.currentTimeMillis()
+            } > 0
+        }
+    }
 }

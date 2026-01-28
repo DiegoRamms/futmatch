@@ -11,6 +11,7 @@ import com.devapplab.model.auth.response.RefreshJWTRequest
 import com.devapplab.model.field.request.CreateFieldRequest
 import com.devapplab.model.field.request.UpdateFieldRequest
 import com.devapplab.model.match.request.CreateMatchRequest
+import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.model.mfa.MfaCodeRequest
 import com.devapplab.model.mfa.MfaCodeVerificationRequest
 import com.devapplab.model.mfa.VerifyResetMfaRequest
@@ -56,6 +57,10 @@ fun Application.configureRequestValidation() {
         }
 
         validate<CreateMatchRequest> { request ->
+            request.validate()
+        }
+
+        validate<UpdateMatchRequest> { request ->
             request.validate()
         }
     }
