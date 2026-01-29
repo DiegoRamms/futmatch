@@ -11,11 +11,14 @@ class HashingServiceImpl : HashingService {
     private val logger = LoggerFactory.getLogger(this::class.java)
     private val bcryptHash = BCrypt.withDefaults()
     private val bcryptVerifier = BCrypt.verifyer()
+    
+
+    private val cost = 10
 
     override suspend fun hash(password: String): String {
         val start = System.currentTimeMillis()
         val hashed = withContext(Dispatchers.Default) {
-            bcryptHash.hashToString(12, password.toCharArray())
+            bcryptHash.hashToString(cost, password.toCharArray())
         }
         logger.info("🔐 Hashing password took ${System.currentTimeMillis() - start} ms")
         return hashed
