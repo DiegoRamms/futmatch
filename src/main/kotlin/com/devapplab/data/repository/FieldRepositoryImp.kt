@@ -24,7 +24,7 @@ class FieldRepositoryImp : FieldRepository {
             val result = FieldTable.insert {
                 it[name] = field.name
                 it[locationId] = field.locationId
-                it[pricePerPlayer] = field.price.toBigDecimal()
+                it[pricePerPlayer] = field.price
                 it[capacity] = field.capacity
                 it[adminId] = field.adminId
                 it[description] = field.description
@@ -45,7 +45,7 @@ class FieldRepositoryImp : FieldRepository {
             FieldTable.update({ FieldTable.id eq fieldId }) {
                 it[name] = field.name
                 it[locationId] = field.locationId
-                it[pricePerPlayer] = field.price.toBigDecimal()
+                it[pricePerPlayer] = field.price
                 it[capacity] = field.capacity
                 it[adminId] = field.adminId
                 it[description] = field.description
@@ -216,7 +216,7 @@ class FieldRepositoryImp : FieldRepository {
             id = this[FieldTable.id],
             name = this[FieldTable.name],
             locationId = this[FieldTable.locationId],
-            price = this[FieldTable.pricePerPlayer].toDouble(),
+            price = this[FieldTable.pricePerPlayer],
             capacity = this[FieldTable.capacity],
             description = this[FieldTable.description],
             rules = this[FieldTable.rules],
@@ -228,7 +228,7 @@ class FieldRepositoryImp : FieldRepository {
         id = this[FieldTable.id],
         name = this[FieldTable.name],
         locationId = this[FieldTable.locationId],
-        price = this[FieldTable.pricePerPlayer].toDouble(),
+        price = this[FieldTable.pricePerPlayer],
         capacity = this[FieldTable.capacity],
         description = this[FieldTable.description],
         rules = this[FieldTable.rules],

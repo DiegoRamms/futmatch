@@ -9,12 +9,13 @@ import com.devapplab.model.field.request.UpdateFieldRequest
 import com.devapplab.model.field.response.FieldImageResponse
 import com.devapplab.model.field.response.FieldResponse
 import com.devapplab.model.field.response.FieldWithImagesResponse
+import java.math.BigDecimal
 import java.util.*
 
 fun CreateFieldRequest.toField(adminId: UUID): Field {
     return Field(
         name = name,
-        price = price,
+        price = priceInCents.toBigDecimal().movePointLeft(2),
         adminId = adminId,
         description = description,
         capacity = capacity,
@@ -27,7 +28,7 @@ fun FieldBaseInfo.toResponse(): FieldResponse {
         id = this.id,
         name = this.name,
         locationId = this.locationId,
-        price = this.price,
+        priceInCents = this.price.multiply(BigDecimal(100)).longValueExact(),
         capacity = this.capacity,
         description = this.description,
         rules = this.rules,
@@ -57,7 +58,7 @@ fun UpdateFieldRequest.toField(adminId: UUID): Field {
         name = name,
         adminId = adminId,
         locationId = locationId,
-        price = price,
+        price = priceInCents.toBigDecimal().movePointLeft(2),
         description = description,
         capacity = capacity,
         rules = rules

@@ -5,9 +5,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CreateFieldRequest(
     val name: String,
-    val price: Double,
+    val priceInCents: Long,
     val capacity: Int,
     val description: String,
     val rules: String
 )
-

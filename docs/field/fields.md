@@ -37,7 +37,7 @@ Crea una nueva cancha.
 ```json
 {
     "name": "Cancha Central",
-    "price": 15.50,
+    "priceInCents": 1550, // 15.50
     "capacity": 10,
     "description": "Nuestra mejor cancha con césped artificial.",
     "rules": "No se permiten tacos de metal."
@@ -51,12 +51,12 @@ Crea una nueva cancha.
     "data": {
         "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
         "name": "Cancha Central",
-        "locationId": null,
-        "price": 15.50,
+        "locationId": null, // (Opcional)
+        "priceInCents": 1550, // 15.50
         "capacity": 10,
         "description": "Nuestra mejor cancha con césped artificial.",
         "rules": "No se permiten tacos de metal.",
-        "location": null
+        "location": null // (Opcional)
     }
 }
 ```
@@ -74,8 +74,8 @@ Actualiza la información de una cancha existente.
 {
     "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
     "name": "Cancha Principal (Renovada)",
-    "locationId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
-    "price": 20.00,
+    "locationId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1", // (Opcional)
+    "priceInCents": 2000, // 20.00
     "capacity": 12,
     "description": "Césped recién renovado.",
     "rules": "No se permiten tacos de metal. Respetar horarios."
@@ -126,12 +126,12 @@ Obtiene una lista de todas las canchas asociadas a la cuenta del administrador q
             "field": {
                 "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
                 "name": "Cancha Principal (Renovada)",
-                "locationId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
-                "price": 20.00,
+                "locationId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1", // (Opcional)
+                "priceInCents": 2000, // 20.00
                 "capacity": 12,
                 "description": "Césped recién renovado.",
                 "rules": "No se permiten tacos de metal. Respetar horarios.",
-                "location": {
+                "location": { // (Opcional)
                     "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                     "address": "123 Calle Falsa",
                     "city": "Springfield",

@@ -9,7 +9,7 @@ fun CreateFieldRequest.validate(): ValidationResult {
     return when {
         !name.validateName(FIELD_NAME_MAX_LENGTH) ->
             ValidationResult.Invalid(StringResourcesKey.FIELD_NAME_INVALID_ERROR.value)
-        price <= 0.0 ->
+        priceInCents <= 0L ->
             ValidationResult.Invalid(StringResourcesKey.FIELD_PRICE_INVALID_ERROR.value)
 
         capacity <= 0 ->

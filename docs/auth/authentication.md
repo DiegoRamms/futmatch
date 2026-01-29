@@ -49,7 +49,7 @@ Initiates the registration process and sends a verification code to the user's e
     "birthDate": 946684800000,
     "playerPosition": "MIDFIELDER",
     "gender": "MALE",
-    "profilePic": null,
+    "profilePic": null, // (Optional)
     "level": "AMATEUR",
     "userRole": "PLAYER"
 }
@@ -146,7 +146,7 @@ Authenticates a user and returns JWT tokens or an MFA challenge.
 {
     "email": "john.doe@example.com",
     "password": "SecurePassword123!",
-    "deviceId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1" 
+    "deviceId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1" // (Optional)
 }
 ```
 *   `deviceId`: Optional. If provided and trusted, MFA might be skipped.
