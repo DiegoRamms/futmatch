@@ -50,6 +50,9 @@ dependencies {
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.firebase.admin)
     implementation(platform(libs.grpc.bom))
+    implementation(libs.cloudinary)
+    // Security fix for CVE-2025-48924
+    implementation(libs.commons.lang3)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 

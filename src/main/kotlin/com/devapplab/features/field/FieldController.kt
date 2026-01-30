@@ -1,14 +1,14 @@
 package com.devapplab.features.field
 
 import com.devapplab.config.getIdentifier
+import com.devapplab.model.AppResult
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.field.mapper.toField
 import com.devapplab.model.field.request.CreateFieldRequest
 import com.devapplab.model.field.request.UpdateFieldRequest
 import com.devapplab.utils.respond
-import com.devapplab.utils.respondImage
+import com.devapplab.utils.respondRedirect
 import com.devapplab.utils.retrieveLocale
-import com.devapplab.utils.toUUIDOrNull
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import java.util.*
@@ -58,9 +58,8 @@ class FieldController(
     suspend fun getImage(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
         val imageName = call.parameters["imageName"]
-        val fieldId = call.parameters["fieldId"]
-        val appResult = fieldService.getImage(locale, fieldId?.toUUIDOrNull(), imageName)
-        call.respondImage(appResult)
+        val appResult: AppResult<String> = fieldService.getImage(locale, imageName)
+        call.respondRedirect(appResult)
     }
 
     suspend fun updateField(call: ApplicationCall) {

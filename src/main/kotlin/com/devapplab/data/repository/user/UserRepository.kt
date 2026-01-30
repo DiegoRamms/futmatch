@@ -17,7 +17,7 @@ interface UserRepository {
     fun updatePassword(userId: UUID, hashedPassword: String): Boolean
     fun addUser(user: User): UUID
     suspend fun updateUser(id: UUID, updatedUser: User): Boolean
+    suspend fun updateProfilePic(userId: UUID, fileName: String): Boolean
     fun markEmailAsVerified(userId: UUID): Boolean
     suspend fun deleteUser(id: UUID): Boolean
 }
-

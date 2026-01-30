@@ -3,7 +3,7 @@ package com.devapplab.model.user.mapper
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.response.UserResponse
 
-fun UserBaseInfo.toUserResponse(): UserResponse {
+fun UserBaseInfo.toUserResponse(profilePicUrl: String): UserResponse {
     return UserResponse(
         id = id,
         name = name,
@@ -15,7 +15,7 @@ fun UserBaseInfo.toUserResponse(): UserResponse {
         birthDate = birthDate,
         gender = gender,
         playerPosition = playerPosition,
-        profilePic = profilePic,
+        profilePic = profilePicUrl,
         level = level,
         isEmailVerified = isEmailVerified,
         userRole = userRole

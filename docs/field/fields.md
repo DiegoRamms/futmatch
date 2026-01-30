@@ -230,22 +230,19 @@ Elimina una imagen de una cancha.
 
 ### 2.4 Obtener Imagen
 
-Obtiene el archivo de imagen de una cancha.
+Obtiene la URL de acceso para una imagen de cancha.
 
 -   **Método:** `GET`
--   **Path:** `/fields/image/{fieldId}/{imageName}`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Path:** `/fields/image/{imageName}`
+-   **Rol Requerido:** `ADMIN` o `BOTH` (o cualquier usuario autenticado, según configuración)
 -   **Header Requerido:** `Authorization: Bearer <access_token>`
 
 #### Parámetros de Ruta:
--   `fieldId` (UUID): El ID de la cancha.
--   `imageName` (String): El nombre (o `key`) del archivo de imagen.
+-   `imageName` (String): El nombre del archivo de imagen (ej. `zwc9qnwzy6jqkclqfnfm`).
 
 #### Respuesta Exitosa:
-El servidor responderá con el archivo de imagen y el `Content-Type` adecuado (ej. `image/jpeg`).
+El servidor responderá con una redirección (`302 Found`) a la URL firmada de Cloudinary.
 ```
-Status: 200 OK
-Content-Type: image/jpeg
-
-[...datos binarios de la imagen...]
+Status: 302 Found
+Location: https://res.cloudinary.com/.../image/upload/s--.../v1/futmatch/fields/...
 ```

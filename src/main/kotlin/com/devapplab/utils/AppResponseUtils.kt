@@ -13,12 +13,25 @@ import java.util.Locale
 
 suspend inline fun <reified T : Any> ApplicationCall.respond(appResult: AppResult<T>) {
     val response = when (appResult) {
-        is AppResult.Failure -> AppResponse(error = appResult.errorResponse)
-        is AppResult.Success -> AppResponse(data = appResult.data)
+        is AppResult.Failure -> AppResponse<T>(data = null, error = appResult.errorResponse)
+        is AppResult.Success -> AppResponse<T>(data = appResult.data)
     }
     this.respond(status = appResult.status, message = response)
 }
 
+/**
+ * Handles AppResult<String> specifically for redirects.
+ * If Success, redirects to the URL string in data.
+ * If Failure, responds with the standard error response.
+ */
+suspend fun ApplicationCall.respondRedirect(appResult: AppResult<String>) {
+    when (appResult) {
+        is AppResult.Success -> this.respondRedirect(appResult.data)
+        is AppResult.Failure -> this.respond<String>(appResult)
+    }
+}
+
+@Suppress("Unused")
 suspend fun ApplicationCall.respondImage(appResult: AppResult<ImageFileInfo>) {
     when (appResult) {
         is AppResult.Failure -> {
