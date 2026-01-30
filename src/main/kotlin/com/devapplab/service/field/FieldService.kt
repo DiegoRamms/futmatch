@@ -20,7 +20,7 @@ class FieldService(
 ) {
 
     private val maxImagesPerField = 4
-    private val baseCloudinaryFolder = "futmatch/fields"
+    private val baseStoragePath = "futmatch/fields"
 
     suspend fun createField(field: Field): AppResult<FieldResponse> {
         val fielResponse = fieldRepository.createField(field).toResponse()
@@ -51,8 +51,8 @@ class FieldService(
             )
         }
 
-        // Cloudinary folder structure
-        val path = "$baseCloudinaryFolder/$fieldId"
+        // Storage folder structure
+        val path = "$baseStoragePath/$fieldId"
         val imageSaved = imageService.saveImages(multiPartData, path).first()
 
         // We only store the filename (last part of public_id) in the DB
@@ -84,8 +84,9 @@ class FieldService(
                 descriptionKey = StringResourcesKey.FIELD_IMAGE_NOT_FOUND_DESCRIPTION,
                 errorCode = ErrorCode.NOT_FOUND
             )
-        
-        val publicId = "$baseCloudinaryFolder/${image.fieldId}/${image.key}"
+
+        // Reconstruct the full storage path
+        val publicId = "$baseStoragePath/${image.fieldId}/${image.key}"
         val imageUrl = imageService.getImageUrl(publicId)
 
         return AppResult.Success(data = imageUrl)
@@ -98,7 +99,7 @@ class FieldService(
     ): AppResult<UUID> {
         val currentFieldImage = fieldRepository.getImageById(imageId) ?: return locale.createError()
         
-        val path = "$baseCloudinaryFolder/${currentFieldImage.fieldId}"
+        val path = "$baseStoragePath/${currentFieldImage.fieldId}"
         val imageSaved = imageService.saveImages(multiPartData, path).first()
         
         val filename = imageSaved.imageName.substringAfterLast('/')
@@ -117,7 +118,7 @@ class FieldService(
         val updated = fieldRepository.updateImageField(fieldImage, imageId)
 
         if (updated) {
-            val oldPublicId = "$baseCloudinaryFolder/${currentFieldImage.fieldId}/${currentFieldImage.key}"
+            val oldPublicId = "$baseStoragePath/${currentFieldImage.fieldId}/${currentFieldImage.key}"
             imageService.deleteImages(oldPublicId)
         }
 
@@ -145,7 +146,7 @@ class FieldService(
             )
         }
 
-        val publicId = "$baseCloudinaryFolder/${currentFieldImage.fieldId}/${currentFieldImage.key}"
+        val publicId = "$baseStoragePath/${currentFieldImage.fieldId}/${currentFieldImage.key}"
         imageService.deleteImages(publicId)
 
         return AppResult.Success(
@@ -195,7 +196,7 @@ class FieldService(
             )
         }
         
-        // Note: We are not deleting the folder in Cloudinary here because it requires
+        // Note: We are not deleting the folder in storage here because it requires
         // the folder to be empty or using the Admin API which has rate limits.
         // The images are effectively orphaned but won't be accessed.
         // A background job could clean them up if needed.
