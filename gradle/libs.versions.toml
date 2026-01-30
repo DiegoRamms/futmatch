@@ -10,6 +10,8 @@ bcrypt = "0.10.2"
 micrometer = "1.6.13"
 firebase-admin-version = "9.7.0"
 grpc-version = "1.75.0"
+cloudinary-version = "2.0.0"
+commons-lang3-version = "3.18.0"
 
 [libraries]
 ktor-server-rate-limiting = { module = "io.github.flaxoos:ktor-server-rate-limiting", version = "2.1.2" }
@@ -45,6 +47,8 @@ ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negoti
 
 firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin-version" }
 grpc-bom = { module = "io.grpc:grpc-bom", version.ref = "grpc-version" }
+cloudinary = { module = "com.cloudinary:cloudinary-http5", version.ref = "cloudinary-version" }
+commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3-version" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin-version" }

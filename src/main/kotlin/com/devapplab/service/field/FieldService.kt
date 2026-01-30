@@ -8,7 +8,6 @@ import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.mapper.toResponse
 import com.devapplab.model.field.response.FieldResponse
 import com.devapplab.model.field.response.FieldWithImagesResponse
-import com.devapplab.model.image.ImageFileInfo
 import com.devapplab.service.image.ImageService
 import com.devapplab.utils.*
 import io.ktor.http.*
@@ -21,6 +20,7 @@ class FieldService(
 ) {
 
     private val maxImagesPerField = 4
+    private val baseCloudinaryFolder = "futmatch/fields"
 
     suspend fun createField(field: Field): AppResult<FieldResponse> {
         val fielResponse = fieldRepository.createField(field).toResponse()
@@ -51,12 +51,16 @@ class FieldService(
             )
         }
 
-        val path = createImagePath(fieldId)
+        // Cloudinary folder structure
+        val path = "$baseCloudinaryFolder/$fieldId"
         val imageSaved = imageService.saveImages(multiPartData, path).first()
+
+        // We only store the filename (last part of public_id) in the DB
+        val filename = imageSaved.imageName.substringAfterLast('/')
 
         val fieldImage = FieldImage(
             fieldId = fieldId,
-            key = imageSaved.imageName,
+            key = filename, 
             position = position,
             mime = imageSaved.imageMeta.mime,
             sizeBytes = imageSaved.imageMeta.sizeBytes,
@@ -71,9 +75,8 @@ class FieldService(
 
     suspend fun getImage(
         locale: Locale,
-        fieldId: UUID?,
         imageName: String?
-    ): AppResult<ImageFileInfo> {
+    ): AppResult<String> {
 
         val image = fieldRepository.getImageByKey(imageName ?: "")
             ?: return locale.createError(
@@ -81,21 +84,11 @@ class FieldService(
                 descriptionKey = StringResourcesKey.FIELD_IMAGE_NOT_FOUND_DESCRIPTION,
                 errorCode = ErrorCode.NOT_FOUND
             )
+        
+        val publicId = "$baseCloudinaryFolder/${image.fieldId}/${image.key}"
+        val imageUrl = imageService.getImageUrl(publicId)
 
-        val file = getFileFromImageMeta(fieldId, imageName, image.mime)
-
-
-        if (!file.exists()) {
-            return locale.createError(
-                titleKey = StringResourcesKey.FIELD_IMAGE_FILE_MISSING_TITLE,
-                descriptionKey = StringResourcesKey.FIELD_IMAGE_FILE_MISSING_DESCRIPTION,
-                errorCode = ErrorCode.NOT_FOUND
-            )
-        }
-
-        val mimeType = ContentType.defaultForFile(file)
-
-        return AppResult.Success(data = ImageFileInfo(file, mimeType))
+        return AppResult.Success(data = imageUrl)
     }
 
     suspend fun updateFieldImage(
@@ -104,14 +97,16 @@ class FieldService(
         multiPartData: MultiPartData,
     ): AppResult<UUID> {
         val currentFieldImage = fieldRepository.getImageById(imageId) ?: return locale.createError()
-        val filePath = getFileFromImageMeta(currentFieldImage.fieldId, currentFieldImage.key, currentFieldImage.mime)
-        val path = createImagePath(currentFieldImage.fieldId)
+        
+        val path = "$baseCloudinaryFolder/${currentFieldImage.fieldId}"
         val imageSaved = imageService.saveImages(multiPartData, path).first()
+        
+        val filename = imageSaved.imageName.substringAfterLast('/')
 
         val fieldImage = FieldImage(
             imageId = imageId,
             fieldId = currentFieldImage.fieldId,
-            key = imageSaved.imageName,
+            key = filename,
             position = currentFieldImage.position,
             mime = imageSaved.imageMeta.mime,
             sizeBytes = imageSaved.imageMeta.sizeBytes,
@@ -122,7 +117,8 @@ class FieldService(
         val updated = fieldRepository.updateImageField(fieldImage, imageId)
 
         if (updated) {
-            imageService.deleteImages(filePath.absolutePath)
+            val oldPublicId = "$baseCloudinaryFolder/${currentFieldImage.fieldId}/${currentFieldImage.key}"
+            imageService.deleteImages(oldPublicId)
         }
 
         return AppResult.Success(imageId, appStatus = HttpStatusCode.Created)
@@ -140,12 +136,6 @@ class FieldService(
                 descriptionKey = StringResourcesKey.IMAGE_NOT_FOUND_DESCRIPTION
             )
 
-        val filePath = getFileFromImageMeta(
-            currentFieldImage.fieldId,
-            currentFieldImage.key,
-            currentFieldImage.mime
-        )
-
         val deleted = fieldRepository.deleteImageField(imageId)
 
         if (!deleted) {
@@ -155,9 +145,8 @@ class FieldService(
             )
         }
 
-        if (filePath.exists()) {
-            imageService.deleteImages(filePath.absolutePath)
-        }
+        val publicId = "$baseCloudinaryFolder/${currentFieldImage.fieldId}/${currentFieldImage.key}"
+        imageService.deleteImages(publicId)
 
         return AppResult.Success(
             data = locale.getString(StringResourcesKey.IMAGE_DELETE_SUCCESS_MESSAGE),
@@ -205,11 +194,12 @@ class FieldService(
                 errorCode = ErrorCode.ACCESS_DENIED
             )
         }
+        
+        // Note: We are not deleting the folder in Cloudinary here because it requires
+        // the folder to be empty or using the Admin API which has rate limits.
+        // The images are effectively orphaned but won't be accessed.
+        // A background job could clean them up if needed.
 
-        val fieldDir = getFieldDirectory(fieldId)
-        if (fieldDir.exists()) {
-            fieldDir.deleteRecursively()
-        }
         return AppResult.Success(
             locale.getString(StringResourcesKey.FIELD_DELETE_SUCCESS_MESSAGE),
             appStatus = HttpStatusCode.OK

@@ -19,7 +19,7 @@ fun Route.fieldRouting() {
             fieldController.addFieldImage(call)
         }
 
-        get("image/{fieldId}/{imageName}") {
+        get("image/{imageName}") {
             val fieldController = call.scope.get<FieldController>()
             fieldController.getImage(call)
         }

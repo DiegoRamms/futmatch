@@ -6,4 +6,5 @@ import io.ktor.http.content.*
 interface ImageService {
     suspend fun saveImages(multiPartData: MultiPartData, path: String): List<ImageData>
     suspend fun deleteImages(path: String): Boolean
+    fun getImageUrl(publicId: String): String
 }
