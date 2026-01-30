@@ -6,16 +6,26 @@ import com.devapplab.model.image.ImageData
 import com.devapplab.model.image.ImageMeta
 import io.ktor.http.content.*
 import io.ktor.server.config.*
-import io.ktor.utils.io.*
+import io.ktor.utils.io.readRemaining
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.io.readByteArray
 import org.slf4j.LoggerFactory
+import java.util.*
 
 class ImageServiceImp(config: ApplicationConfig) : ImageService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
     private val cloudinary: Cloudinary
+    
+    // Allowed MIME types for security validation
+    private val allowedMimeTypes = setOf(
+        "image/jpeg", 
+        "image/jpg", 
+        "image/png", 
+        "image/webp",
+        "image/gif"
+    )
 
     init {
         val cloudName = config.property("cloudinary.cloud_name").getString()
@@ -42,8 +52,20 @@ class ImageServiceImp(config: ApplicationConfig) : ImageService {
         try {
             multiPartData.forEachPart { part ->
                 if (part is PartData.FileItem && part.name == "image") {
+                    
+                    // 1. Basic Security Check: ContentType
+                    val contentType = part.contentType?.toString()?.lowercase(Locale.getDefault())
+                    if (contentType == null || contentType !in allowedMimeTypes) {
+                        logger.warn("⚠️ Blocked upload attempt with invalid content type: $contentType")
+                        part.dispose()
+                        return@forEachPart
+                    }
 
+                    // Use provider() and readRemaining().readByteArray()
                     val fileBytes = part.provider().readRemaining().readByteArray()
+                    
+                    // 2. Size Check (Optional, e.g., max 5MB)
+                    // if (fileBytes.size > 5 * 1024 * 1024) { ... }
 
                     // Upload to Cloudinary
                     val uploadResult = withContext(Dispatchers.IO) {
@@ -52,7 +74,7 @@ class ImageServiceImp(config: ApplicationConfig) : ImageService {
                             ObjectUtils.asMap(
                                 "folder", folder,
                                 "resource_type", "image",
-                                "type", "authenticated", //  Make image private/authenticated
+                                "type", "authenticated", // 🔒 Make image private/authenticated
                                 "access_mode", "authenticated" // Ensure strict access mode
                             )
                         )
@@ -64,6 +86,8 @@ class ImageServiceImp(config: ApplicationConfig) : ImageService {
                     val width = (uploadResult["width"] as Int)
                     val height = (uploadResult["height"] as Int)
                     val bytes = (uploadResult["bytes"] as Int).toLong()
+                    // secure_url will be returned, but it won't be accessible without signature
+                    //val url = uploadResult["secure_url"] as String
                     val etag = uploadResult["etag"] as? String ?: ""
 
                     val meta = ImageMeta(
