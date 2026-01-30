@@ -107,6 +107,13 @@ class UserRepositoryImpl : UserRepository {
         } > 0
     }
 
+    override suspend fun updateProfilePic(userId: UUID, fileName: String): Boolean = dbQuery {
+        UserTable.update({ UserTable.id eq userId }) {
+            it[profilePic] = fileName
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
+    }
+
     override fun updatePassword(userId: UUID, hashedPassword: String): Boolean {
         return UserTable.update({ UserTable.id eq userId }) {
             it[password] = hashedPassword

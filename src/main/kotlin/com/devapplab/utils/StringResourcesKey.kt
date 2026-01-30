@@ -107,6 +107,7 @@ enum class StringResourcesKey(val value: String) {
     IMAGE_DELETE_FAILED_TITLE("image_delete_failed_title"),
     IMAGE_DELETE_FAILED_DESCRIPTION("image_delete_failed_description"),
     IMAGE_DELETE_SUCCESS_MESSAGE("image_delete_success_message"),
+    IMAGE_UPLOAD_SUCCESS_MESSAGE("image_upload_success_message"),
 
     MATCH_DATE_TIME_INVALID_ERROR("match_date_time_invalid_error"),
     MATCH_DATE_TIME_END_INVALID_ERROR("match_date_time_end_invalid_error"),
