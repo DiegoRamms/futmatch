@@ -14,7 +14,7 @@ fun Route.userRouting() {
         }
 
         post("/profile-pic") {
-            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.BOTH)
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
             val userController = call.scope.get<UserController>()
             userController.uploadProfilePic(call)
         }
