@@ -30,6 +30,13 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(result)
     }
 
+    suspend fun getPlayerMatches(call: ApplicationCall) {
+        val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()
+        val lon = call.request.queryParameters["lon"]?.toDoubleOrNull()
+        val result = matchService.getPlayerMatches(lat, lon)
+        call.respond(result)
+    }
+
     suspend fun cancelMatch(call: ApplicationCall) {
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't cancel match")
         val result = matchService.cancelMatch(matchId)

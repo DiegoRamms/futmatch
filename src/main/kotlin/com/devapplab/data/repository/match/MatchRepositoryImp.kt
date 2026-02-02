@@ -9,6 +9,7 @@ import com.devapplab.model.match.Match
 import com.devapplab.model.match.MatchBaseInfo
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.match.MatchWithFieldBaseInfo
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
@@ -103,6 +104,42 @@ class MatchRepositoryImp : MatchRepository {
                         matchDateTimeEnd = row[MatchTable.dateTimeEnd],
                         matchPrice = row[MatchTable.matchPrice],
                         discount = BigDecimal.ZERO, // Cannot determine discount from current info
+                        maxPlayers = row[MatchTable.maxPlayers],
+                        minPlayersRequired = row[MatchTable.minPlayersRequired],
+                        status = row[MatchTable.status]
+                    )
+                }
+        }
+    }
+
+    override suspend fun getUpcomingMatches(): List<MatchWithFieldBaseInfo> {
+        return dbQuery {
+            val now = System.currentTimeMillis()
+            (MatchTable innerJoin FieldTable)
+                .leftJoin(LocationsTable)
+                .selectAll()
+                .where { (MatchTable.dateTime greaterEq now) and (MatchTable.status eq MatchStatus.SCHEDULED) }
+                .map { row ->
+                    val location = if (row.getOrNull(LocationsTable.id) != null) {
+                        Location(
+                            id = row[LocationsTable.id],
+                            address = row[LocationsTable.address],
+                            city = row[LocationsTable.city],
+                            country = row[LocationsTable.country],
+                            latitude = row[LocationsTable.latitude],
+                            longitude = row[LocationsTable.longitude]
+                        )
+                    } else null
+
+                    MatchWithFieldBaseInfo(
+                        matchId = row[MatchTable.id],
+                        fieldId = row[FieldTable.id],
+                        fieldName = row[FieldTable.name],
+                        fieldLocation = location,
+                        matchDateTime = row[MatchTable.dateTime],
+                        matchDateTimeEnd = row[MatchTable.dateTimeEnd],
+                        matchPrice = row[MatchTable.matchPrice],
+                        discount = BigDecimal.ZERO,
                         maxPlayers = row[MatchTable.maxPlayers],
                         minPlayersRequired = row[MatchTable.minPlayersRequired],
                         status = row[MatchTable.status]

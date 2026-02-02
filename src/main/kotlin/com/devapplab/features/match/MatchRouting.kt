@@ -33,5 +33,10 @@ fun Route.matchRouting() {
             val matchController = call.scope.get<MatchController>()
             matchController.updateMatch(call)
         }
+
+        get("matches") {
+            val matchController = call.scope.get<MatchController>()
+            matchController.getPlayerMatches(call)
+        }
     }
 }

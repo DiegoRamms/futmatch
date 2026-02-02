@@ -6,6 +6,7 @@ import com.devapplab.model.match.MatchWithFieldBaseInfo
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.model.match.response.MatchResponse
+import com.devapplab.model.match.response.MatchSummaryResponse
 import com.devapplab.model.match.response.MatchWithFieldResponse
 import java.math.BigDecimal
 import java.util.*
@@ -77,6 +78,19 @@ fun MatchWithFieldBaseInfo.toResponse(): MatchWithFieldResponse {
         discountInCents = discount.multiply(BigDecimal(100)).longValueExact(),
         maxPlayers = maxPlayers,
         minPlayersRequired = minPlayersRequired,
+        status = status
+    )
+}
+
+fun MatchWithFieldBaseInfo.toSummaryResponse(distance: Double?): MatchSummaryResponse {
+    return MatchSummaryResponse(
+        matchId = matchId,
+        fieldName = fieldName,
+        location = fieldLocation,
+        date = matchDateTime,
+        time = matchDateTime,
+        priceInCents = matchPrice.multiply(BigDecimal(100)).longValueExact(),
+        distanceInKm = distance,
         status = status
     )
 }
