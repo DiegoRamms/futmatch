@@ -29,6 +29,10 @@ class FieldRepositoryImp : FieldRepository {
                 it[adminId] = field.adminId
                 it[description] = field.description
                 it[rules] = field.rules
+                it[footwearType] = field.footwearType
+                it[fieldType] = field.fieldType
+                it[hasParking] = field.hasParking
+                it[extraInfo] = field.extraInfo
                 it[createdAt] = now
                 it[updatedAt] = now
             }.resultedValues
@@ -50,6 +54,10 @@ class FieldRepositoryImp : FieldRepository {
                 it[adminId] = field.adminId
                 it[description] = field.description
                 it[rules] = field.rules
+                it[footwearType] = field.footwearType
+                it[fieldType] = field.fieldType
+                it[hasParking] = field.hasParking
+                it[extraInfo] = field.extraInfo
                 it[updatedAt] = System.currentTimeMillis()
             } > 0
         }
@@ -220,6 +228,10 @@ class FieldRepositoryImp : FieldRepository {
             capacity = this[FieldTable.capacity],
             description = this[FieldTable.description],
             rules = this[FieldTable.rules],
+            footwearType = this[FieldTable.footwearType],
+            fieldType = this[FieldTable.fieldType],
+            hasParking = this[FieldTable.hasParking],
+            extraInfo = this[FieldTable.extraInfo],
             location = location
         )
     }
@@ -232,6 +244,10 @@ class FieldRepositoryImp : FieldRepository {
         capacity = this[FieldTable.capacity],
         description = this[FieldTable.description],
         rules = this[FieldTable.rules],
+        footwearType = this[FieldTable.footwearType],
+        fieldType = this[FieldTable.fieldType],
+        hasParking = this[FieldTable.hasParking],
+        extraInfo = this[FieldTable.extraInfo],
         adminId = this[FieldTable.adminId]
     )
 

@@ -12,5 +12,9 @@ data class FieldBaseInfo(
     val capacity: Int,
     val description: String,
     val rules: String,
+    val footwearType: FootwearType?,
+    val fieldType: FieldType?,
+    val hasParking: Boolean,
+    val extraInfo: String?,
     val location: Location?
 )
