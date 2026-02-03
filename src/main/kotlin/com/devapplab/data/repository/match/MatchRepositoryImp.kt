@@ -81,6 +81,24 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun getMatchTimeSlotsByFieldId(fieldId: UUID): List<MatchTimeSlot> {
+        return dbQuery {
+            MatchTable
+                .select(MatchTable.dateTime, MatchTable.dateTimeEnd)
+                .where {
+                    (MatchTable.fieldId eq fieldId) and
+                            (MatchTable.status neq MatchStatus.CANCELED) and
+                            (MatchTable.status neq MatchStatus.COMPLETED)
+                }
+                .map { row ->
+                    MatchTimeSlot(
+                        dateTime = row[MatchTable.dateTime],
+                        dateTimeEnd = row[MatchTable.dateTimeEnd]
+                    )
+                }
+        }
+    }
+
     override suspend fun getAllMatches(): List<MatchWithFieldBaseInfo> {
         return dbQuery {
             val rows = (MatchTable innerJoin FieldTable)

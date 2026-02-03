@@ -3,20 +3,21 @@ package com.devapplab.service.match
 import com.devapplab.data.repository.discount.DiscountRepository
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.model.AppResult
+import com.devapplab.model.ErrorCode
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
-import com.devapplab.model.match.Match
-import com.devapplab.model.match.MatchWithField
-import com.devapplab.model.match.TeamType
+import com.devapplab.model.match.*
+import com.devapplab.model.match.mapper.toMatchSummaryResponse
 import com.devapplab.model.match.mapper.toResponse
-import com.devapplab.model.match.response.*
-import java.lang.Math.toRadians
+import com.devapplab.model.match.response.MatchResponse
+import com.devapplab.model.match.response.MatchSummaryResponse
+import com.devapplab.model.match.response.MatchWithFieldResponse
+import com.devapplab.utils.StringResourcesKey
+import com.devapplab.utils.createError
+import io.ktor.http.*
 import java.math.BigDecimal
 import java.util.*
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
+import kotlin.math.*
 
 class MatchService(
     private val matchRepository: MatchRepository,
@@ -25,9 +26,19 @@ class MatchService(
 
     private companion object {
         const val EARTH_RADIUS_KM = 6371.0 // Radius of the Earth in kilometers
+        const val OVERLAP_THRESHOLD_MS = 15 * 60 * 1000 // 15 minutes in milliseconds
     }
 
-    suspend fun create(match: Match): AppResult<MatchResponse> {
+    suspend fun create(match: Match, locale: Locale): AppResult<MatchResponse> {
+        if (isMatchOverlapping(match)) {
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_OVERLAP_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_OVERLAP_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_OVERLAP
+            )
+        }
+
         val matchCreated = matchRepository.create(match)
 
         val discounts = match.discountIds?.let {
@@ -50,6 +61,21 @@ class MatchService(
             playerLevel = matchCreated.playerLevel
         )
         return AppResult.Success(response)
+    }
+
+    private suspend fun isMatchOverlapping(match: Match): Boolean {
+        val existingTimeSlots = matchRepository.getMatchTimeSlotsByFieldId(match.fieldId)
+        return existingTimeSlots.any { existingSlot ->
+            val overlapStart = max(match.dateTime, existingSlot.dateTime)
+            val overlapEnd = min(match.dateTimeEnd, existingSlot.dateTimeEnd)
+
+            if (overlapStart < overlapEnd) {
+                val overlapDuration = overlapEnd - overlapStart
+                overlapDuration > OVERLAP_THRESHOLD_MS
+            } else {
+                false
+            }
+        }
     }
 
     suspend fun getMatchesByFieldId(fieldId: UUID): AppResult<List<MatchWithFieldResponse>> {
@@ -111,10 +137,10 @@ class MatchService(
     }
 
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val lat1Rad = toRadians(lat1)
-        val lon1Rad = toRadians(lon1)
-        val lat2Rad = toRadians(lat2)
-        val lon2Rad = toRadians(lon2)
+        val lat1Rad = Math.toRadians(lat1)
+        val lon1Rad = Math.toRadians(lon1)
+        val lat2Rad = Math.toRadians(lat2)
+        val lon2Rad = Math.toRadians(lon2)
 
         val deltaLat = lat2Rad - lat1Rad
         val deltaLon = lon2Rad - lon1Rad
@@ -140,55 +166,4 @@ class MatchService(
         }
         return originalPrice - finalPrice
     }
-}
-
-fun MatchWithField.toMatchSummaryResponse(distanceKm: Double?): MatchSummaryResponse {
-    val teamAPlayers = this.players.filter { it.team == TeamType.A }.map { PlayerSummary(it.userId, it.avatarUrl) }
-    val teamBPlayers = this.players.filter { it.team == TeamType.B }.map { PlayerSummary(it.userId, it.avatarUrl) }
-
-    val totalTeamAPlayers = teamAPlayers.size
-    val totalTeamBPlayers = teamBPlayers.size
-
-    val totalPlayersInMatch = totalTeamAPlayers + totalTeamBPlayers
-    val availableSpots = this.maxPlayers - totalPlayersInMatch
-
-    // Calculate final price with discounts
-    val originalPrice = this.matchPrice
-    var finalPrice = originalPrice
-
-    this.discounts.forEach { discount ->
-        finalPrice = when (discount.discountType) {
-            DiscountType.FIXED_AMOUNT -> finalPrice - discount.value
-            DiscountType.PERCENTAGE -> finalPrice * (BigDecimal.ONE - discount.value.divide(BigDecimal(100)))
-        }
-    }
-    if (finalPrice < BigDecimal.ZERO) {
-        finalPrice = BigDecimal.ZERO
-    }
-
-    val totalDiscount = originalPrice - finalPrice
-
-    return MatchSummaryResponse(
-        id = this.matchId,
-        fieldName = this.fieldName,
-        fieldImageUrl = this.fieldImageUrl,
-        startTime = this.dateTime,
-        endTime = this.dateTimeEnd,
-        originalPriceInCents = (originalPrice * BigDecimal(100)).toLong(),
-        totalDiscountInCents = (totalDiscount * BigDecimal(100)).toLong(),
-        priceInCents = (finalPrice * BigDecimal(100)).toLong(),
-        genderType = this.genderType,
-        availableSpots = availableSpots,
-        distanceKm = distanceKm,
-        teams = TeamSummaryResponse(
-            teamA = TeamPlayersSummary(
-                playerCount = totalTeamAPlayers,
-                players = teamAPlayers
-            ),
-            teamB = TeamPlayersSummary(
-                playerCount = totalTeamBPlayers,
-                players = teamBPlayers
-            )
-        )
-    )
 }
