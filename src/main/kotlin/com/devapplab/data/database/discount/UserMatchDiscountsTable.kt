@@ -1,6 +1,5 @@
 package com.devapplab.data.database.discount
 
-import com.devapplab.data.database.match.MatchDiscountsTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.user.UserTable
 import org.jetbrains.exposed.sql.ReferenceOption
