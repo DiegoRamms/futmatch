@@ -143,7 +143,7 @@ class MatchService(
         return AppResult.Success(response)
     }
 
-    suspend fun joinMatch(userId: UUID, matchId: UUID, team: TeamType?, locale: Locale): AppResult<Unit> {
+    suspend fun joinMatch(userId: UUID, matchId: UUID, team: TeamType?, locale: Locale): AppResult<Boolean> {
         val match = matchRepository.getMatchById(matchId)
             ?: return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,
@@ -180,7 +180,6 @@ class MatchService(
         }
 
         val teamToJoin = if (team != null) {
-            // Check if the specific team is full (assuming maxPlayers is total for both teams, so max per team is maxPlayers / 2)
             val maxPerTeam = match.maxPlayers / 2
             val currentTeamCount = match.players.count { it.team == team }
             
@@ -203,7 +202,7 @@ class MatchService(
 
         if (joined) {
             firebaseService.signalMatchUpdate(matchId.toString())
-            return AppResult.Success(Unit)
+            return AppResult.Success(true)
         } else {
             return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
