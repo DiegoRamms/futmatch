@@ -4,6 +4,7 @@ import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.match.mapper.toMatch
 import com.devapplab.model.match.request.CreateMatchRequest
+import com.devapplab.model.match.request.JoinMatchRequest
 import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.utils.respond
 import com.devapplab.utils.retrieveLocale
@@ -50,6 +51,15 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdateMatchRequest>()
         val result = matchService.updateMatch(matchId, request.toMatch(adminId, matchId))
+        call.respond(result)
+    }
+
+    suspend fun joinMatch(call: ApplicationCall) {
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't join match")
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val request = call.receive<JoinMatchRequest>()
+        val locale = call.retrieveLocale()
+        val result = matchService.joinMatch(userId, matchId, request.team, locale)
         call.respond(result)
     }
 }

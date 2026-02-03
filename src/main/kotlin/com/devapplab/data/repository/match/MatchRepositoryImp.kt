@@ -377,6 +377,24 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): Boolean {
+        return dbQuery {
+            MatchPlayersTable.insert {
+                it[this.matchId] = matchId
+                it[this.userId] = userId
+                it[this.team] = team
+            }.insertedCount > 0
+        }
+    }
+
+    override suspend fun isUserInMatch(matchId: UUID, userId: UUID): Boolean {
+        return dbQuery {
+            MatchPlayersTable.select(MatchPlayersTable.userId)
+                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) }
+                .count() > 0
+        }
+    }
+
     private fun ResultRow.toMatchWithFieldBaseInfo(mainImage: String?): MatchWithFieldBaseInfo {
         val location = if (this.getOrNull(LocationsTable.id) != null) {
             Location(

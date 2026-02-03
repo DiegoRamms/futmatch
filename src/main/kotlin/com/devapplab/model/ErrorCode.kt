@@ -1,0 +1,22 @@
+package com.devapplab.model
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+enum class ErrorCode {
+    GENERAL_ERROR,
+    TOO_MANY_REQUESTS,
+    AUTH_USER_BLOCKED,
+    AUTH_USER_SUSPENDED,
+    AUTH_NEED_LOGIN,
+    AUTH_EMAIL_NOT_VERIFIED,
+    ACCESS_DENIED,
+    ALREADY_EXISTS,
+    NOT_FOUND,
+    AUTH_USER_NOT_VERIFIED,
+    AUTH_INVALID_PASSWORD_RESET,
+    MFA_GENERATION_LOCKED,
+    MATCH_OVERLAP,
+    MATCH_FULL,
+    MATCH_NOT_SCHEDULED
+}

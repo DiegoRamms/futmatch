@@ -117,6 +117,12 @@ enum class StringResourcesKey(val value: String) {
     MATCH_DISCOUNT_INVALID_ERROR("match_discount_invalid_error"),
     MATCH_OVERLAP_TITLE("match_overlap_title"),
     MATCH_OVERLAP_DESCRIPTION("match_overlap_description"),
+    MATCH_FULL_TITLE("match_full_title"),
+    MATCH_FULL_DESCRIPTION("match_full_description"),
+    MATCH_ALREADY_JOINED_TITLE("match_already_joined_title"),
+    MATCH_ALREADY_JOINED_DESCRIPTION("match_already_joined_description"),
+    MATCH_NOT_SCHEDULED_TITLE("match_not_scheduled_title"),
+    MATCH_NOT_SCHEDULED_DESCRIPTION("match_not_scheduled_description"),
 
     PASSWORD_UPDATE_SUCCESS_MESSAGE("password_update_success_message"),
     PASSWORD_UPDATE_FAILED_TITLE("password_update_failed_title"),
