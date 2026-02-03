@@ -12,6 +12,7 @@ import com.devapplab.model.match.mapper.toResponse
 import com.devapplab.model.match.response.MatchResponse
 import com.devapplab.model.match.response.MatchSummaryResponse
 import com.devapplab.model.match.response.MatchWithFieldResponse
+import com.devapplab.service.firebase.FirebaseService // Added import
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
@@ -21,7 +22,8 @@ import kotlin.math.*
 
 class MatchService(
     private val matchRepository: MatchRepository,
-    private val discountRepository: DiscountRepository
+    private val discountRepository: DiscountRepository,
+    private val firebaseService: FirebaseService
 ) {
 
     private companion object {
@@ -40,6 +42,9 @@ class MatchService(
         }
 
         val matchCreated = matchRepository.create(match)
+
+        firebaseService.signalMatchUpdate(matchCreated.id.toString()) // Signal Firebase update
+
 
         val discounts = match.discountIds?.let {
             if (it.isNotEmpty()) discountRepository.getDiscountsByIds(it) else emptyList()
@@ -132,6 +137,8 @@ class MatchService(
             genderType = updatedMatch.genderType,
             playerLevel = updatedMatch.playerLevel
         )
+
+        firebaseService.signalMatchUpdate(matchId.toString()) // Signal Firebase update
 
         return AppResult.Success(response)
     }
