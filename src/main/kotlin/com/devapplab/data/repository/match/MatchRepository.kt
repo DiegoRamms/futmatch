@@ -2,6 +2,7 @@ package com.devapplab.data.repository.match
 
 import com.devapplab.model.match.Match
 import com.devapplab.model.match.MatchBaseInfo
+import com.devapplab.model.match.MatchWithField
 import com.devapplab.model.match.MatchWithFieldBaseInfo
 import java.util.*
 
@@ -12,4 +13,6 @@ interface MatchRepository {
     suspend fun getUpcomingMatches(): List<MatchWithFieldBaseInfo>
     suspend fun cancelMatch(matchId: UUID): Boolean
     suspend fun updateMatch(matchId: UUID, match: Match): Boolean
+    suspend fun getPublicMatches(): List<MatchWithField>
+    suspend fun getMatchById(matchId: UUID): MatchWithField?
 }

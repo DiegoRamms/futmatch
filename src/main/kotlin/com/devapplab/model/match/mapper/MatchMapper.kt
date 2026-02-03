@@ -6,7 +6,6 @@ import com.devapplab.model.match.MatchWithFieldBaseInfo
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.model.match.response.MatchResponse
-import com.devapplab.model.match.response.MatchSummaryResponse
 import com.devapplab.model.match.response.MatchWithFieldResponse
 import java.math.BigDecimal
 import java.util.*
@@ -20,8 +19,10 @@ fun CreateMatchRequest.toMatch(adminId: UUID): Match {
         maxPlayers = this.maxPlayers,
         minPlayersRequired = this.minPlayersRequired,
         matchPrice = matchPriceInCents.toBigDecimal().movePointLeft(2),
-        discount = discountInCents.toBigDecimal().movePointLeft(2),
-        status = this.status
+        discountIds = this.discountIds,
+        status = this.status,
+        genderType = this.genderType,
+        playerLevel = this.playerLevel
     )
 }
 
@@ -35,8 +36,10 @@ fun UpdateMatchRequest.toMatch(adminId: UUID, matchId: UUID): Match {
         maxPlayers = this.maxPlayers,
         minPlayersRequired = this.minPlayersRequired,
         matchPrice = matchPriceInCents.toBigDecimal().movePointLeft(2),
-        discount = discountInCents.toBigDecimal().movePointLeft(2),
-        status = this.status
+        discountIds = this.discountIds,
+        status = this.status,
+        genderType = this.genderType,
+        playerLevel = this.playerLevel
     )
 }
 
@@ -49,22 +52,12 @@ fun MatchBaseInfo.toResponse(): MatchResponse {
         maxPlayers = this.maxPlayers,
         minPlayersRequired = this.minPlayersRequired,
         matchPriceInCents = matchPrice.multiply(BigDecimal(100)).longValueExact(),
-        discountPriceInCents = discountPrice?.multiply(BigDecimal(100))?.longValueExact() ?: 0,
-        status = this.status
+        discountPriceInCents = 0L, // Set to 0L as base info doesn't carry this
+        status = this.status,
+        genderType = this.genderType,
+        playerLevel = this.playerLevel
     )
 }
-
-/*
-*  it[fieldId] = match.fieldId
-            it[adminId] = match.adminId
-            it[dateTime] = match.dateTime
-            it[dateTimeEnd] = match.dateTimeEnd
-            it[maxPlayers] = match.maxPlayers
-            it[minPlayersRequired] = match.minPlayersRequired
-            it[matchPrice] = match.matchPrice
-            it[discount] = match.discount
-            it[status] = match.status
-* */
 
 fun MatchWithFieldBaseInfo.toResponse(): MatchWithFieldResponse {
     return MatchWithFieldResponse(
@@ -75,22 +68,15 @@ fun MatchWithFieldBaseInfo.toResponse(): MatchWithFieldResponse {
         matchDateTime = matchDateTime,
         matchDateTimeEnd = matchDateTimeEnd,
         matchPriceInCents = matchPrice.multiply(BigDecimal(100)).longValueExact(),
-        discountInCents = discount.multiply(BigDecimal(100)).longValueExact(),
+        discountInCents = 0L, // Set to 0L as base info doesn't carry this
         maxPlayers = maxPlayers,
         minPlayersRequired = minPlayersRequired,
-        status = status
-    )
-}
-
-fun MatchWithFieldBaseInfo.toSummaryResponse(distance: Double?): MatchSummaryResponse {
-    return MatchSummaryResponse(
-        matchId = matchId,
-        fieldName = fieldName,
-        location = fieldLocation,
-        date = matchDateTime,
-        time = matchDateTime,
-        priceInCents = matchPrice.multiply(BigDecimal(100)).longValueExact(),
-        distanceInKm = distance,
-        status = status
+        status = status,
+        footwearType = footwearType,
+        fieldType = fieldType,
+        hasParking = hasParking,
+        mainImage = mainImage,
+        genderType = genderType,
+        playerLevel = playerLevel
     )
 }

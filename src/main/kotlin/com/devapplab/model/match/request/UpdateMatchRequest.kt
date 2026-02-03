@@ -1,6 +1,8 @@
 package com.devapplab.model.match.request
 
+import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.user.PlayerLevel
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -14,6 +16,8 @@ data class UpdateMatchRequest(
     val maxPlayers: Int,
     val minPlayersRequired: Int,
     val matchPriceInCents: Long,
-    val discountInCents: Long = 0,
-    val status: MatchStatus
+    val discountIds: List<@Serializable(with = UUIDSerializer::class) UUID>? = null,
+    val status: MatchStatus,
+    val genderType: GenderType,
+    val playerLevel: PlayerLevel
 )

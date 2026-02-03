@@ -21,9 +21,6 @@ fun UpdateMatchRequest.validate(): ValidationResult {
         matchPriceInCents <= 0L ->
             ValidationResult.Invalid(StringResourcesKey.MATCH_PRICE_INVALID_ERROR.value)
 
-        discountInCents < 0L ->
-            ValidationResult.Invalid(StringResourcesKey.MATCH_DISCOUNT_INVALID_ERROR.value)
-
         else -> ValidationResult.Valid
     }
 }

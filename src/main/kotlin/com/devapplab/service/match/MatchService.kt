@@ -1,19 +1,55 @@
 package com.devapplab.service.match
 
+import com.devapplab.data.repository.discount.DiscountRepository
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.model.AppResult
+import com.devapplab.model.discount.Discount
+import com.devapplab.model.discount.DiscountType
 import com.devapplab.model.match.Match
+import com.devapplab.model.match.MatchWithField
+import com.devapplab.model.match.TeamType
 import com.devapplab.model.match.mapper.toResponse
-import com.devapplab.model.match.mapper.toSummaryResponse
-import com.devapplab.model.match.response.MatchResponse
-import com.devapplab.model.match.response.MatchSummaryResponse
-import com.devapplab.model.match.response.MatchWithFieldResponse
+import com.devapplab.model.match.response.*
+import java.lang.Math.toRadians
+import java.math.BigDecimal
 import java.util.*
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
-class MatchService(private val matchRepository: MatchRepository) {
+class MatchService(
+    private val matchRepository: MatchRepository,
+    private val discountRepository: DiscountRepository
+) {
+
+    private companion object {
+        const val EARTH_RADIUS_KM = 6371.0 // Radius of the Earth in kilometers
+    }
+
     suspend fun create(match: Match): AppResult<MatchResponse> {
-        val matchCrated = matchRepository.create(match).toResponse()
-        return AppResult.Success(matchCrated)
+        val matchCreated = matchRepository.create(match)
+
+        val discounts = match.discountIds?.let {
+            if (it.isNotEmpty()) discountRepository.getDiscountsByIds(it) else emptyList()
+        } ?: emptyList()
+
+        val totalDiscount = calculateTotalDiscount(matchCreated.matchPrice, discounts)
+
+        val response = MatchResponse(
+            id = matchCreated.id,
+            fieldId = matchCreated.fieldId,
+            dateTime = matchCreated.dateTime,
+            dateTimeEnd = matchCreated.dateTimeEnd,
+            maxPlayers = matchCreated.maxPlayers,
+            minPlayersRequired = matchCreated.minPlayersRequired,
+            matchPriceInCents = (matchCreated.matchPrice * BigDecimal(100)).toLong(),
+            discountPriceInCents = (totalDiscount * BigDecimal(100)).toLong(),
+            status = matchCreated.status,
+            genderType = matchCreated.genderType,
+            playerLevel = matchCreated.playerLevel
+        )
+        return AppResult.Success(response)
     }
 
     suspend fun getMatchesByFieldId(fieldId: UUID): AppResult<List<MatchWithFieldResponse>> {
@@ -27,45 +63,132 @@ class MatchService(private val matchRepository: MatchRepository) {
     }
 
     suspend fun getPlayerMatches(userLat: Double?, userLon: Double?): AppResult<List<MatchSummaryResponse>> {
-        val matches = matchRepository.getUpcomingMatches()
+        val matchesWithField = matchRepository.getPublicMatches()
 
-        val matchesWithDistance = matches.map { match ->
-            val distance = if (userLat != null && userLon != null && match.fieldLocation != null) {
-                calculateDistance(userLat, userLon, match.fieldLocation.latitude, match.fieldLocation.longitude)
+        val response = matchesWithField.map { match ->
+            val distance = if (userLat != null && userLon != null && match.fieldLatitude != null && match.fieldLongitude != null) {
+                calculateDistance(userLat, userLon, match.fieldLatitude, match.fieldLongitude)
             } else {
                 null
             }
-            match to distance
+            match.toMatchSummaryResponse(distance)
         }
 
-        val sortedMatches = matchesWithDistance.sortedWith(
-            compareBy<Pair<com.devapplab.model.match.MatchWithFieldBaseInfo, Double?>> { it.first.matchDateTime }
-                .thenBy { it.second ?: Double.MAX_VALUE }
+        val sortedResponse = response.sortedWith(
+            compareBy<MatchSummaryResponse> { it.startTime }
+                .thenBy { it.distanceKm ?: Double.MAX_VALUE }
         )
 
-        val response = sortedMatches.map { (match, distance) ->
-            match.toSummaryResponse(distance)
-        }
-
-        return AppResult.Success(response)
+        return AppResult.Success(sortedResponse)
     }
 
     suspend fun cancelMatch(matchUuid: UUID): AppResult<Boolean> {
         return AppResult.Success(matchRepository.cancelMatch(matchUuid))
     }
 
-    suspend fun updateMatch(matchId: UUID, match: Match): AppResult<Boolean> {
-        return AppResult.Success(matchRepository.updateMatch(matchId, match))
+    suspend fun updateMatch(matchId: UUID, match: Match): AppResult<MatchResponse> {
+        matchRepository.updateMatch(matchId, match)
+        val updatedMatch = matchRepository.getMatchById(matchId) // Re-fetch to get all data
+            ?: throw IllegalStateException("Match not found after update") // Or handle as an error
+
+        val totalDiscount = calculateTotalDiscount(updatedMatch.matchPrice, updatedMatch.discounts)
+
+        val response = MatchResponse(
+            id = updatedMatch.matchId,
+            fieldId = updatedMatch.fieldId,
+            dateTime = updatedMatch.dateTime,
+            dateTimeEnd = updatedMatch.dateTimeEnd,
+            maxPlayers = updatedMatch.maxPlayers,
+            minPlayersRequired = updatedMatch.minPlayersRequired,
+            matchPriceInCents = (updatedMatch.matchPrice * BigDecimal(100)).toLong(),
+            discountPriceInCents = (totalDiscount * BigDecimal(100)).toLong(),
+            status = updatedMatch.status,
+            genderType = updatedMatch.genderType,
+            playerLevel = updatedMatch.playerLevel
+        )
+
+        return AppResult.Success(response)
     }
 
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val R = 6371 // Radius of the earth in km
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2)
-        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        return R * c
+        val lat1Rad = toRadians(lat1)
+        val lon1Rad = toRadians(lon1)
+        val lat2Rad = toRadians(lat2)
+        val lon2Rad = toRadians(lon2)
+
+        val deltaLat = lat2Rad - lat1Rad
+        val deltaLon = lon2Rad - lon1Rad
+
+        val a = sin(deltaLat / 2) * sin(deltaLat / 2) +
+                cos(lat1Rad) * cos(lat2Rad) *
+                sin(deltaLon / 2) * sin(deltaLon / 2)
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+        return EARTH_RADIUS_KM * c
     }
+
+    private fun calculateTotalDiscount(originalPrice: BigDecimal, discounts: List<Discount>): BigDecimal {
+        var finalPrice = originalPrice
+        discounts.forEach { discount ->
+            finalPrice = when (discount.discountType) {
+                DiscountType.FIXED_AMOUNT -> finalPrice - discount.value
+                DiscountType.PERCENTAGE -> finalPrice * (BigDecimal.ONE - discount.value.divide(BigDecimal(100)))
+            }
+        }
+        if (finalPrice < BigDecimal.ZERO) {
+            finalPrice = BigDecimal.ZERO
+        }
+        return originalPrice - finalPrice
+    }
+}
+
+fun MatchWithField.toMatchSummaryResponse(distanceKm: Double?): MatchSummaryResponse {
+    val teamAPlayers = this.players.filter { it.team == TeamType.A }.map { PlayerSummary(it.userId, it.avatarUrl) }
+    val teamBPlayers = this.players.filter { it.team == TeamType.B }.map { PlayerSummary(it.userId, it.avatarUrl) }
+
+    val totalTeamAPlayers = teamAPlayers.size
+    val totalTeamBPlayers = teamBPlayers.size
+
+    val totalPlayersInMatch = totalTeamAPlayers + totalTeamBPlayers
+    val availableSpots = this.maxPlayers - totalPlayersInMatch
+
+    // Calculate final price with discounts
+    val originalPrice = this.matchPrice
+    var finalPrice = originalPrice
+
+    this.discounts.forEach { discount ->
+        finalPrice = when (discount.discountType) {
+            DiscountType.FIXED_AMOUNT -> finalPrice - discount.value
+            DiscountType.PERCENTAGE -> finalPrice * (BigDecimal.ONE - discount.value.divide(BigDecimal(100)))
+        }
+    }
+    if (finalPrice < BigDecimal.ZERO) {
+        finalPrice = BigDecimal.ZERO
+    }
+
+    val totalDiscount = originalPrice - finalPrice
+
+    return MatchSummaryResponse(
+        id = this.matchId,
+        fieldName = this.fieldName,
+        fieldImageUrl = this.fieldImageUrl,
+        startTime = this.dateTime,
+        endTime = this.dateTimeEnd,
+        originalPriceInCents = (originalPrice * BigDecimal(100)).toLong(),
+        totalDiscountInCents = (totalDiscount * BigDecimal(100)).toLong(),
+        priceInCents = (finalPrice * BigDecimal(100)).toLong(),
+        genderType = this.genderType,
+        availableSpots = availableSpots,
+        distanceKm = distanceKm,
+        teams = TeamSummaryResponse(
+            teamA = TeamPlayersSummary(
+                playerCount = totalTeamAPlayers,
+                players = teamAPlayers
+            ),
+            teamB = TeamPlayersSummary(
+                playerCount = totalTeamBPlayers,
+                players = teamBPlayers
+            )
+        )
+    )
 }

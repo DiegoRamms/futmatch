@@ -5,6 +5,8 @@ import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.auth.AuthRepositoryImpl
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.device.DeviceRepositoryImpl
+import com.devapplab.data.repository.discount.DiscountRepository
+import com.devapplab.data.repository.discount.DiscountRepositoryImp
 import com.devapplab.data.repository.location.LocationRepository
 import com.devapplab.data.repository.location.LocationRepositoryImp
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
@@ -32,5 +34,6 @@ val repositoryModule = module {
     singleOf(::PasswordResetTokenRepositoryImpl) { bind<PasswordResetTokenRepository>() }
     singleOf(::LoginAttemptRepositoryImpl) { bind<LoginAttemptRepository>() }
     singleOf(::PendingRegistrationRepositoryImpl) { bind<PendingRegistrationRepository>() }
-    singleOf(::LocationRepositoryImp) {bind<LocationRepository>() }
+    singleOf(::LocationRepositoryImp) { bind<LocationRepository>() }
+    singleOf(::DiscountRepositoryImp) { bind<DiscountRepository>() }
 }

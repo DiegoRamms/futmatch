@@ -43,7 +43,9 @@ Crea un nuevo partido programado.
     "minPlayersRequired": 10,
     "matchPriceInCents": 500, // 5.00
     "discountInCents": 0, // (Opcional)
-    "status": "SCHEDULED" // (Opcional)
+    "status": "SCHEDULED", // (Opcional)
+    "genderType": "MIXED",
+    "playerLevel": "ANY"
 }
 ```
 
@@ -60,7 +62,9 @@ Crea un nuevo partido programado.
         "minPlayersRequired": 10,
         "matchPriceInCents": 500, // 5.00
         "discountPriceInCents": 0,
-        "status": "SCHEDULED"
+        "status": "SCHEDULED",
+        "genderType": "MIXED",
+        "playerLevel": "ANY"
     }
 }
 ```
@@ -86,7 +90,9 @@ Actualiza la información de un partido existente.
     "minPlayersRequired": 10,
     "matchPriceInCents": 600, // 6.00
     "discountInCents": 0, // (Opcional)
-    "status": "SCHEDULED"
+    "status": "SCHEDULED",
+    "genderType": "MIXED",
+    "playerLevel": "ANY"
 }
 ```
 
