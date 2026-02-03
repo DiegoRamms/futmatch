@@ -123,6 +123,8 @@ enum class StringResourcesKey(val value: String) {
     MATCH_ALREADY_JOINED_DESCRIPTION("match_already_joined_description"),
     MATCH_NOT_SCHEDULED_TITLE("match_not_scheduled_title"),
     MATCH_NOT_SCHEDULED_DESCRIPTION("match_not_scheduled_description"),
+    MATCH_TEAM_FULL_TITLE("match_team_full_title"),
+    MATCH_TEAM_FULL_DESCRIPTION("match_team_full_description"),
 
     PASSWORD_UPDATE_SUCCESS_MESSAGE("password_update_success_message"),
     PASSWORD_UPDATE_FAILED_TITLE("password_update_failed_title"),

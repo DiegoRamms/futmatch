@@ -180,6 +180,18 @@ class MatchService(
         }
 
         val teamToJoin = if (team != null) {
+            // Check if the specific team is full (assuming maxPlayers is total for both teams, so max per team is maxPlayers / 2)
+            val maxPerTeam = match.maxPlayers / 2
+            val currentTeamCount = match.players.count { it.team == team }
+            
+            if (currentTeamCount >= maxPerTeam) {
+                 return locale.createError(
+                    titleKey = StringResourcesKey.MATCH_TEAM_FULL_TITLE,
+                    descriptionKey = StringResourcesKey.MATCH_TEAM_FULL_DESCRIPTION,
+                    status = HttpStatusCode.Conflict,
+                    errorCode = ErrorCode.MATCH_TEAM_FULL
+                )
+            }
             team
         } else {
             val teamA = match.players.count { it.team == TeamType.A }
