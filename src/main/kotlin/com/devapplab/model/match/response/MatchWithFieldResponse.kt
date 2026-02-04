@@ -1,7 +1,11 @@
 package com.devapplab.model.match.response
 
+import com.devapplab.model.field.FieldType
+import com.devapplab.model.field.FootwearType
 import com.devapplab.model.location.Location
+import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.user.PlayerLevel
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -20,5 +24,11 @@ data class MatchWithFieldResponse(
     val discountInCents: Long,
     val maxPlayers: Int,
     val minPlayersRequired: Int,
-    val status: MatchStatus
+    val status: MatchStatus,
+    val footwearType: FootwearType?,
+    val fieldType: FieldType?,
+    val hasParking: Boolean,
+    val mainImage: String?,
+    val genderType: GenderType,
+    val playerLevel: PlayerLevel
 )

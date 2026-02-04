@@ -4,8 +4,10 @@ import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.match.mapper.toMatch
 import com.devapplab.model.match.request.CreateMatchRequest
+import com.devapplab.model.match.request.JoinMatchRequest
 import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.utils.respond
+import com.devapplab.utils.retrieveLocale
 import com.devapplab.utils.toUUIDOrNull
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
@@ -15,7 +17,8 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
     suspend fun createMatch(call: ApplicationCall) {
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<CreateMatchRequest>()
-        val result = matchService.create(request.toMatch(adminId))
+        val locale = call.retrieveLocale()
+        val result = matchService.create(request.toMatch(adminId), locale)
         call.respond(result)
     }
 
@@ -30,6 +33,13 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(result)
     }
 
+    suspend fun getPlayerMatches(call: ApplicationCall) {
+        val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()
+        val lon = call.request.queryParameters["lon"]?.toDoubleOrNull()
+        val result = matchService.getPlayerMatches(lat, lon)
+        call.respond(result)
+    }
+
     suspend fun cancelMatch(call: ApplicationCall) {
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't cancel match")
         val result = matchService.cancelMatch(matchId)
@@ -41,6 +51,15 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdateMatchRequest>()
         val result = matchService.updateMatch(matchId, request.toMatch(adminId, matchId))
+        call.respond(result)
+    }
+
+    suspend fun joinMatch(call: ApplicationCall) {
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't join match")
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val request = call.receive<JoinMatchRequest>()
+        val locale = call.retrieveLocale()
+        val result = matchService.joinMatch(userId, matchId, request.team, locale)
         call.respond(result)
     }
 }

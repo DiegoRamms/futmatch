@@ -20,6 +20,8 @@ Este documento describe los endpoints de gestión de partidos y las reglas de va
 | `matchPriceInCents`  | Long   | Sí        | • Debe ser mayor que 0.<br>• **Nota:** El valor representa centavos (ej. 500 = 5.00). |
 | `discountInCents`    | Long   | No        | • **(Opcional)** Debe ser mayor o igual a 0.<br>• **Nota:** El valor representa centavos. |
 | `status`             | Enum   | No        | • **(Opcional)** Estado inicial del partido (ej. `SCHEDULED`). |
+| `genderType`         | Enum   | Sí        | • Debe ser un valor válido del enum `GenderType` (ej. `MIXED`, `MALE`, `FEMALE`). |
+| `playerLevel`        | Enum   | Sí        | • Debe ser un valor válido del enum `PlayerLevel` (ej. `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `ANY`). |
 
 ---
 
@@ -39,3 +41,5 @@ Este documento describe los endpoints de gestión de partidos y las reglas de va
 | `matchPriceInCents`  | Long   | Sí        | • Debe ser mayor que 0.<br>• **Nota:** El valor representa centavos (ej. 500 = 5.00). |
 | `discountInCents`    | Long   | No        | • **(Opcional)** Debe ser mayor o igual a 0.<br>• **Nota:** El valor representa centavos. |
 | `status`             | Enum   | Sí        | • El nuevo estado del partido (ej. `SCHEDULED`, `CANCELED`). |
+| `genderType`         | Enum   | Sí        | • Debe ser un valor válido del enum `GenderType` (ej. `MIXED`, `MALE`, `FEMALE`). |
+| `playerLevel`        | Enum   | Sí        | • Debe ser un valor válido del enum `PlayerLevel` (ej. `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `ANY`). |

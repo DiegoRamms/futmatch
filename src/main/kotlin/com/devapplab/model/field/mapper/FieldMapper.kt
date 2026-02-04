@@ -19,7 +19,11 @@ fun CreateFieldRequest.toField(adminId: UUID): Field {
         adminId = adminId,
         description = description,
         capacity = capacity,
-        rules = rules
+        rules = rules,
+        footwearType = footwearType,
+        fieldType = fieldType,
+        hasParking = hasParking,
+        extraInfo = extraInfo
     )
 }
 
@@ -32,6 +36,10 @@ fun FieldBaseInfo.toResponse(): FieldResponse {
         capacity = this.capacity,
         description = this.description,
         rules = this.rules,
+        footwearType = this.footwearType,
+        fieldType = this.fieldType,
+        hasParking = this.hasParking,
+        extraInfo = this.extraInfo,
         location = this.location
     )
 }
@@ -61,6 +69,10 @@ fun UpdateFieldRequest.toField(adminId: UUID): Field {
         price = priceInCents.toBigDecimal().movePointLeft(2),
         description = description,
         capacity = capacity,
-        rules = rules
+        rules = rules,
+        footwearType = footwearType,
+        fieldType = fieldType,
+        hasParking = hasParking,
+        extraInfo = extraInfo
     )
 }

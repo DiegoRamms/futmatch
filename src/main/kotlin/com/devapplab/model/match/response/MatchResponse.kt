@@ -1,6 +1,8 @@
 package com.devapplab.model.match.response
 
+import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.user.PlayerLevel
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -17,5 +19,7 @@ data class MatchResponse(
     val minPlayersRequired: Int,
     val matchPriceInCents: Long,
     val discountPriceInCents: Long,
-    val status: MatchStatus
+    val status: MatchStatus,
+    val genderType: GenderType,
+    val playerLevel: PlayerLevel
 )

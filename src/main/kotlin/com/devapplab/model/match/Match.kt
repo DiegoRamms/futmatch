@@ -1,5 +1,6 @@
 package com.devapplab.model.match
 
+import com.devapplab.model.user.PlayerLevel
 import java.math.BigDecimal
 import java.util.*
 
@@ -12,7 +13,9 @@ data class Match(
     val maxPlayers: Int,
     val minPlayersRequired: Int,
     val matchPrice: BigDecimal,
-    val discount: BigDecimal = BigDecimal.ZERO,
+    val discountIds: List<UUID>? = null,
     val status: MatchStatus = MatchStatus.SCHEDULED,
+    val genderType: GenderType,
+    val playerLevel: PlayerLevel,
     val createdAt: Long = System.currentTimeMillis(),
 )

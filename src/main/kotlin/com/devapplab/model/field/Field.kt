@@ -12,6 +12,10 @@ data class Field(
     val adminId: UUID,
     val description: String,
     val rules: String,
+    val footwearType: FootwearType? = null,
+    val fieldType: FieldType? = null,
+    val hasParking: Boolean = false,
+    val extraInfo: String? = null,
     val createdAt: Long ? = null,
     val updatedAt: Long ? = null
 )

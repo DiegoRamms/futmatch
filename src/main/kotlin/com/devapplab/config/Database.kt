@@ -8,6 +8,7 @@ import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.data.database.device.DeviceTable
 import com.devapplab.data.database.discount.DiscountsTable
+import com.devapplab.data.database.discount.UserMatchDiscountsTable
 import com.devapplab.data.database.field.FieldImagesTable
 import com.devapplab.data.database.field.FieldTable
 import com.devapplab.data.database.location.LocationsTable
@@ -48,6 +49,7 @@ fun Application.configureDatabase() {
             FieldImagesTable,
             FieldAdminsTable,
             DiscountsTable,
+            UserMatchDiscountsTable,
             MatchTable,
             MatchDiscountsTable,
             MatchPlayersTable,
