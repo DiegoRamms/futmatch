@@ -31,7 +31,7 @@ Crea un nuevo partido programado.
 
 -   **Método:** `POST`
 -   **Path:** `/match/admin/create`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Ejemplo de Solicitud:
 ```json
@@ -42,7 +42,7 @@ Crea un nuevo partido programado.
     "maxPlayers": 14,
     "minPlayersRequired": 10,
     "matchPriceInCents": 500, // 5.00
-    "discountInCents": 0, // (Opcional)
+    "discountIds": [], // (Opcional) Lista de UUIDs de descuentos
     "status": "SCHEDULED", // (Opcional)
     "genderType": "MIXED",
     "playerLevel": "ANY"
@@ -75,7 +75,7 @@ Actualiza la información de un partido existente.
 
 -   **Método:** `PUT`
 -   **Path:** `/match/admin/update/{matchId}`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Parámetros de Ruta:
 -   `matchId` (UUID): El ID del partido a actualizar.
@@ -89,7 +89,7 @@ Actualiza la información de un partido existente.
     "maxPlayers": 14,
     "minPlayersRequired": 10,
     "matchPriceInCents": 600, // 6.00
-    "discountInCents": 0, // (Opcional)
+    "discountIds": [], // (Opcional) Lista de UUIDs de descuentos
     "status": "SCHEDULED",
     "genderType": "MIXED",
     "playerLevel": "ANY"
@@ -100,7 +100,19 @@ Actualiza la información de un partido existente.
 ```json
 {
     "status": "success",
-    "data": true
+    "data": {
+        "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+        "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "dateTime": 1715436000000,
+        "dateTimeEnd": 1715439600000,
+        "maxPlayers": 14,
+        "minPlayersRequired": 10,
+        "matchPriceInCents": 600, // 6.00
+        "discountPriceInCents": 0,
+        "status": "SCHEDULED",
+        "genderType": "MIXED",
+        "playerLevel": "ANY"
+    }
 }
 ```
 
@@ -110,7 +122,7 @@ Cancela un partido programado.
 
 -   **Método:** `PATCH`
 -   **Path:** `/match/admin/cancel/{matchId}`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Parámetros de Ruta:
 -   `matchId` (UUID): El ID del partido a cancelar.
@@ -129,7 +141,7 @@ Obtiene una lista de partidos asociados a una cancha específica.
 
 -   **Método:** `GET`
 -   **Path:** `/match/admin/matches/{fieldId}`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Parámetros de Ruta:
 -   `fieldId` (UUID): El ID de la cancha.
@@ -169,7 +181,7 @@ Obtiene una lista de todos los partidos disponibles.
 
 -   **Método:** `GET`
 -   **Path:** `/match/admin/matches`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Ejemplo de Respuesta Exitosa:
 ```json
@@ -197,5 +209,85 @@ Obtiene una lista de todos los partidos disponibles.
             "status": "SCHEDULED"
         }
     ]
+}
+```
+
+### 1.6 Obtener Partidos para Jugadores
+
+Obtiene una lista de partidos disponibles para jugadores, opcionalmente filtrados por ubicación.
+
+-   **Método:** `GET`
+-   **Path:** `/match/matches`
+-   **Rol Requerido:** Público (o Autenticado)
+
+#### Parámetros de Consulta (Query Params):
+-   `lat` (Double, Opcional): Latitud para búsqueda por cercanía.
+-   `lon` (Double, Opcional): Longitud para búsqueda por cercanía.
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+            "fieldName": "Cancha Central",
+            "fieldImageUrl": "https://example.com/field.jpg",
+            "startTime": 1715436000000,
+            "endTime": 1715439600000,
+            "originalPriceInCents": 500,
+            "totalDiscountInCents": 0,
+            "priceInCents": 500,
+            "genderType": "MIXED",
+            "availableSpots": 4,
+            "distanceKm": 1.5,
+            "teams": {
+                "teamA": {
+                    "playerCount": 5,
+                    "players": [
+                        {
+                            "id": "user-uuid-1",
+                            "avatarUrl": "https://example.com/avatar1.jpg"
+                        }
+                    ]
+                },
+                "teamB": {
+                    "playerCount": 5,
+                    "players": [
+                        {
+                            "id": "user-uuid-2",
+                            "avatarUrl": null
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
+```
+
+### 1.7 Unirse a un Partido
+
+Permite a un usuario unirse a un partido.
+
+-   **Método:** `POST`
+-   **Path:** `/match/{matchId}/join`
+-   **Rol Requerido:** `PLAYER`, `ADMIN` o `ORGANIZER`
+
+#### Parámetros de Ruta:
+-   `matchId` (UUID): El ID del partido al que unirse.
+
+#### Ejemplo de Solicitud:
+```json
+{
+    "team": "A" // Opcional: "A" o "B". Si es null, se asigna automáticamente.
+}
+```
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": true
 }
 ```
