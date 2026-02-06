@@ -48,6 +48,12 @@ fun Route.fieldRouting() {
             fieldController.updateField(call)
         }
 
+        put("/{fieldId}/location/{locationId}") {
+            call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
+            val fieldController = call.scope.get<FieldController>()
+            fieldController.linkLocationToField(call)
+        }
+
         delete ("delete/{fieldId}") {
             call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
             val fieldController = call.scope.get<FieldController>()

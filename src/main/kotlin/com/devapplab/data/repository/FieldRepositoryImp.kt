@@ -63,6 +63,15 @@ class FieldRepositoryImp : FieldRepository {
         }
     }
 
+    override suspend fun updateFieldLocation(fieldId: UUID, locationId: UUID): Boolean {
+        return dbQuery {
+            FieldTable.update({ FieldTable.id eq fieldId }) {
+                it[this.locationId] = locationId
+                it[updatedAt] = System.currentTimeMillis()
+            } > 0
+        }
+    }
+
     override suspend fun deleteField(fieldId: UUID): Boolean {
         return dbQuery {
             FieldTable.deleteWhere { id eq fieldId } > 0

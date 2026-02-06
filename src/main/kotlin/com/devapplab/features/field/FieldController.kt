@@ -71,6 +71,17 @@ class FieldController(
         call.respond(updatedId)
     }
 
+    suspend fun linkLocationToField(call: ApplicationCall) {
+        val locale: Locale = call.retrieveLocale()
+        val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val fieldId = UUID.fromString(call.parameters["fieldId"])
+        val locationId = UUID.fromString(call.parameters["locationId"])
+        
+        fieldService.ensureAdminAssignedToField(adminId, fieldId)
+        val result = fieldService.linkLocationToField(locale, fieldId, locationId)
+        call.respond(result)
+    }
+
     suspend fun deleteField(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)

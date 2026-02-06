@@ -181,6 +181,20 @@ class FieldService(
         }
     }
 
+    suspend fun linkLocationToField(locale: Locale, fieldId: UUID, locationId: UUID): AppResult<Boolean> {
+        val updated = fieldRepository.updateFieldLocation(fieldId, locationId)
+        return if (updated) {
+            AppResult.Success(true)
+        } else {
+            locale.createError(
+                titleKey = StringResourcesKey.FIELD_UPDATE_FAILED_TITLE,
+                descriptionKey = StringResourcesKey.FIELD_UPDATE_FAILED_DESCRIPTION,
+                errorCode = ErrorCode.GENERAL_ERROR,
+                status = HttpStatusCode.BadRequest
+            )
+        }
+    }
+
     suspend fun deleteField(
         locale: Locale,
         fieldId: UUID,
