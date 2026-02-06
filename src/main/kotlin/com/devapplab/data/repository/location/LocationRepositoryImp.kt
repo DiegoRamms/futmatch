@@ -41,6 +41,19 @@ class LocationRepositoryImp: LocationRepository {
         }
     }
 
+    override suspend fun updateLocation(location: Location): Boolean {
+        return dbQuery {
+            LocationsTable.update({ LocationsTable.id eq location.id!! }) {
+                it[address] = location.address
+                it[city] = location.city
+                it[country] = location.country
+                it[latitude] = location.latitude
+                it[longitude] = location.longitude
+                it[updatedAt] = System.currentTimeMillis()
+            } > 0
+        }
+    }
+
     private fun ResultRow.toLocation() = Location(
         id = this[LocationsTable.id],
         address = this[LocationsTable.address],

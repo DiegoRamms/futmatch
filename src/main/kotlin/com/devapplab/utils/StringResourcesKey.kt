@@ -148,6 +148,10 @@ enum class StringResourcesKey(val value: String) {
     LOCATION_CITY_INVALID_ERROR("location_city_invalid_error"),
     LOCATION_COUNTRY_INVALID_ERROR("location_country_invalid_error"),
     LOCATION_COORDINATES_INVALID_ERROR("location_coordinates_invalid_error"),
+    LOCATION_UPDATE_SUCCESS_MESSAGE("location_update_success_message"),
+    LOCATION_UPDATE_FAILED_TITLE("location_update_failed_title"),
+    LOCATION_UPDATE_FAILED_DESCRIPTION("location_update_failed_description"),
+    LOCATION_ID_REQUIRED_ERROR("location_id_required_error"),
 
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),

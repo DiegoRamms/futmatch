@@ -13,6 +13,12 @@ fun Route.locationRouting() {
             locationController.createLocation(call)
         }
         
+        put {
+            call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
+            val locationController = call.scope.get<LocationController>()
+            locationController.updateLocation(call)
+        }
+        
         get("/{id}") {
             val locationController = call.scope.get<LocationController>()
             locationController.getLocation(call)

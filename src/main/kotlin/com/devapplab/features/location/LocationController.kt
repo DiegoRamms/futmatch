@@ -28,6 +28,13 @@ class LocationController(private val locationService: LocationService) {
         call.respond(appResult)
     }
 
+    suspend fun updateLocation(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val location = call.receive<Location>()
+        val appResult = locationService.updateLocation(locale, location)
+        call.respond(appResult)
+    }
+
     suspend fun deleteLocation(call: ApplicationCall) {
         val locale = call.retrieveLocale()
         val id = UUID.fromString(call.parameters["id"])

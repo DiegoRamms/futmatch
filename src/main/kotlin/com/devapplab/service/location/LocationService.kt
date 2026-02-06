@@ -36,6 +36,32 @@ class LocationService(private val locationRepository: LocationRepository) {
         return AppResult.Success(locations)
     }
 
+    suspend fun updateLocation(locale: Locale, location: Location): AppResult<String> {
+        if (location.id == null) {
+            return locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.LOCATION_ID_REQUIRED_ERROR,
+                status = HttpStatusCode.BadRequest
+            )
+        }
+
+        val updated = locationRepository.updateLocation(location)
+        
+        return if (updated) {
+            AppResult.Success(
+                locale.getString(StringResourcesKey.LOCATION_UPDATE_SUCCESS_MESSAGE),
+                appStatus = HttpStatusCode.OK
+            )
+        } else {
+            locale.createError(
+                titleKey = StringResourcesKey.LOCATION_UPDATE_FAILED_TITLE,
+                descriptionKey = StringResourcesKey.LOCATION_UPDATE_FAILED_DESCRIPTION,
+                errorCode = ErrorCode.GENERAL_ERROR,
+                status = HttpStatusCode.NotFound
+            )
+        }
+    }
+
     suspend fun deleteLocation(locale: Locale, id: UUID): AppResult<String> {
        locationRepository.getLocation(id) ?: return locale.createError(
             titleKey = StringResourcesKey.LOCATION_NOT_FOUND_TITLE,
