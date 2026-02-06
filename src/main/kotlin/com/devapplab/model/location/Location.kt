@@ -7,7 +7,7 @@ import java.util.UUID
 @Serializable
 data class Location(
     @Serializable(with = UUIDSerializer::class)
-    val id: UUID = UUID.randomUUID(),
+    val id: UUID? = null,
     val address: String?,
     val city: String?,
     val country: String?,

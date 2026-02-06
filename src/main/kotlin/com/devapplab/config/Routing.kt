@@ -2,6 +2,7 @@ package com.devapplab.config
 
 import com.devapplab.features.auth.authRouting
 import com.devapplab.features.field.fieldRouting
+import com.devapplab.features.location.locationRouting
 import com.devapplab.features.match.matchRouting
 import com.devapplab.features.user.userRouting
 import com.devapplab.model.AppResult
@@ -108,6 +109,7 @@ fun Application.configureRouting() {
                 userRouting()
                 fieldRouting()
                 matchRouting()
+                locationRouting()
             }
         }
     }

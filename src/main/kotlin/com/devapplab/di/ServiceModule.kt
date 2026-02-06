@@ -15,6 +15,7 @@ import com.devapplab.service.field.FieldService
 import com.devapplab.service.firebase.FirebaseService
 import com.devapplab.service.hashing.HashingServiceImpl
 import com.devapplab.service.image.ImageServiceImp
+import com.devapplab.service.location.LocationService
 import com.devapplab.service.match.MatchService
 import com.devapplab.service.password_reset.PasswordResetTokenServiceImpl
 import org.koin.core.module.dsl.bind
@@ -37,6 +38,7 @@ val serviceModule = module {
     singleOf(::RealEmailServiceTestImp) { bind<com.devapplab.service.email.EmailService>() }
     singleOf(::FieldService)
     singleOf(::MatchService)
+    singleOf(::LocationService)
     singleOf(::ImageServiceImp) { bind<com.devapplab.service.image.ImageService>() }
     singleOf(::CleanupDataService)
     singleOf(::PasswordResetTokenServiceImpl) { bind<com.devapplab.service.password_reset.PasswordResetTokenService>()  }

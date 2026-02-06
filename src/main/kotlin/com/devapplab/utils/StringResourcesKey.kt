@@ -140,6 +140,11 @@ enum class StringResourcesKey(val value: String) {
     AUTH_INVALID_PASSWORD_RESET_TITLE("auth_invalid_password_reset_title"),
     AUTH_INVALID_PASSWORD_RESET_DESCRIPTION("auth_invalid_password_reset_description"),
 
+    LOCATION_CREATED_SUCCESS_MESSAGE("location_created_success_message"),
+    LOCATION_DELETE_SUCCESS_MESSAGE("location_delete_success_message"),
+    LOCATION_NOT_FOUND_TITLE("location_not_found_title"),
+    LOCATION_NOT_FOUND_DESCRIPTION("location_not_found_description"),
+
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),
     EMAIL_MFA_MESSAGE("email_mfa_message"),
