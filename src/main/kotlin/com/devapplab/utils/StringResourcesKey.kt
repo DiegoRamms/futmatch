@@ -144,6 +144,10 @@ enum class StringResourcesKey(val value: String) {
     LOCATION_DELETE_SUCCESS_MESSAGE("location_delete_success_message"),
     LOCATION_NOT_FOUND_TITLE("location_not_found_title"),
     LOCATION_NOT_FOUND_DESCRIPTION("location_not_found_description"),
+    LOCATION_ADDRESS_INVALID_ERROR("location_address_invalid_error"),
+    LOCATION_CITY_INVALID_ERROR("location_city_invalid_error"),
+    LOCATION_COUNTRY_INVALID_ERROR("location_country_invalid_error"),
+    LOCATION_COORDINATES_INVALID_ERROR("location_coordinates_invalid_error"),
 
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),
