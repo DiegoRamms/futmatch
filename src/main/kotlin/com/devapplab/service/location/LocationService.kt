@@ -12,8 +12,21 @@ import java.util.*
 
 class LocationService(private val locationRepository: LocationRepository) {
 
-    suspend fun createLocation(location: Location): AppResult<UUID> {
-        val id = locationRepository.addLocation(location)
+    suspend fun createLocation(locale: Locale, location: Location): AppResult<UUID> {
+        val addressToCheck = location.address?.trim()
+
+        if (addressToCheck != null && locationRepository.isAddressTaken(addressToCheck)) {
+             return locale.createError(
+                titleKey = StringResourcesKey.ALREADY_EXISTS_TITLE,
+                descriptionKey = StringResourcesKey.LOCATION_ADDRESS_ALREADY_EXISTS_ERROR,
+                errorCode = ErrorCode.ALREADY_EXISTS,
+                status = HttpStatusCode.Conflict
+            )
+        }
+        
+        val locationToSave = location.copy(address = addressToCheck)
+        
+        val id = locationRepository.addLocation(locationToSave)
         return AppResult.Success(id, appStatus = HttpStatusCode.Created)
     }
 
@@ -45,7 +58,9 @@ class LocationService(private val locationRepository: LocationRepository) {
             )
         }
 
-        val updated = locationRepository.updateLocation(location)
+        val locationToUpdate = location.copy(address = location.address?.trim())
+
+        val updated = locationRepository.updateLocation(locationToUpdate)
         
         return if (updated) {
             AppResult.Success(

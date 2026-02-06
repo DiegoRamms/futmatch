@@ -54,6 +54,14 @@ class LocationRepositoryImp: LocationRepository {
         }
     }
 
+    override suspend fun isAddressTaken(address: String): Boolean {
+        return dbQuery {
+            LocationsTable.selectAll().where {
+                LocationsTable.address eq address.trim()
+            }.count() > 0
+        }
+    }
+
     private fun ResultRow.toLocation() = Location(
         id = this[LocationsTable.id],
         address = this[LocationsTable.address],

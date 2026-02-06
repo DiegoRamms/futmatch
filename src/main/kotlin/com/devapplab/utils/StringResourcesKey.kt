@@ -152,6 +152,7 @@ enum class StringResourcesKey(val value: String) {
     LOCATION_UPDATE_FAILED_TITLE("location_update_failed_title"),
     LOCATION_UPDATE_FAILED_DESCRIPTION("location_update_failed_description"),
     LOCATION_ID_REQUIRED_ERROR("location_id_required_error"),
+    LOCATION_ADDRESS_ALREADY_EXISTS_ERROR("location_address_already_exists_error"),
 
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),

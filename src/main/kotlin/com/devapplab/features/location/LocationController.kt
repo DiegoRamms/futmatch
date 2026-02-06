@@ -11,8 +11,9 @@ import java.util.*
 class LocationController(private val locationService: LocationService) {
 
     suspend fun createLocation(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
         val location = call.receive<Location>()
-        val appResult = locationService.createLocation(location)
+        val appResult = locationService.createLocation(locale, location)
         call.respond(appResult)
     }
 

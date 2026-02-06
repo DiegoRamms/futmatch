@@ -9,4 +9,5 @@ interface LocationRepository {
     suspend fun getLocations(): List<Location>
     suspend fun deleteLocation(id: UUID)
     suspend fun updateLocation(location: Location): Boolean
+    suspend fun isAddressTaken(address: String): Boolean
 }
