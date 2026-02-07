@@ -241,6 +241,8 @@ class MatchRepositoryImp : MatchRepository {
                     fieldType = row[FieldTable.fieldType],
                     fieldHasParking = row[FieldTable.hasParking],
                     fieldExtraInfo = row[FieldTable.extraInfo],
+                    fieldDescription = row[FieldTable.description],
+                    fieldRules = row[FieldTable.rules],
                     fieldImageUrl = fieldImages[fieldId],
                     players = players,
                     discounts = discounts
@@ -331,6 +333,8 @@ class MatchRepositoryImp : MatchRepository {
                 fieldType = matchFieldLocationRow[FieldTable.fieldType],
                 fieldHasParking = matchFieldLocationRow[FieldTable.hasParking],
                 fieldExtraInfo = matchFieldLocationRow[FieldTable.extraInfo],
+                fieldDescription = matchFieldLocationRow[FieldTable.description],
+                fieldRules = matchFieldLocationRow[FieldTable.rules],
                 fieldImageUrl = fieldImage,
                 players = players,
                 discounts = discounts
@@ -379,11 +383,18 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): Boolean {
         return dbQuery {
-            MatchPlayersTable.insert {
+            val inserted = MatchPlayersTable.insert {
                 it[this.matchId] = matchId
                 it[this.userId] = userId
                 it[this.team] = team
             }.insertedCount > 0
+
+            if (inserted) {
+                MatchTable.update({ MatchTable.id eq matchId }) {
+                    it[updatedAt] = System.currentTimeMillis()
+                }
+            }
+            inserted
         }
     }
 

@@ -7,8 +7,10 @@ import com.devapplab.model.ErrorCode
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
 import com.devapplab.model.match.*
+import com.devapplab.model.match.mapper.toMatchDetailResponse
 import com.devapplab.model.match.mapper.toMatchSummaryResponse
 import com.devapplab.model.match.mapper.toResponse
+import com.devapplab.model.match.response.MatchDetailResponse
 import com.devapplab.model.match.response.MatchResponse
 import com.devapplab.model.match.response.MatchSummaryResponse
 import com.devapplab.model.match.response.MatchWithFieldResponse
@@ -96,21 +98,34 @@ class MatchService(
     suspend fun getPlayerMatches(userLat: Double?, userLon: Double?): AppResult<List<MatchSummaryResponse>> {
         val matchesWithField = matchRepository.getPublicMatches()
 
-        val response = matchesWithField.map { match ->
+        // Refactored sorting logic to support distance sorting even if not in response:
+        val responseWithDistance = matchesWithField.map { match ->
             val distance = if (userLat != null && userLon != null && match.fieldLatitude != null && match.fieldLongitude != null) {
                 calculateDistance(userLat, userLon, match.fieldLatitude, match.fieldLongitude)
             } else {
                 null
             }
-            match.toMatchSummaryResponse(distance)
+            match.toMatchSummaryResponse() to distance
         }
+        
+        val finalSortedResponse = responseWithDistance.sortedWith(
+            compareBy<Pair<MatchSummaryResponse, Double?>> { it.first.startTime }
+                .thenBy { it.second ?: Double.MAX_VALUE }
+        ).map { it.first }
 
-        val sortedResponse = response.sortedWith(
-            compareBy<MatchSummaryResponse> { it.startTime }
-                .thenBy { it.distanceKm ?: Double.MAX_VALUE }
-        )
+        return AppResult.Success(finalSortedResponse)
+    }
 
-        return AppResult.Success(sortedResponse)
+    suspend fun getMatchDetail(locale: Locale, matchId: UUID): AppResult<MatchDetailResponse> {
+        val match = matchRepository.getMatchById(matchId)
+            ?: return locale.createError(
+                titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                status = HttpStatusCode.NotFound,
+                errorCode = ErrorCode.NOT_FOUND
+            )
+
+        return AppResult.Success(match.toMatchDetailResponse())
     }
 
     suspend fun cancelMatch(matchUuid: UUID): AppResult<Boolean> {

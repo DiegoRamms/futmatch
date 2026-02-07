@@ -1,5 +1,7 @@
 package com.devapplab.model.match.response
 
+import com.devapplab.model.field.FieldType
+import com.devapplab.model.field.FootwearType
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
@@ -8,7 +10,7 @@ import kotlinx.serialization.Serializable
 import java.util.*
 
 @Serializable
-data class MatchSummaryResponse(
+data class MatchDetailResponse(
     @Serializable(with = UUIDSerializer::class)
     val id: UUID,
     val fieldName: String,
@@ -22,24 +24,11 @@ data class MatchSummaryResponse(
     val status: MatchStatus,
     val availableSpots: Int,
     val teams: TeamSummaryResponse,
-    val location: Location?
-)
-
-@Serializable
-data class TeamSummaryResponse(
-    val teamA: TeamPlayersSummary,
-    val teamB: TeamPlayersSummary
-)
-
-@Serializable
-data class TeamPlayersSummary(
-    val playerCount: Int,
-    val players: List<PlayerSummary>
-)
-
-@Serializable
-data class PlayerSummary(
-    @Serializable(with = UUIDSerializer::class)
-    val id: UUID,
-    val avatarUrl: String?
+    val location: Location?,
+    val footwearType: FootwearType?,
+    val fieldType: FieldType?,
+    val hasParking: Boolean,
+    val extraInfo: String?,
+    val description: String,
+    val rules: String
 )

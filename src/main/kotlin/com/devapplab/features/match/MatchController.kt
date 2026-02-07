@@ -12,6 +12,7 @@ import com.devapplab.utils.toUUIDOrNull
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.request.*
+import java.util.*
 
 class MatchController(private val matchService: com.devapplab.service.match.MatchService) {
     suspend fun createMatch(call: ApplicationCall) {
@@ -37,6 +38,13 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()
         val lon = call.request.queryParameters["lon"]?.toDoubleOrNull()
         val result = matchService.getPlayerMatches(lat, lon)
+        call.respond(result)
+    }
+
+    suspend fun getMatchDetail(call: ApplicationCall) {
+        val matchId = UUID.fromString(call.parameters["matchId"])
+        val locale = call.retrieveLocale()
+        val result = matchService.getMatchDetail(locale, matchId)
         call.respond(result)
     }
 

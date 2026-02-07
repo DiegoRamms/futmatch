@@ -32,6 +32,8 @@ data class MatchWithField(
     val fieldType: FieldType?, // From FieldTable
     val fieldHasParking: Boolean, // From FieldTable
     val fieldExtraInfo: String?, // From FieldTable
+    val fieldDescription: String, // From FieldTable
+    val fieldRules: String, // From FieldTable
     val fieldImageUrl: String?, // Derived from FieldImageTable or system
     val players: List<MatchPlayerInfo>, // From MatchPlayersTable and UserTable
     val discounts: List<Discount> // From MatchDiscountsTable and DiscountsTable

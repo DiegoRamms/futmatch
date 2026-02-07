@@ -1,6 +1,7 @@
 package com.devapplab.model.match.mapper
 
 import com.devapplab.model.discount.DiscountType
+import com.devapplab.model.location.Location
 import com.devapplab.model.match.*
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.request.UpdateMatchRequest
@@ -79,8 +80,67 @@ fun MatchWithFieldBaseInfo.toResponse(): MatchWithFieldResponse {
     )
 }
 
-fun MatchWithField.toMatchSummaryResponse(distanceKm: Double?): MatchSummaryResponse {
-    // Calculate discounts
+fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
+    val prices = calculatePrices()
+    val teams = buildTeamSummary()
+    val location = buildLocation()
+    val availableSpots = this.maxPlayers - this.players.size
+
+    return MatchSummaryResponse(
+        id = this.matchId,
+        fieldName = this.fieldName,
+        fieldImageUrl = this.fieldImageUrl,
+        startTime = this.dateTime,
+        endTime = this.dateTimeEnd,
+        originalPriceInCents = prices.originalPriceInCents,
+        totalDiscountInCents = prices.totalDiscountInCents,
+        priceInCents = prices.finalPriceInCents,
+        genderType = this.genderType,
+        status = this.status,
+        availableSpots = if (availableSpots < 0) 0 else availableSpots,
+        teams = teams,
+        location = location
+    )
+}
+
+fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
+    val prices = calculatePrices()
+    val teams = buildTeamSummary()
+    val location = buildLocation()
+    val availableSpots = this.maxPlayers - this.players.size
+
+    return MatchDetailResponse(
+        id = this.matchId,
+        fieldName = this.fieldName,
+        fieldImageUrl = this.fieldImageUrl,
+        startTime = this.dateTime,
+        endTime = this.dateTimeEnd,
+        originalPriceInCents = prices.originalPriceInCents,
+        totalDiscountInCents = prices.totalDiscountInCents,
+        priceInCents = prices.finalPriceInCents,
+        genderType = this.genderType,
+        status = this.status,
+        availableSpots = if (availableSpots < 0) 0 else availableSpots,
+        teams = teams,
+        location = location,
+        footwearType = this.fieldFootwearType,
+        fieldType = this.fieldType,
+        hasParking = this.fieldHasParking,
+        extraInfo = this.fieldExtraInfo,
+        description = this.fieldDescription,
+        rules = this.fieldRules
+    )
+}
+
+// Private helper functions to avoid duplication
+
+private data class PriceCalculationResult(
+    val originalPriceInCents: Long,
+    val finalPriceInCents: Long,
+    val totalDiscountInCents: Long
+)
+
+private fun MatchWithField.calculatePrices(): PriceCalculationResult {
     var finalPrice = this.matchPrice
     this.discounts.forEach { discount ->
         finalPrice = when (discount.discountType) {
@@ -94,7 +154,10 @@ fun MatchWithField.toMatchSummaryResponse(distanceKm: Double?): MatchSummaryResp
     val finalPriceInCents = finalPrice.multiply(BigDecimal(100)).toLong()
     val totalDiscountInCents = originalPriceInCents - finalPriceInCents
 
-    // Group players by team
+    return PriceCalculationResult(originalPriceInCents, finalPriceInCents, totalDiscountInCents)
+}
+
+private fun MatchWithField.buildTeamSummary(): TeamSummaryResponse {
     val teamA = this.players.filter { it.team == TeamType.A }
     val teamB = this.players.filter { it.team == TeamType.B }
 
@@ -106,21 +169,20 @@ fun MatchWithField.toMatchSummaryResponse(distanceKm: Double?): MatchSummaryResp
         playerCount = teamB.size,
         players = teamB.map { PlayerSummary(it.userId, it.avatarUrl) }
     )
+    return TeamSummaryResponse(teamASummary, teamBSummary)
+}
 
-    val availableSpots = this.maxPlayers - this.players.size
-
-    return MatchSummaryResponse(
-        id = this.matchId,
-        fieldName = this.fieldName,
-        fieldImageUrl = this.fieldImageUrl,
-        startTime = this.dateTime,
-        endTime = this.dateTimeEnd,
-        originalPriceInCents = originalPriceInCents,
-        totalDiscountInCents = totalDiscountInCents,
-        priceInCents = finalPriceInCents,
-        genderType = this.genderType,
-        availableSpots = if (availableSpots < 0) 0 else availableSpots,
-        distanceKm = distanceKm,
-        teams = TeamSummaryResponse(teamASummary, teamBSummary)
-    )
+private fun MatchWithField.buildLocation(): Location? {
+    return if (this.fieldLatitude != null && this.fieldLongitude != null) {
+        Location(
+            id = null,
+            address = this.fieldAddress,
+            city = this.fieldCity,
+            country = this.fieldCountry,
+            latitude = this.fieldLatitude,
+            longitude = this.fieldLongitude
+        )
+    } else {
+        null
+    }
 }
