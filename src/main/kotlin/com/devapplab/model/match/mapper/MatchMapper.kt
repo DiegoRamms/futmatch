@@ -163,11 +163,11 @@ private fun MatchWithField.buildTeamSummary(): TeamSummaryResponse {
 
     val teamASummary = TeamPlayersSummary(
         playerCount = teamA.size,
-        players = teamA.map { PlayerSummary(it.userId, it.avatarUrl) }
+        players = teamA.map { PlayerSummary(it.userId, it.avatarUrl, it.gender) }
     )
     val teamBSummary = TeamPlayersSummary(
         playerCount = teamB.size,
-        players = teamB.map { PlayerSummary(it.userId, it.avatarUrl) }
+        players = teamB.map { PlayerSummary(it.userId, it.avatarUrl, it.gender) }
     )
     return TeamSummaryResponse(teamASummary, teamBSummary)
 }

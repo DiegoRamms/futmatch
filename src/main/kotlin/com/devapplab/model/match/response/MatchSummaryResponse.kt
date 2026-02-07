@@ -3,6 +3,7 @@ package com.devapplab.model.match.response
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.user.Gender
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -41,5 +42,6 @@ data class TeamPlayersSummary(
 data class PlayerSummary(
     @Serializable(with = UUIDSerializer::class)
     val id: UUID,
-    val avatarUrl: String?
+    val avatarUrl: String?,
+    val gender: Gender,
 )

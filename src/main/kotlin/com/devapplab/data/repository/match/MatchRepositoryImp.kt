@@ -175,6 +175,7 @@ class MatchRepositoryImp : MatchRepository {
                         MatchPlayerInfo(
                             userId = row[MatchPlayersTable.userId],
                             team = row[MatchPlayersTable.team],
+                            gender = row[UserTable.gender],
                             avatarUrl = row[UserTable.profilePic]
                         )
                     }
@@ -277,6 +278,7 @@ class MatchRepositoryImp : MatchRepository {
                 MatchPlayerInfo(
                     userId = row[MatchPlayersTable.userId],
                     team = row[MatchPlayersTable.team],
+                    gender = row[UserTable.gender],
                     avatarUrl = row[UserTable.profilePic]
                 )
             }

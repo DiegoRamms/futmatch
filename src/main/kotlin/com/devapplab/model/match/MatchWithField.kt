@@ -3,6 +3,7 @@ package com.devapplab.model.match
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.field.FieldType
 import com.devapplab.model.field.FootwearType
+import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerLevel
 import java.math.BigDecimal
 import java.util.UUID
@@ -42,5 +43,6 @@ data class MatchWithField(
 data class MatchPlayerInfo(
     val userId: UUID,
     val team: TeamType,
+    val gender: Gender,
     val avatarUrl: String? // From UserTable
 )
