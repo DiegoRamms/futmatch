@@ -44,4 +44,5 @@ data class PlayerSummary(
     val id: UUID,
     val avatarUrl: String?,
     val gender: Gender,
+    val country: String? = null,
 )

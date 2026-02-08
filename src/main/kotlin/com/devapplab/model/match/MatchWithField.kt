@@ -44,5 +44,6 @@ data class MatchPlayerInfo(
     val userId: UUID,
     val team: TeamType,
     val gender: Gender,
+    val country: String,
     val avatarUrl: String? // From UserTable
 )
