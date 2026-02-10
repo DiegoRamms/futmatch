@@ -13,17 +13,17 @@ fun Application.configureRateLimit() {
     install(RateLimit) {
 
         register(RateLimitName(RateLimitType.PUBLIC.value)) {
-            rateLimiter(limit = 60, refillPeriod = 60.seconds)
+            rateLimiter(limit = 120, refillPeriod = 60.seconds)
             requestKey { call -> "public:ip:${call.clientIp()}" }
         }
 
         register(RateLimitName(RateLimitType.SIGN_IN.value)) {
-            rateLimiter(limit = 10, refillPeriod = 5.minutes)
+            rateLimiter(limit = 60, refillPeriod = 5.minutes)
             requestKey { call -> "sign_in:ip:${call.clientIp()}" }
         }
 
         register(RateLimitName(RateLimitType.PROTECTED.value)) {
-            rateLimiter(limit = 120, refillPeriod = 60.seconds)
+            rateLimiter(limit = 300, refillPeriod = 60.seconds)
 
             requestKey { call ->
                 val ip = call.clientIp()
@@ -38,7 +38,7 @@ fun Application.configureRateLimit() {
         }
 
         register(RateLimitName(RateLimitType.REFRESH_TOKEN.value)) {
-            rateLimiter(limit = 5, refillPeriod = 5.minutes)
+            rateLimiter(limit = 60, refillPeriod = 5.minutes)
 
             requestKey { call ->
                 val ip = call.clientIp()
@@ -47,32 +47,32 @@ fun Application.configureRateLimit() {
         }
 
         register(RateLimitName(RateLimitType.MFA_SEND.value)) {
-            rateLimiter(limit = 6, refillPeriod = 5.minutes)
+            rateLimiter(limit = 60, refillPeriod = 5.minutes)
             requestKey { call -> "mfa-send:sign_in:ip:${call.clientIp()}" }
         }
 
         register(RateLimitName(RateLimitType.REST_PASSWORD_MFA_SEND.value)) {
-            rateLimiter(limit = 6, refillPeriod = 5.minutes)
+            rateLimiter(limit = 60, refillPeriod = 5.minutes)
             requestKey { call -> "mfa-send:reset:ip:${call.clientIp()}" }
         }
 
         register(RateLimitName(RateLimitType.MFA_VERIFY.value)) {
-            rateLimiter(limit = 15, refillPeriod = 5.minutes)
+            rateLimiter(limit = 60, refillPeriod = 5.minutes)
             requestKey { call -> "mfa-verify:sign_in:ip:${call.clientIp()}" }
         }
 
         register(RateLimitName(RateLimitType.MFA_VERIFY_REGISTRATION.value)) {
-            rateLimiter(limit = 15, refillPeriod = 5.minutes)
+            rateLimiter(limit = 60, refillPeriod = 5.minutes)
             requestKey { call -> "mfa-verify:registration:ip:${call.clientIp()}" }
         }
 
         register(RateLimitName(RateLimitType.MFA_VERIFY_REGISTRATION_COMPLETE.value)) {
-            rateLimiter(limit = 15, refillPeriod = 5.minutes)
+            rateLimiter(limit = 60, refillPeriod = 5.minutes)
             requestKey { call -> "mfa-verify:registration_complete:ip:${call.clientIp()}" }
         }
 
         register(RateLimitName(RateLimitType.MFA_VERIFY_REST_PASSWORD.value)) {
-            rateLimiter(limit = 15, refillPeriod = 5.minutes)
+            rateLimiter(limit = 60, refillPeriod = 5.minutes)
             requestKey { call -> "mfa-verify:reset:ip:${call.clientIp()}" }
         }
 
