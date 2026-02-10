@@ -14,5 +14,6 @@ interface MatchRepository {
     suspend fun getPublicMatches(): List<MatchWithField>
     suspend fun getMatchById(matchId: UUID): MatchWithField?
     suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): Boolean
+    suspend fun removePlayerFromMatch(matchId: UUID, userId: UUID): Boolean
     suspend fun isUserInMatch(matchId: UUID, userId: UUID): Boolean
 }

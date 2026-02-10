@@ -228,6 +228,48 @@ class MatchService(
         }
     }
 
+    suspend fun leaveMatch(userId: UUID, matchId: UUID, locale: Locale): AppResult<Boolean> {
+        val match = matchRepository.getMatchById(matchId)
+            ?: return locale.createError(
+                titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                status = HttpStatusCode.NotFound,
+                errorCode = ErrorCode.NOT_FOUND
+            )
+
+        if (!matchRepository.isUserInMatch(matchId, userId)) {
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_NOT_JOINED_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_NOT_JOINED_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.NOT_FOUND
+            )
+        }
+
+        if (match.status != MatchStatus.SCHEDULED) {
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_NOT_SCHEDULED_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_NOT_SCHEDULED_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_NOT_SCHEDULED
+            )
+        }
+
+        val left = matchRepository.removePlayerFromMatch(matchId, userId)
+
+        if (left) {
+            firebaseService.signalMatchUpdate(matchId.toString())
+            return AppResult.Success(true)
+        } else {
+            return locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError,
+                errorCode = ErrorCode.GENERAL_ERROR
+            )
+        }
+    }
+
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val lat1Rad = Math.toRadians(lat1)
         val lon1Rad = Math.toRadians(lon1)

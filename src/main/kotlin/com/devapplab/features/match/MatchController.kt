@@ -70,4 +70,12 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val result = matchService.joinMatch(userId, matchId, request.team, locale)
         call.respond(result)
     }
+
+    suspend fun leaveMatch(call: ApplicationCall) {
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't leave match")
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val locale = call.retrieveLocale()
+        val result = matchService.leaveMatch(userId, matchId, locale)
+        call.respond(result)
+    }
 }

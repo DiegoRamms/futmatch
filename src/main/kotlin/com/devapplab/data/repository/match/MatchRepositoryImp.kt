@@ -404,6 +404,21 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun removePlayerFromMatch(matchId: UUID, userId: UUID): Boolean {
+        return dbQuery {
+            val deleted = MatchPlayersTable.deleteWhere {
+                (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId)
+            } > 0
+
+            if (deleted) {
+                MatchTable.update({ MatchTable.id eq matchId }) {
+                    it[updatedAt] = System.currentTimeMillis()
+                }
+            }
+            deleted
+        }
+    }
+
     override suspend fun isUserInMatch(matchId: UUID, userId: UUID): Boolean {
         return dbQuery {
             MatchPlayersTable.select(MatchPlayersTable.userId)

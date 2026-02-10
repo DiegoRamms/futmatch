@@ -49,5 +49,11 @@ fun Route.matchRouting() {
             val matchController = call.scope.get<MatchController>()
             matchController.joinMatch(call)
         }
+
+        post("{matchId}/leave") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val matchController = call.scope.get<MatchController>()
+            matchController.leaveMatch(call)
+        }
     }
 }

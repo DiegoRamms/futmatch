@@ -269,10 +269,13 @@ Obtains a new access token using a refresh token.
 {
     "status": "success",
     "data": {
+        "userId": null,
+        "deviceId": null,
         "authTokenResponse": {
             "accessToken": "ey_new_access...",
             "refreshToken": "ey_new_refresh..."
         },
+        "firebaseToken": null,
         "authCode": "REFRESHED_BOTH_TOKENS"
     }
 }
@@ -289,6 +292,17 @@ Invalidates the session for a specific device.
 ```json
 {
     "deviceId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1"
+}
+```
+
+#### Example Success Response:
+```json
+{
+    "status": "success",
+    "data": {
+        "success": true,
+        "message": "Successfully signed out."
+    }
 }
 ```
 
@@ -360,5 +374,16 @@ Updates the password using the `resetToken`.
 ```json
 {
     "newPassword": "NewSecurePassword456!"
+}
+```
+
+#### Example Success Response:
+```json
+{
+    "status": "success",
+    "data": {
+        "success": true,
+        "message": "Password updated successfully."
+    }
 }
 ```
