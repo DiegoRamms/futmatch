@@ -239,15 +239,18 @@ Obtiene una lista de partidos disponibles para jugadores, opcionalmente filtrado
             "totalDiscountInCents": 0,
             "priceInCents": 500,
             "genderType": "MIXED",
+            "status": "SCHEDULED",
             "availableSpots": 4,
-            "distanceKm": 1.5,
             "teams": {
                 "teamA": {
                     "playerCount": 5,
                     "players": [
                         {
                             "id": "user-uuid-1",
-                            "avatarUrl": "https://example.com/avatar1.jpg"
+                            "avatarUrl": "https://example.com/avatar1.jpg",
+                            "gender": "MALE",
+                            "name": "Juan Perez",
+                            "country": "MX"
                         }
                     ]
                 },
@@ -256,17 +259,93 @@ Obtiene una lista de partidos disponibles para jugadores, opcionalmente filtrado
                     "players": [
                         {
                             "id": "user-uuid-2",
-                            "avatarUrl": null
+                            "avatarUrl": null,
+                            "gender": "FEMALE",
+                            "name": "Maria Lopez",
+                            "country": "MX"
                         }
                     ]
                 }
+            },
+            "location": { // (Opcional)
+                "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+                "address": "123 Calle Falsa",
+                "city": "Springfield",
+                "country": "US",
+                "latitude": 40.7128,
+                "longitude": -74.0060
             }
         }
     ]
 }
 ```
 
-### 1.7 Unirse a un Partido
+### 1.7 Obtener Detalle de Partido
+
+Obtiene los detalles completos de un partido específico.
+
+-   **Método:** `GET`
+-   **Path:** `/match/{matchId}`
+-   **Rol Requerido:** Público (o Autenticado)
+
+#### Parámetros de Ruta:
+-   `matchId` (UUID): El ID del partido.
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": {
+        "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+        "fieldName": "Cancha Central",
+        "fieldImageUrl": "https://example.com/field.jpg",
+        "startTime": 1715436000000,
+        "endTime": 1715439600000,
+        "originalPriceInCents": 500,
+        "totalDiscountInCents": 0,
+        "priceInCents": 500,
+        "genderType": "MIXED",
+        "status": "SCHEDULED",
+        "availableSpots": 4,
+        "teams": {
+            "teamA": {
+                "playerCount": 5,
+                "players": [
+                    {
+                        "id": "user-uuid-1",
+                        "avatarUrl": "https://example.com/avatar1.jpg",
+                        "gender": "MALE",
+                        "name": "Juan Perez",
+                        "country": "MX"
+                    }
+                ]
+            },
+            "teamB": {
+                "playerCount": 5,
+                "players": [
+                    {
+                        "id": "user-uuid-2",
+                        "avatarUrl": null,
+                        "gender": "FEMALE",
+                        "name": "Maria Lopez",
+                        "country": "MX"
+                    }
+                ]
+            }
+        },
+        "location": {
+            "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+            "address": "123 Calle Falsa",
+            "city": "Springfield",
+            "country": "US",
+            "latitude": 40.7128,
+            "longitude": -74.0060
+        }
+    }
+}
+```
+
+### 1.8 Unirse a un Partido
 
 Permite a un usuario unirse a un partido.
 
@@ -283,6 +362,25 @@ Permite a un usuario unirse a un partido.
     "team": "A" // Opcional: "A" o "B". Si es null, se asigna automáticamente.
 }
 ```
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": true
+}
+```
+
+### 1.9 Salir de un Partido
+
+Permite a un usuario salir de un partido al que se había unido.
+
+-   **Método:** `POST`
+-   **Path:** `/match/{matchId}/leave`
+-   **Rol Requerido:** `PLAYER`, `ADMIN` o `ORGANIZER`
+
+#### Parámetros de Ruta:
+-   `matchId` (UUID): El ID del partido del que salir.
 
 #### Ejemplo de Respuesta Exitosa:
 ```json

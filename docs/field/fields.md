@@ -1,12 +1,12 @@
 # Documentación de Endpoints de Canchas (Fields)
 
-Este documento describe los endpoints para la gestión de canchas, incluyendo creación, actualización, y manejo de imágenes.
+Este documento describe los endpoints para la gestión de canchas, incluyendo creación, actualización, vinculación de ubicación y manejo de imágenes.
 
 ## Conceptos Comunes
 
 ### Autenticación
 
-Todos los endpoints, a menos que se indique lo contrario, son protegidos y requieren un token de acceso de administrador.
+Todos los endpoints, a menos que se indique lo contrario, son protegidos y requieren un token de acceso de administrador u organizador.
 
 -   **Header Requerido:** `Authorization: Bearer <access_token>`
 
@@ -31,7 +31,7 @@ Crea una nueva cancha.
 
 -   **Método:** `POST`
 -   **Path:** `/fields/create`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Ejemplo de Solicitud:
 ```json
@@ -40,7 +40,11 @@ Crea una nueva cancha.
     "priceInCents": 1550, // 15.50
     "capacity": 10,
     "description": "Nuestra mejor cancha con césped artificial.",
-    "rules": "No se permiten tacos de metal."
+    "rules": "No se permiten tacos de metal.",
+    "footwearType": "TURF", // Opcional: INDOOR, TURF, FIRM_GROUND, ARTIFICIAL_GRASS
+    "fieldType": "ARTIFICIAL_TURF", // Opcional: NATURAL_GRASS, ARTIFICIAL_TURF, INDOOR, FUTSAL
+    "hasParking": true, // Default: false
+    "extraInfo": "Acceso por la puerta norte." // Opcional
 }
 ```
 
@@ -56,6 +60,10 @@ Crea una nueva cancha.
         "capacity": 10,
         "description": "Nuestra mejor cancha con césped artificial.",
         "rules": "No se permiten tacos de metal.",
+        "footwearType": "TURF",
+        "fieldType": "ARTIFICIAL_TURF",
+        "hasParking": true,
+        "extraInfo": "Acceso por la puerta norte.",
         "location": null // (Opcional)
     }
 }
@@ -67,7 +75,7 @@ Actualiza la información de una cancha existente.
 
 -   **Método:** `POST`
 -   **Path:** `/fields/update`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Ejemplo de Solicitud:
 ```json
@@ -78,7 +86,11 @@ Actualiza la información de una cancha existente.
     "priceInCents": 2000, // 20.00
     "capacity": 12,
     "description": "Césped recién renovado.",
-    "rules": "No se permiten tacos de metal. Respetar horarios."
+    "rules": "No se permiten tacos de metal. Respetar horarios.",
+    "footwearType": "TURF",
+    "fieldType": "ARTIFICIAL_TURF",
+    "hasParking": true,
+    "extraInfo": "Estacionamiento gratuito."
 }
 ```
 
@@ -90,13 +102,33 @@ Actualiza la información de una cancha existente.
 }
 ```
 
-### 1.3 Eliminar Cancha
+### 1.3 Vincular Ubicación a Cancha
+
+Vincula una ubicación existente a una cancha.
+
+-   **Método:** `PUT`
+-   **Path:** `/fields/{fieldId}/location/{locationId}`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
+
+#### Parámetros de Ruta:
+-   `fieldId` (UUID): El ID de la cancha.
+-   `locationId` (UUID): El ID de la ubicación a vincular.
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": true
+}
+```
+
+### 1.4 Eliminar Cancha
 
 Elimina una cancha y todos sus datos asociados (imágenes, etc.).
 
 -   **Método:** `DELETE`
 -   **Path:** `/fields/delete/{fieldId}`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Parámetros de Ruta:
 -   `fieldId` (UUID): El ID de la cancha a eliminar.
@@ -109,13 +141,13 @@ Elimina una cancha y todos sus datos asociados (imágenes, etc.).
 }
 ```
 
-### 1.4 Obtener Canchas por Administrador
+### 1.5 Obtener Canchas por Administrador
 
 Obtiene una lista de todas las canchas asociadas a la cuenta del administrador que realiza la solicitud.
 
 -   **Método:** `GET`
 -   **Path:** `/fields/by-admin`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Ejemplo de Respuesta Exitosa:
 ```json
@@ -131,6 +163,10 @@ Obtiene una lista de todas las canchas asociadas a la cuenta del administrador q
                 "capacity": 12,
                 "description": "Césped recién renovado.",
                 "rules": "No se permiten tacos de metal. Respetar horarios.",
+                "footwearType": "TURF",
+                "fieldType": "ARTIFICIAL_TURF",
+                "hasParking": true,
+                "extraInfo": "Estacionamiento gratuito.",
                 "location": { // (Opcional)
                     "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                     "address": "123 Calle Falsa",
@@ -163,7 +199,7 @@ Sube una imagen para una cancha en una posición específica (0-3).
 
 -   **Método:** `POST`
 -   **Path:** `/fields/{fieldId}/{position}/images`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 -   **Headers:** `Content-Type: multipart/form-data`
 
 #### Parámetros de Ruta:
@@ -188,7 +224,7 @@ Reemplaza una imagen existente.
 
 -   **Método:** `POST`
 -   **Path:** `/fields/image/{fieldId}/{imageId}`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 -   **Headers:** `Content-Type: multipart/form-data`
 
 #### Parámetros de Ruta:
@@ -214,7 +250,7 @@ Elimina una imagen de una cancha.
 
 -   **Método:** `DELETE`
 -   **Path:** `/fields/delete/image/{fieldId}/{imageId}`
--   **Rol Requerido:** `ADMIN` o `BOTH`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
 
 #### Parámetros de Ruta:
 -   `fieldId` (UUID): El ID de la cancha a la que pertenece la imagen.
@@ -234,7 +270,7 @@ Obtiene la URL de acceso para una imagen de cancha.
 
 -   **Método:** `GET`
 -   **Path:** `/fields/image/{imageName}`
--   **Rol Requerido:** `ADMIN` o `BOTH` (o cualquier usuario autenticado, según configuración)
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER` (o cualquier usuario autenticado, según configuración)
 -   **Header Requerido:** `Authorization: Bearer <access_token>`
 
 #### Parámetros de Ruta:
