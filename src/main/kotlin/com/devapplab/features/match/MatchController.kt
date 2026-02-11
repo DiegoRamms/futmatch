@@ -60,7 +60,6 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
                     write("data: $event\n\n".toByteArray())
                     flush()
                 }
-
             }
         }
     }

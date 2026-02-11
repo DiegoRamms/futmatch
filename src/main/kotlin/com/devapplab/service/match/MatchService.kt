@@ -2,11 +2,14 @@ package com.devapplab.service.match
 
 import com.devapplab.data.repository.discount.DiscountRepository
 import com.devapplab.data.repository.match.MatchRepository
+import com.devapplab.features.match.MatchUpdateBus
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
-import com.devapplab.model.match.*
+import com.devapplab.model.match.Match
+import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.match.TeamType
 import com.devapplab.model.match.mapper.toMatchDetailResponse
 import com.devapplab.model.match.mapper.toMatchSummaryResponse
 import com.devapplab.model.match.mapper.toResponse
@@ -18,7 +21,6 @@ import com.devapplab.service.firebase.FirebaseService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
@@ -29,7 +31,8 @@ import kotlin.math.*
 class MatchService(
     private val matchRepository: MatchRepository,
     private val discountRepository: DiscountRepository,
-    private val firebaseService: FirebaseService
+    private val firebaseService: FirebaseService,
+    private val matchUpdateBus: MatchUpdateBus
 ) {
 
     private companion object {
@@ -132,28 +135,33 @@ class MatchService(
         return AppResult.Success(match.toMatchDetailResponse())
     }
 
-    fun streamMatchDetail(locale: Locale, matchId: UUID): Flow<String> = flow {
-        while (true) {
-            val match = matchRepository.getMatchById(matchId)
-            if (match != null) {
-                val response = AppResult.Success(match.toMatchDetailResponse())
-                emit(Json.encodeToString(response))
-            } else {
-                val error = locale.createError(
-                    titleKey = StringResourcesKey.NOT_FOUND_TITLE,
-                    descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
-                    status = HttpStatusCode.NotFound,
-                    errorCode = ErrorCode.NOT_FOUND
-                )
-                emit(Json.encodeToString(error))
-                break // Stop streaming if match not found
-            }
-            delay(5000) // Poll every 5 seconds
+
+    private suspend fun getMatchDetailJson(locale: Locale, matchId: UUID): String {
+        val match = matchRepository.getMatchById(matchId)
+        return if (match != null) {
+            val response = AppResult.Success(match.toMatchDetailResponse())
+            Json.encodeToString(response)
+        } else {
+            val error = locale.createError(
+                titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                status = HttpStatusCode.NotFound,
+                errorCode = ErrorCode.NOT_FOUND
+            )
+            Json.encodeToString(error)
         }
     }
 
+//    private suspend fun notifyMatchUpdate(matchId: UUID) {
+//        _matchUpdates.emit(matchId)
+//    }
+
     suspend fun cancelMatch(matchUuid: UUID): AppResult<Boolean> {
-        return AppResult.Success(matchRepository.cancelMatch(matchUuid))
+        val result = matchRepository.cancelMatch(matchUuid)
+        if (result) {
+            notifyMatchUpdate(matchUuid)
+        }
+        return AppResult.Success(result)
     }
 
     suspend fun updateMatch(matchId: UUID, match: Match): AppResult<MatchResponse> {
@@ -177,6 +185,7 @@ class MatchService(
             playerLevel = updatedMatch.playerLevel
         )
 
+        notifyMatchUpdate(matchId)
         firebaseService.signalMatchUpdate(matchId.toString()) // Signal Firebase update
 
         return AppResult.Success(response)
@@ -240,6 +249,7 @@ class MatchService(
         val joined = matchRepository.addPlayerToMatch(matchId, userId, teamToJoin)
 
         if (joined) {
+            notifyMatchUpdate(matchId)
             firebaseService.signalMatchUpdate(matchId.toString())
             return AppResult.Success(true)
         } else {
@@ -282,6 +292,7 @@ class MatchService(
         val left = matchRepository.removePlayerFromMatch(matchId, userId)
 
         if (left) {
+            notifyMatchUpdate(matchId)
             firebaseService.signalMatchUpdate(matchId.toString())
             return AppResult.Success(true)
         } else {
@@ -291,6 +302,28 @@ class MatchService(
                 status = HttpStatusCode.InternalServerError,
                 errorCode = ErrorCode.GENERAL_ERROR
             )
+        }
+    }
+
+    private fun notifyMatchUpdate(matchId: UUID) {
+        matchUpdateBus.publish(matchId)
+    }
+
+    fun streamMatchDetail(locale: Locale, matchId: UUID): Flow<String> = flow {
+        var last: String? = null
+
+        suspend fun emitIfChanged() {
+            val json = getMatchDetailJson(locale, matchId)
+            if (json != last) {
+                last = json
+                emit(json)
+            }
+        }
+
+        emitIfChanged()
+
+        matchUpdateBus.updates(matchId).collect {
+            emitIfChanged()
         }
     }
 

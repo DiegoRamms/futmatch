@@ -2,6 +2,7 @@ package com.devapplab.features.match
 
 import com.devapplab.config.requireRole
 import com.devapplab.model.user.UserRole
+import io.ktor.http.ContentType
 import io.ktor.server.routing.*
 import org.koin.ktor.plugin.scope
 
@@ -44,9 +45,11 @@ fun Route.matchRouting() {
             matchController.getMatchDetail(call)
         }
 
-        get("/{matchId}/stream") {
-            val matchController = call.scope.get<MatchController>()
-            matchController.streamMatchDetail(call)
+        accept(ContentType.Text.EventStream){
+            get("/{matchId}/stream") {
+                val matchController = call.scope.get<MatchController>()
+                matchController.streamMatchDetail(call)
+            }
         }
 
         post("{matchId}/join") {
