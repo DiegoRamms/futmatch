@@ -389,3 +389,77 @@ Permite a un usuario salir de un partido al que se había unido.
     "data": true
 }
 ```
+
+### 1.10 Stream de Detalle de Partido (SSE)
+
+Establece una conexión persistente de **Server-Sent Events (SSE)** para recibir actualizaciones en tiempo real sobre el estado de un partido.
+
+**¿Cómo funciona?**
+El cliente abre una conexión HTTP única que se mantiene abierta. El servidor utiliza esta conexión para enviar datos ("push") hacia el cliente sin que este tenga que volver a preguntar.
+
+**¿Cada cuándo se actualiza?**
+La actualización es **basada en eventos**, no en un intervalo de tiempo fijo:
+1.  **Inmediatamente** al conectar: Se recibe el estado actual del partido.
+2.  **En tiempo real**: Cada vez que ocurre un cambio en el servidor (ej. un jugador se une, se actualiza el horario, cambia el estado), se envía automáticamente el nuevo objeto JSON. Si no hay cambios, no se envían datos.
+
+-   **Método:** `GET`
+-   **Path:** `/match/{matchId}/stream`
+-   **Header Requerido:** `Accept: text/event-stream`
+-   **Rol Requerido:** Público (o Autenticado)
+
+#### Parámetros de Ruta:
+-   `matchId` (UUID): El ID del partido que se desea monitorear.
+
+#### Ejemplo de Respuesta (Stream):
+El servidor envía eventos con el prefijo `data:` seguidos del JSON del partido.
+
+```text
+data: {
+    "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+    "fieldName": "Cancha Central",
+    "fieldImageUrl": "https://example.com/field.jpg",
+    "startTime": 1715436000000,
+    "endTime": 1715439600000,
+    "originalPriceInCents": 500,
+    "totalDiscountInCents": 0,
+    "priceInCents": 500,
+    "genderType": "MIXED",
+    "status": "SCHEDULED",
+    "availableSpots": 4,
+    "teams": {
+        "teamA": {
+            "playerCount": 1,
+            "players": [
+                {
+                    "id": "user-uuid-1",
+                    "avatarUrl": "https://example.com/avatar1.jpg",
+                    "gender": "MALE",
+                    "name": "Juan Perez",
+                    "country": "MX"
+                }
+            ]
+        },
+        "teamB": {
+            "playerCount": 1,
+            "players": [
+                {
+                    "id": "user-uuid-2",
+                    "avatarUrl": null,
+                    "gender": "FEMALE",
+                    "name": "Maria Lopez",
+                    "country": "MX"
+                }
+            ]
+        }
+    },
+    "location": {
+        "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+        "address": "123 Calle Falsa",
+        "city": "Springfield",
+        "country": "US",
+        "latitude": 40.7128,
+        "longitude": -74.0060
+    }
+}
+```
+```

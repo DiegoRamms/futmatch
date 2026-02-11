@@ -52,6 +52,7 @@ class MatchService(
 
         val matchCreated = matchRepository.create(match)
 
+        notifyMatchUpdate(matchCreated.id)
         firebaseService.signalMatchUpdate(matchCreated.id.toString()) // Signal Firebase update
 
 
@@ -151,10 +152,6 @@ class MatchService(
             Json.encodeToString(error)
         }
     }
-
-//    private suspend fun notifyMatchUpdate(matchId: UUID) {
-//        _matchUpdates.emit(matchId)
-//    }
 
     suspend fun cancelMatch(matchUuid: UUID): AppResult<Boolean> {
         val result = matchRepository.cancelMatch(matchUuid)
