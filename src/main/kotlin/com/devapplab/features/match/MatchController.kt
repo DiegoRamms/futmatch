@@ -9,12 +9,12 @@ import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.utils.respond
 import com.devapplab.utils.retrieveLocale
 import com.devapplab.utils.toUUIDOrNull
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.util.*
 
 class MatchController(private val matchService: com.devapplab.service.match.MatchService) {
@@ -54,11 +54,32 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
     suspend fun streamMatchDetail(call: ApplicationCall) {
         val matchId = UUID.fromString(call.parameters["matchId"])
         val locale = call.retrieveLocale()
-        call.respondOutputStream(contentType = io.ktor.http.ContentType.Text.EventStream) {
-            matchService.streamMatchDetail(locale, matchId).collect { event ->
-                withContext(Dispatchers.IO){
-                    write("data: $event\n\n".toByteArray())
-                    flush()
+
+        call.response.headers.append(HttpHeaders.CacheControl, "no-cache")
+        call.response.headers.append(HttpHeaders.Connection, "keep-alive")
+
+        call.respondOutputStream(contentType = ContentType.Text.EventStream) {
+            coroutineScope {
+                suspend fun sendRaw(raw: String) {
+                    withContext(Dispatchers.IO) {
+                        write(raw.toByteArray())
+                        flush()
+                    }
+                }
+
+                val heartbeatJob = launch {
+                    while (currentCoroutineContext().isActive) {
+                        delay(15_000)
+                        sendRaw(": ping\n\n") // comentario SSE
+                    }
+                }
+
+                try {
+                    matchService.streamMatchDetail(locale, matchId).collect { event ->
+                        sendRaw("data: $event\n\n")
+                    }
+                } finally {
+                    heartbeatJob.cancel()
                 }
             }
         }
