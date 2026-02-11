@@ -44,6 +44,11 @@ fun Route.matchRouting() {
             matchController.getMatchDetail(call)
         }
 
+        get("/{matchId}/stream") {
+            val matchController = call.scope.get<MatchController>()
+            matchController.streamMatchDetail(call)
+        }
+
         post("{matchId}/join") {
             call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
             val matchController = call.scope.get<MatchController>()

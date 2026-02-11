@@ -18,6 +18,10 @@ import com.devapplab.service.firebase.FirebaseService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.json.Json
 import java.math.BigDecimal
 import java.util.*
 import kotlin.math.*
@@ -126,6 +130,26 @@ class MatchService(
             )
 
         return AppResult.Success(match.toMatchDetailResponse())
+    }
+
+    fun streamMatchDetail(locale: Locale, matchId: UUID): Flow<String> = flow {
+        while (true) {
+            val match = matchRepository.getMatchById(matchId)
+            if (match != null) {
+                val response = AppResult.Success(match.toMatchDetailResponse())
+                emit(Json.encodeToString(response))
+            } else {
+                val error = locale.createError(
+                    titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                    descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                    status = HttpStatusCode.NotFound,
+                    errorCode = ErrorCode.NOT_FOUND
+                )
+                emit(Json.encodeToString(error))
+                break // Stop streaming if match not found
+            }
+            delay(5000) // Poll every 5 seconds
+        }
     }
 
     suspend fun cancelMatch(matchUuid: UUID): AppResult<Boolean> {

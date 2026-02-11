@@ -12,6 +12,9 @@ import com.devapplab.utils.toUUIDOrNull
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.request.*
+import io.ktor.server.response.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.*
 
 class MatchController(private val matchService: com.devapplab.service.match.MatchService) {
@@ -46,6 +49,20 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val locale = call.retrieveLocale()
         val result = matchService.getMatchDetail(locale, matchId)
         call.respond(result)
+    }
+
+    suspend fun streamMatchDetail(call: ApplicationCall) {
+        val matchId = UUID.fromString(call.parameters["matchId"])
+        val locale = call.retrieveLocale()
+        call.respondOutputStream(contentType = io.ktor.http.ContentType.Text.EventStream) {
+            matchService.streamMatchDetail(locale, matchId).collect { event ->
+                withContext(Dispatchers.IO){
+                    write("data: $event\n\n".toByteArray())
+                    flush()
+                }
+
+            }
+        }
     }
 
     suspend fun cancelMatch(call: ApplicationCall) {
