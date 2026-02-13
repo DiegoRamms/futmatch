@@ -389,6 +389,31 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): Boolean {
         return dbQuery {
+            val matchRow = MatchTable.select(MatchTable.maxPlayers)
+                .where { MatchTable.id eq matchId }
+                .forUpdate()
+                .singleOrNull() ?: return@dbQuery false
+
+            val maxPlayers = matchRow[MatchTable.maxPlayers]
+
+            val currentPlayersCount = MatchPlayersTable
+                .select(MatchPlayersTable.userId)
+                .where { MatchPlayersTable.matchId eq matchId }
+                .count()
+
+            if (currentPlayersCount >= maxPlayers) {
+                return@dbQuery false
+            }
+
+            val isUserAlreadyInMatch = MatchPlayersTable
+                .select(MatchPlayersTable.userId)
+                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) }
+                .count() > 0
+
+            if (isUserAlreadyInMatch) {
+                return@dbQuery false
+            }
+
             val inserted = MatchPlayersTable.insert {
                 it[this.matchId] = matchId
                 it[this.userId] = userId
