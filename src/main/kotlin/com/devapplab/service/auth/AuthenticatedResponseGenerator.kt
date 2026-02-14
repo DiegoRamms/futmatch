@@ -12,7 +12,7 @@ import com.devapplab.model.auth.response.AuthTokenResponse
 import com.devapplab.model.user.UserRole
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
-import com.devapplab.service.firebase.FirebaseService
+import com.devapplab.service.firebase.FirebaseAuthService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
@@ -24,7 +24,7 @@ class AuthenticatedResponseGenerator(
     private val authTokenService: AuthTokenService,
     private val refreshTokenService: RefreshTokenService,
     private val authRepository: AuthRepository,
-    private val firebaseService: FirebaseService
+    private val firebaseAuthService: FirebaseAuthService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -38,7 +38,7 @@ class AuthenticatedResponseGenerator(
         val start = System.currentTimeMillis()
 
         // 1. Generate Firebase Custom Token
-        val firebaseToken = firebaseService.createCustomToken(
+        val firebaseToken = firebaseAuthService.createCustomToken(
             userId = userId.toString(),
             claims = mapOf("role" to userRole.name)
         )

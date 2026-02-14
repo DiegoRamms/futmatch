@@ -17,7 +17,7 @@ import com.devapplab.model.match.response.MatchDetailResponse
 import com.devapplab.model.match.response.MatchResponse
 import com.devapplab.model.match.response.MatchSummaryResponse
 import com.devapplab.model.match.response.MatchWithFieldResponse
-import com.devapplab.service.firebase.FirebaseService
+import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
@@ -27,17 +27,22 @@ import kotlinx.serialization.json.Json
 import java.math.BigDecimal
 import java.util.*
 import kotlin.math.*
+import kotlin.time.Duration.Companion.days
 
 class MatchService(
     private val matchRepository: MatchRepository,
     private val discountRepository: DiscountRepository,
-    private val firebaseService: FirebaseService,
+    private val matchSignalsService: MatchSignalsService,
     private val matchUpdateBus: MatchUpdateBus
 ) {
 
     private companion object {
-        const val EARTH_RADIUS_KM = 6371.0 // Radius of the Earth in kilometers
-        const val OVERLAP_THRESHOLD_MS = 15 * 60 * 1000 // 15 minutes in milliseconds
+        const val EARTH_RADIUS_KM = 6371.0
+        const val OVERLAP_THRESHOLD_MS = 15 * 60 * 1000
+
+
+        val SIGNAL_TTL_AFTER_END = 30.days
+        val SIGNAL_TTL_AFTER_CANCEL = 1.days
     }
 
     suspend fun create(match: Match, locale: Locale): AppResult<MatchResponse> {
@@ -53,8 +58,12 @@ class MatchService(
         val matchCreated = matchRepository.create(match)
 
         notifyMatchUpdate(matchCreated.id)
-        firebaseService.signalMatchUpdate(matchCreated.id.toString()) // Signal Firebase update
 
+        val expireAtMillis = matchCreated.dateTimeEnd + SIGNAL_TTL_AFTER_END.inWholeMilliseconds
+        matchSignalsService.signalMatchUpdateUpsert(
+            matchId = matchCreated.id.toString(),
+            expireAtMillis = expireAtMillis
+        )
 
         val discounts = match.discountIds?.let {
             if (it.isNotEmpty()) discountRepository.getDiscountsByIds(it) else emptyList()
@@ -87,9 +96,7 @@ class MatchService(
             if (overlapStart < overlapEnd) {
                 val overlapDuration = overlapEnd - overlapStart
                 overlapDuration > OVERLAP_THRESHOLD_MS
-            } else {
-                false
-            }
+            } else false
         }
     }
 
@@ -106,16 +113,17 @@ class MatchService(
     suspend fun getPlayerMatches(userLat: Double?, userLon: Double?): AppResult<List<MatchSummaryResponse>> {
         val matchesWithField = matchRepository.getPublicMatches()
 
-        // Refactored sorting logic to support distance sorting even if not in response:
         val responseWithDistance = matchesWithField.map { match ->
-            val distance = if (userLat != null && userLon != null && match.fieldLatitude != null && match.fieldLongitude != null) {
+            val distance = if (
+                userLat != null && userLon != null &&
+                match.fieldLatitude != null && match.fieldLongitude != null
+            ) {
                 calculateDistance(userLat, userLon, match.fieldLatitude, match.fieldLongitude)
-            } else {
-                null
-            }
+            } else null
+
             match.toMatchSummaryResponse() to distance
         }
-        
+
         val finalSortedResponse = responseWithDistance.sortedWith(
             compareBy<Pair<MatchSummaryResponse, Double?>> { it.first.startTime }
                 .thenBy { it.second ?: Double.MAX_VALUE }
@@ -135,7 +143,6 @@ class MatchService(
 
         return AppResult.Success(match.toMatchDetailResponse())
     }
-
 
     private suspend fun getMatchDetailJson(locale: Locale, matchId: UUID): String {
         val match = matchRepository.getMatchById(matchId)
@@ -157,14 +164,20 @@ class MatchService(
         val result = matchRepository.cancelMatch(matchUuid)
         if (result) {
             notifyMatchUpdate(matchUuid)
+
+            val expireAtMillis = System.currentTimeMillis() + SIGNAL_TTL_AFTER_CANCEL.inWholeMilliseconds
+            matchSignalsService.signalMatchUpdateUpsert(
+                matchId = matchUuid.toString(),
+                expireAtMillis = expireAtMillis
+            )
         }
         return AppResult.Success(result)
     }
 
     suspend fun updateMatch(matchId: UUID, match: Match): AppResult<MatchResponse> {
         matchRepository.updateMatch(matchId, match)
-        val updatedMatch = matchRepository.getMatchById(matchId) // Re-fetch to get all data
-            ?: throw IllegalStateException("Match not found after update") // Or handle as an error
+        val updatedMatch = matchRepository.getMatchById(matchId)
+            ?: throw IllegalStateException("Match not found after update")
 
         val totalDiscount = calculateTotalDiscount(updatedMatch.matchPrice, updatedMatch.discounts)
 
@@ -183,7 +196,8 @@ class MatchService(
         )
 
         notifyMatchUpdate(matchId)
-        firebaseService.signalMatchUpdate(matchId.toString()) // Signal Firebase update
+
+        matchSignalsService.signalMatchUpdateUpsert(matchId.toString())
 
         return AppResult.Success(response)
     }
@@ -227,9 +241,9 @@ class MatchService(
         val teamToJoin = if (team != null) {
             val maxPerTeam = match.maxPlayers / 2
             val currentTeamCount = match.players.count { it.team == team }
-            
+
             if (currentTeamCount >= maxPerTeam) {
-                 return locale.createError(
+                return locale.createError(
                     titleKey = StringResourcesKey.MATCH_TEAM_FULL_TITLE,
                     descriptionKey = StringResourcesKey.MATCH_TEAM_FULL_DESCRIPTION,
                     status = HttpStatusCode.Conflict,
@@ -247,7 +261,8 @@ class MatchService(
 
         if (joined) {
             notifyMatchUpdate(matchId)
-            firebaseService.signalMatchUpdate(matchId.toString())
+            matchSignalsService.signalMatchUpdateUpsert(matchId.toString())
+
             return AppResult.Success(true)
         } else {
             return locale.createError(
@@ -290,7 +305,9 @@ class MatchService(
 
         if (left) {
             notifyMatchUpdate(matchId)
-            firebaseService.signalMatchUpdate(matchId.toString())
+
+            matchSignalsService.signalMatchUpdateUpsert(matchId.toString())
+
             return AppResult.Success(true)
         } else {
             return locale.createError(
@@ -336,8 +353,8 @@ class MatchService(
         val a = sin(deltaLat / 2) * sin(deltaLat / 2) +
                 cos(lat1Rad) * cos(lat2Rad) *
                 sin(deltaLon / 2) * sin(deltaLon / 2)
-        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
 
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return EARTH_RADIUS_KM * c
     }
 
@@ -349,9 +366,7 @@ class MatchService(
                 DiscountType.PERCENTAGE -> finalPrice * (BigDecimal.ONE - discount.value.divide(BigDecimal(100)))
             }
         }
-        if (finalPrice < BigDecimal.ZERO) {
-            finalPrice = BigDecimal.ZERO
-        }
+        if (finalPrice < BigDecimal.ZERO) finalPrice = BigDecimal.ZERO
         return originalPrice - finalPrice
     }
 }
