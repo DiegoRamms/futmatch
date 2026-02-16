@@ -1,5 +1,6 @@
 package com.devapplab.service
 
+import com.devapplab.utils.Constants
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
@@ -20,8 +21,6 @@ class UserService(
     private val imageService: ImageService
 ) {
 
-    private val baseStoragePath = "futmatch/users"
-
     suspend fun getUserById(userId: UUID?, locale: Locale): AppResult<UserResponse> {
         userId ?: return locale.createError(status = HttpStatusCode.NotFound)
         val userBaseInfo: UserBaseInfo = dbExecutor.tx { userRepository.getUserById(userId) }
@@ -29,7 +28,7 @@ class UserService(
 
         // Generate signed URL for profile pic if exists
         val profilePicUrl = userBaseInfo.profilePic?.let { fileName ->
-            val publicId = "$baseStoragePath/$userId/$fileName"
+            val publicId = "${Constants.BASE_USER_STORAGE_PATH}/$userId/$fileName"
             imageService.getImageUrl(publicId)
         }.orEmpty()
 
@@ -45,7 +44,7 @@ class UserService(
         val currentUser = dbExecutor.tx { userRepository.getUserById(userId) }
             ?: return locale.createError(status = HttpStatusCode.NotFound)
 
-        val path = "$baseStoragePath/$userId"
+        val path = "${Constants.BASE_USER_STORAGE_PATH}/$userId"
         
         // Save new image
         val savedImages = imageService.saveImages(multiPartData, path)
@@ -62,7 +61,7 @@ class UserService(
 
         if (!updated) {
              // Rollback: delete uploaded image if DB update fails
-             val publicId = "$baseStoragePath/$userId/$newImageName"
+             val publicId = "${Constants.BASE_USER_STORAGE_PATH}/$userId/$newImageName"
              imageService.deleteImages(publicId)
              
              return locale.createError(
@@ -74,7 +73,7 @@ class UserService(
 
         // Delete old image if exists
         if (!currentUser.profilePic.isNullOrBlank()) {
-            val oldPublicId = "$baseStoragePath/$userId/${currentUser.profilePic}"
+            val oldPublicId = "${Constants.BASE_USER_STORAGE_PATH}/$userId/${currentUser.profilePic}"
             imageService.deleteImages(oldPublicId)
         }
 

@@ -1,5 +1,6 @@
 package com.devapplab.service.match
 
+import com.devapplab.utils.Constants
 import com.devapplab.data.repository.discount.DiscountRepository
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.features.match.MatchUpdateBus
@@ -13,11 +14,9 @@ import com.devapplab.model.match.TeamType
 import com.devapplab.model.match.mapper.toMatchDetailResponse
 import com.devapplab.model.match.mapper.toMatchSummaryResponse
 import com.devapplab.model.match.mapper.toResponse
-import com.devapplab.model.match.response.MatchDetailResponse
-import com.devapplab.model.match.response.MatchResponse
-import com.devapplab.model.match.response.MatchSummaryResponse
-import com.devapplab.model.match.response.MatchWithFieldResponse
+import com.devapplab.model.match.response.*
 import com.devapplab.service.firebase.MatchSignalsService
+import com.devapplab.service.image.ImageService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
@@ -33,7 +32,8 @@ class MatchService(
     private val matchRepository: MatchRepository,
     private val discountRepository: DiscountRepository,
     private val matchSignalsService: MatchSignalsService,
-    private val matchUpdateBus: MatchUpdateBus
+    private val matchUpdateBus: MatchUpdateBus,
+    private val imageService: ImageService
 ) {
 
     private companion object {
@@ -106,7 +106,15 @@ class MatchService(
     }
 
     suspend fun getAllMatches(): AppResult<List<MatchWithFieldResponse>> {
-        val matches = matchRepository.getAllMatches().map { it.toResponse() }
+        val matches = matchRepository.getAllMatches().map { match ->
+            val response = match.toResponse()
+            response.copy(
+                mainImage = response.mainImage?.let { fileName ->
+                    val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${response.fieldId}/$fileName"
+                    imageService.getImageUrl(publicId)
+                }
+            )
+        }
         return AppResult.Success(matches)
     }
 
@@ -121,7 +129,18 @@ class MatchService(
                 calculateDistance(userLat, userLon, match.fieldLatitude, match.fieldLongitude)
             } else null
 
-            match.toMatchSummaryResponse() to distance
+            val summary = match.toMatchSummaryResponse()
+            val updatedTeams = resolveAvatarUrls(summary.teams)
+            
+            val summaryWithImages = summary.copy(
+                teams = updatedTeams,
+                fieldImageUrl = summary.fieldImageUrl?.let { fileName ->
+                    val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/$fileName"
+                    imageService.getImageUrl(publicId)
+                }
+            )
+
+            summaryWithImages to distance
         }
 
         val finalSortedResponse = responseWithDistance.sortedWith(
@@ -141,13 +160,19 @@ class MatchService(
                 errorCode = ErrorCode.NOT_FOUND
             )
 
-        return AppResult.Success(match.toMatchDetailResponse())
+        val matchDetailResponse = match.toMatchDetailResponse()
+        val updatedTeams = resolveAvatarUrls(matchDetailResponse.teams)
+
+        return AppResult.Success(matchDetailResponse.copy(teams = updatedTeams))
     }
 
     private suspend fun getMatchDetailJson(locale: Locale, matchId: UUID): String {
         val match = matchRepository.getMatchById(matchId)
         return if (match != null) {
-            val response = AppResult.Success(match.toMatchDetailResponse())
+            val matchDetailResponse = match.toMatchDetailResponse()
+            val updatedTeams = resolveAvatarUrls(matchDetailResponse.teams)
+            
+            val response = AppResult.Success(matchDetailResponse.copy(teams = updatedTeams))
             Json.encodeToString(response)
         } else {
             val error = locale.createError(
@@ -368,5 +393,21 @@ class MatchService(
         }
         if (finalPrice < BigDecimal.ZERO) finalPrice = BigDecimal.ZERO
         return originalPrice - finalPrice
+    }
+
+    private fun resolveAvatarUrls(teams: TeamSummaryResponse): TeamSummaryResponse {
+        val transformPlayer: (PlayerSummary) -> PlayerSummary = { player ->
+            player.copy(
+                avatarUrl = player.avatarUrl?.let { fileName ->
+                    val publicId = "${Constants.BASE_USER_STORAGE_PATH}/${player.id}/$fileName"
+                    imageService.getImageUrl(publicId)
+                }
+            )
+        }
+
+        return teams.copy(
+            teamA = teams.teamA.copy(players = teams.teamA.players.map(transformPlayer)),
+            teamB = teams.teamB.copy(players = teams.teamB.players.map(transformPlayer))
+        )
     }
 }
