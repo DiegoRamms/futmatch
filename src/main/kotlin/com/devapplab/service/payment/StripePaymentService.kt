@@ -49,8 +49,6 @@ class StripePaymentService(
                 val customerParams = CustomerCreateParams.builder().build()
                 Customer.create(customerParams)
             }
-            
-            logger.info("➡️ Print customer $customer ...")
 
             val customerSessionParams = CustomerSessionCreateParams.builder()
                 .setCustomer(customer.id)
