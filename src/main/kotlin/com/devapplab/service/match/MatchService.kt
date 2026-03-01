@@ -3,38 +3,58 @@ package com.devapplab.service.match
 import com.devapplab.utils.Constants
 import com.devapplab.data.repository.discount.DiscountRepository
 import com.devapplab.data.repository.match.MatchRepository
+import com.devapplab.data.repository.payment.PaymentRepository
+import com.devapplab.data.repository.payment.PendingPaymentInfo
+import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.features.match.MatchUpdateBus
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
 import com.devapplab.model.match.Match
+import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.match.TeamType
 import com.devapplab.model.match.mapper.toMatchDetailResponse
 import com.devapplab.model.match.mapper.toMatchSummaryResponse
 import com.devapplab.model.match.mapper.toResponse
 import com.devapplab.model.match.response.*
+import com.devapplab.model.payment.PaymentAttemptStatus
+import com.devapplab.model.payment.PaymentCaptureMethod
+import com.devapplab.model.payment.PaymentFailureReason
+import com.devapplab.model.payment.PaymentOperationResult
+import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.image.ImageService
+import com.devapplab.service.notification.NotificationService
+import com.devapplab.service.payment.PaymentServiceFactory
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 import java.util.*
 import kotlin.math.*
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 class MatchService(
     private val matchRepository: MatchRepository,
     private val discountRepository: DiscountRepository,
     private val matchSignalsService: MatchSignalsService,
     private val matchUpdateBus: MatchUpdateBus,
-    private val imageService: ImageService
+    private val imageService: ImageService,
+    private val paymentServiceFactory: PaymentServiceFactory,
+    private val paymentRepository: PaymentRepository,
+    private val userRepository: UserRepository,
+    private val notificationService: NotificationService
 ) {
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
     private companion object {
         const val EARTH_RADIUS_KM = 6371.0
@@ -43,6 +63,8 @@ class MatchService(
 
         val SIGNAL_TTL_AFTER_END = 30.days
         val SIGNAL_TTL_AFTER_CANCEL = 1.days
+        val CAPTURE_METHOD_THRESHOLD = 6.hours
+        val RESERVATION_TTL = 10.minutes
     }
 
     suspend fun create(match: Match, locale: Locale): AppResult<MatchResponse> {
@@ -57,13 +79,8 @@ class MatchService(
 
         val matchCreated = matchRepository.create(match)
 
-        notifyMatchUpdate(matchCreated.id)
-
         val expireAtMillis = matchCreated.dateTimeEnd + SIGNAL_TTL_AFTER_END.inWholeMilliseconds
-        matchSignalsService.signalMatchUpdateUpsert(
-            matchId = matchCreated.id.toString(),
-            expireAtMillis = expireAtMillis
-        )
+        notifyMatchUpdate(matchCreated.id, expireAtMillis)
 
         val discounts = match.discountIds?.let {
             if (it.isNotEmpty()) discountRepository.getDiscountsByIds(it) else emptyList()
@@ -188,13 +205,8 @@ class MatchService(
     suspend fun cancelMatch(matchUuid: UUID): AppResult<Boolean> {
         val result = matchRepository.cancelMatch(matchUuid)
         if (result) {
-            notifyMatchUpdate(matchUuid)
-
             val expireAtMillis = System.currentTimeMillis() + SIGNAL_TTL_AFTER_CANCEL.inWholeMilliseconds
-            matchSignalsService.signalMatchUpdateUpsert(
-                matchId = matchUuid.toString(),
-                expireAtMillis = expireAtMillis
-            )
+            notifyMatchUpdate(matchUuid, expireAtMillis)
         }
         return AppResult.Success(result)
     }
@@ -222,12 +234,10 @@ class MatchService(
 
         notifyMatchUpdate(matchId)
 
-        matchSignalsService.signalMatchUpdateUpsert(matchId.toString())
-
         return AppResult.Success(response)
     }
 
-    suspend fun joinMatch(userId: UUID, matchId: UUID, team: TeamType?, locale: Locale): AppResult<Boolean> {
+    suspend fun joinMatch(userId: UUID, matchId: UUID, team: TeamType?, paymentProvider: PaymentProvider, locale: Locale): AppResult<JoinMatchResponse> {
         val match = matchRepository.getMatchById(matchId)
             ?: return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,
@@ -254,7 +264,9 @@ class MatchService(
             )
         }
 
-        if (match.players.size >= match.maxPlayers) {
+        val activePlayers = match.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }
+
+        if (activePlayers.size >= match.maxPlayers) {
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_FULL_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_FULL_DESCRIPTION,
@@ -265,7 +277,7 @@ class MatchService(
 
         val teamToJoin = if (team != null) {
             val maxPerTeam = match.maxPlayers / 2
-            val currentTeamCount = match.players.count { it.team == team }
+            val currentTeamCount = activePlayers.count { it.team == team }
 
             if (currentTeamCount >= maxPerTeam) {
                 return locale.createError(
@@ -277,18 +289,103 @@ class MatchService(
             }
             team
         } else {
-            val teamA = match.players.count { it.team == TeamType.A }
-            val teamB = match.players.count { it.team == TeamType.B }
+            val teamA = activePlayers.count { it.team == TeamType.A }
+            val teamB = activePlayers.count { it.team == TeamType.B }
             if (teamA <= teamB) TeamType.A else TeamType.B
         }
 
         val joined = matchRepository.addPlayerToMatch(matchId, userId, teamToJoin)
 
         if (joined) {
+            // 1. Notify that a spot is reserved (Optimistic update for other users)
             notifyMatchUpdate(matchId)
-            matchSignalsService.signalMatchUpdateUpsert(matchId.toString())
 
-            return AppResult.Success(true)
+            val totalDiscount = calculateTotalDiscount(match.matchPrice, match.discounts)
+            val finalPrice = match.matchPrice - totalDiscount
+            val amountInCents = (finalPrice * BigDecimal(100)).toLong()
+
+            val paymentService = paymentServiceFactory.getService(paymentProvider)
+            val matchPlayerId = matchRepository.getMatchPlayerId(matchId, userId) ?: throw IllegalStateException("Match player not found after join")
+            
+            val timeUntilMatch = match.dateTime - System.currentTimeMillis()
+            val captureMethod = if (timeUntilMatch > CAPTURE_METHOD_THRESHOLD.inWholeMilliseconds) {
+                PaymentCaptureMethod.MANUAL
+            } else {
+                PaymentCaptureMethod.AUTOMATIC
+            }
+
+            val customerId = userRepository.getPaymentProfile(userId, paymentProvider)
+
+            val paymentResult = paymentService.createPaymentIntent(
+                amount = amountInCents,
+                currency = "mxn",
+                metadata = mapOf(
+                    "matchId" to matchId.toString(),
+                    "userId" to userId.toString(),
+                    "matchPlayerId" to matchPlayerId.toString()
+                ),
+                captureMethod = captureMethod,
+                customerId = customerId
+            )
+
+            return when (paymentResult) {
+                is PaymentOperationResult.Success -> {
+                    paymentRepository.createPayment(
+                        matchPlayerId = matchPlayerId,
+                        provider = paymentResult.data.provider,
+                        providerPaymentId = paymentResult.data.paymentId,
+                        clientSecret = paymentResult.data.clientSecret,
+                        amount = finalPrice,
+                        currency = "mxn",
+                        status = PaymentAttemptStatus.CREATED
+
+                    )
+
+
+                    if (customerId == null && paymentResult.data.customer != null) {
+                        userRepository.upsertPaymentProfile(userId, paymentProvider, paymentResult.data.customer)
+                    }
+
+                    // No need to notify again here, we did it before payment creation.
+                    // If payment succeeds, webhook will handle status update to JOINED/PAID.
+
+                    AppResult.Success(
+                        JoinMatchResponse(
+                            clientSecret = paymentResult.data.clientSecret,
+                            paymentId = paymentResult.data.paymentId,
+                            provider = paymentResult.data.provider,
+                            amountInCents = amountInCents,
+                            currency = "mxn",
+                            customer = paymentResult.data.customer,
+                            customerSessionClientSecret = paymentResult.data.customerSessionClientSecret,
+                            publishableKey = paymentResult.data.publishableKey
+                        )
+                    )
+
+
+                }
+                is PaymentOperationResult.Failure -> {
+                    // Rollback: Remove player from match because payment creation failed
+                    logger.warn("⚠️ Payment creation failed. Rolling back reservation for user $userId in match $matchId")
+                    matchRepository.removePlayerFromMatch(matchId, userId)
+                    
+                    // Notify again to release the spot in UI
+                    notifyMatchUpdate(matchId)
+                    
+                    // Map internal payment error to AppResult for the client
+                    val errorCode = when (paymentResult.reason) {
+                        PaymentFailureReason.DECLINED -> ErrorCode.PAYMENT_FAILED
+                        else -> ErrorCode.PAYMENT_FAILED
+                    }
+                    
+                    locale.createError(
+                        titleKey = StringResourcesKey.PAYMENT_FAILED_TITLE,
+                        descriptionKey = StringResourcesKey.PAYMENT_FAILED_DESCRIPTION,
+                        errorCode = errorCode,
+                        status = HttpStatusCode.InternalServerError
+                    )
+                }
+            }
         } else {
             return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
@@ -326,12 +423,34 @@ class MatchService(
             )
         }
 
+        // Check for active payment to cancel
+        val activePayment = paymentRepository.getActivePaymentForPlayer(matchId, userId)
+        if (activePayment != null) {
+            logger.info("💳 Found active payment ${activePayment.paymentId} for user $userId. Attempting to cancel...")
+            if (activePayment.providerPaymentId == null){
+                 logger.warn("⚠️ Failed to cancel payment ${activePayment.paymentId} in Stripe. due to providerPaymentId is null" )
+            }else {
+                // We assume Stripe for now, but could use factory if provider was stored in PaymentInfo
+                val paymentService = paymentServiceFactory.getService(PaymentProvider.STRIPE)
+                val canceled = paymentService.cancelPayment(activePayment.providerPaymentId)
+
+                if (canceled) {
+                    paymentRepository.updatePaymentStatus(activePayment.providerPaymentId, PaymentAttemptStatus.CANCELED)
+
+                    logger.info("✅ Payment ${activePayment.paymentId} canceled successfully.")
+                } else {
+                    logger.warn("⚠️ Failed to cancel payment ${activePayment.paymentId} in Stripe.")
+                    // We proceed to remove player anyway, but log the issue.
+                    // Depending on business logic, we might want to block leaving or handle differently.
+                }
+            }
+
+        }
+
         val left = matchRepository.removePlayerFromMatch(matchId, userId)
 
         if (left) {
             notifyMatchUpdate(matchId)
-
-            matchSignalsService.signalMatchUpdateUpsert(matchId.toString())
 
             return AppResult.Success(true)
         } else {
@@ -344,8 +463,83 @@ class MatchService(
         }
     }
 
-    private fun notifyMatchUpdate(matchId: UUID) {
+    suspend fun processExpiredReservations() {
+        val expirationTime = System.currentTimeMillis() - RESERVATION_TTL.inWholeMilliseconds
+        val expiredReservations = matchRepository.getExpiredReservations(expirationTime)
+
+        if (expiredReservations.isEmpty()) {
+            logger.info("✅ No expired reservations found.")
+            return
+        }
+
+        logger.info("🧹 Found ${expiredReservations.size} expired reservations. Cancelling...")
+
+        expiredReservations.forEach { matchPlayerId ->
+            val updated = matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
+            if (updated) {
+                logger.info("🚫 Reservation cancelled: matchPlayerId=$matchPlayerId")
+                // TODO: Notify user about cancellation?
+            } else {
+                logger.error("❌ Failed to cancel reservation: matchPlayerId=$matchPlayerId")
+            }
+        }
+    }
+
+    suspend fun capturePendingPayments() {
+        val now = System.currentTimeMillis()
+        val sixHoursInMillis = 6.hours.inWholeMilliseconds
+        val endTimeWindow = now + sixHoursInMillis
+
+        val pendingPayments = paymentRepository.getPendingCapturePayments(now, endTimeWindow)
+
+        if (pendingPayments.isEmpty()) {
+            logger.info("✅ No pending payments to capture in the next 6 hours.")
+            return
+        }
+
+        logger.info("💰 Found ${pendingPayments.size} payments to capture. Processing...")
+
+        pendingPayments.forEach { paymentInfo ->
+            try {
+                val paymentService = paymentServiceFactory.getService(PaymentProvider.STRIPE) // Assuming Stripe for now, can be dynamic
+                val captured = paymentService.capturePayment(paymentInfo.providerPaymentId, paymentInfo.amount.toLong())
+
+                if (captured) {
+                    paymentRepository.updatePaymentStatus(paymentInfo.providerPaymentId, PaymentAttemptStatus.SUCCEEDED)
+                    // Player status is already JOINED, so no need to update match player status unless we want a specific CAPTURED status
+                    logger.info("✅ Payment captured successfully: paymentId=${paymentInfo.paymentId}")
+                } else {
+                    logger.error("❌ Failed to capture payment: paymentId=${paymentInfo.paymentId}")
+                    handleFailedCapture(paymentInfo)
+                }
+            } catch (e: Exception) {
+                logger.error("🔥 Exception capturing payment: paymentId=${paymentInfo.paymentId}", e)
+                handleFailedCapture(paymentInfo)
+            }
+        }
+    }
+
+    private suspend fun handleFailedCapture(paymentInfo: PendingPaymentInfo) {
+        // 1. Update payment status to FAILED
+        paymentRepository.updatePaymentStatus(paymentInfo.providerPaymentId, PaymentAttemptStatus.FAILED)
+
+        // 2. Remove player from match (Soft delete / CANCELED)
+        val removed = matchRepository.updatePlayerStatus(paymentInfo.matchPlayerId, MatchPlayerStatus.CANCELED)
+
+        if (removed) {
+            logger.info("🚫 Player removed from match due to payment failure: matchPlayerId=${paymentInfo.matchPlayerId}")
+            notifyMatchUpdate(paymentInfo.matchId)
+
+            // Send Push Notification to user
+            notificationService.sendPaymentFailedNotification(paymentInfo.userId, paymentInfo.matchId)
+        } else {
+            logger.error("❌ Failed to remove player after payment failure: matchPlayerId=${paymentInfo.matchPlayerId}")
+        }
+    }
+
+    private suspend fun notifyMatchUpdate(matchId: UUID, expireAtMillis: Long? = null) {
         matchUpdateBus.publish(matchId)
+        matchSignalsService.signalMatchUpdateUpsert(matchId.toString(), expireAtMillis)
     }
 
     fun streamMatchDetail(locale: Locale, matchId: UUID): Flow<String> = flow {

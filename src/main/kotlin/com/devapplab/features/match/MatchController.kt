@@ -104,7 +104,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<JoinMatchRequest>()
         val locale = call.retrieveLocale()
-        val result = matchService.joinMatch(userId, matchId, request.team, locale)
+        val result = matchService.joinMatch(userId, matchId, request.team, request.paymentProvider, locale)
         call.respond(result)
     }
 

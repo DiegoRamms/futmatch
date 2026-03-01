@@ -16,4 +16,7 @@ interface MatchRepository {
     suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): Boolean
     suspend fun removePlayerFromMatch(matchId: UUID, userId: UUID): Boolean
     suspend fun isUserInMatch(matchId: UUID, userId: UUID): Boolean
+    suspend fun getMatchPlayerId(matchId: UUID, userId: UUID): UUID?
+    suspend fun updatePlayerStatus(matchPlayerId: UUID, status: MatchPlayerStatus): Boolean
+    suspend fun getExpiredReservations(expirationTime: Long): List<UUID>
 }

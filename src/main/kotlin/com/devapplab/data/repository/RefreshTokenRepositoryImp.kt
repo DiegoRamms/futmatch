@@ -7,6 +7,7 @@ import com.devapplab.model.auth.RefreshTokenRecord
 import com.devapplab.model.auth.RefreshTokenValidationInfo
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import java.util.*
 
 class RefreshTokenRepositoryImp : RefreshTokenRepository {
@@ -76,7 +77,10 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
     }
 
     override suspend fun deleteRevokedTokens(): Boolean = dbQuery {
-        RefreshTokenTable.deleteWhere { revoked eq true } > 0
+        val now = System.currentTimeMillis()
+        RefreshTokenTable.deleteWhere {
+            (revoked eq true) or (expiresAt less now)
+        } > 0
     }
 
     private fun ResultRow.toRefreshTokenRecord(): RefreshTokenRecord =

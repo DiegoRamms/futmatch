@@ -18,7 +18,10 @@ import com.devapplab.service.hashing.HashingServiceImpl
 import com.devapplab.service.image.ImageServiceImp
 import com.devapplab.service.location.LocationService
 import com.devapplab.service.match.MatchService
+import com.devapplab.service.notification.NotificationServiceImp
 import com.devapplab.service.password_reset.PasswordResetTokenServiceImpl
+import com.devapplab.service.payment.PaymentServiceFactory
+import com.devapplab.service.payment.StripeWebhookService
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -45,4 +48,7 @@ val serviceModule = module {
     singleOf(::PasswordResetTokenServiceImpl) { bind<com.devapplab.service.password_reset.PasswordResetTokenService>()  }
     singleOf(::FirebaseAuthService)
     singleOf(::MatchSignalsService)
+    singleOf(::PaymentServiceFactory)
+    singleOf(::StripeWebhookService)
+    singleOf(::NotificationServiceImp) { bind<com.devapplab.service.notification.NotificationService>() }
 }

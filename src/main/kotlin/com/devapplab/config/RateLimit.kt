@@ -109,6 +109,11 @@ fun Application.configureRateLimit() {
                 if (k.startsWith("sign_out:user:")) 1 else 30
             }
         }
+
+        register(RateLimitName(RateLimitType.STRIPE_WEBHOOK.value)) {
+            rateLimiter(limit = 300, refillPeriod = 60.seconds)
+            requestKey { call -> "stripe:webhook:ip:${call.clientIp()}" }
+        }
     }
 }
 
@@ -134,4 +139,5 @@ enum class RateLimitType(val value: String) {
     REST_PASSWORD_UPDATE("rest_password_update"),
     MFA_VERIFY_REGISTRATION("mfa_verify_registration"),
     MFA_VERIFY_REGISTRATION_COMPLETE("mfa_verify_registration_complete"),
+    STRIPE_WEBHOOK("stripe_webhook"),
 }

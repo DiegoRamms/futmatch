@@ -15,6 +15,10 @@ import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.match.MatchRepositoryImp
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepositoryImpl
+import com.devapplab.data.repository.payment.PaymentRepository
+import com.devapplab.data.repository.payment.PaymentRepositoryImp
+import com.devapplab.data.repository.payment.StripeWebhookEventRepository
+import com.devapplab.data.repository.payment.StripeWebhookEventRepositoryImp
 import com.devapplab.data.repository.pending_registrations.PendingRegistrationRepository
 import com.devapplab.data.repository.pending_registrations.PendingRegistrationRepositoryImpl
 import com.devapplab.data.repository.user.UserRepository
@@ -36,4 +40,6 @@ val repositoryModule = module {
     singleOf(::PendingRegistrationRepositoryImpl) { bind<PendingRegistrationRepository>() }
     singleOf(::LocationRepositoryImp) { bind<LocationRepository>() }
     singleOf(::DiscountRepositoryImp) { bind<DiscountRepository>() }
+    singleOf(::PaymentRepositoryImp) { bind<PaymentRepository>() }
+    singleOf(::StripeWebhookEventRepositoryImp){ bind<StripeWebhookEventRepository>() }
 }

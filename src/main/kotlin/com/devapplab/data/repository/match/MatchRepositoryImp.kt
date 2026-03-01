@@ -165,7 +165,7 @@ class MatchRepositoryImp : MatchRepository {
 
             val matchPlayersRows = (MatchPlayersTable innerJoin UserTable)
                 .selectAll()
-                .where { MatchPlayersTable.matchId inList matchIds }
+                .where { (MatchPlayersTable.matchId inList matchIds) and (MatchPlayersTable.status neq MatchPlayerStatus.CANCELED) and (MatchPlayersTable.status neq MatchPlayerStatus.LEFT) }
                 .toList()
 
             val groupedPlayers: Map<UUID, List<MatchPlayerInfo>> = matchPlayersRows
@@ -179,6 +179,7 @@ class MatchRepositoryImp : MatchRepository {
                             country = row[UserTable.country],
                             avatarUrl = row[UserTable.profilePic],
                             name = "${row[UserTable.name]} ${row[UserTable.lastName].first()}." ,
+                            status = row[MatchPlayersTable.status]
                         )
                     }
                 }
@@ -273,7 +274,7 @@ class MatchRepositoryImp : MatchRepository {
 
             val matchPlayersRows = (MatchPlayersTable innerJoin UserTable)
                 .selectAll()
-                .where { MatchPlayersTable.matchId eq matchId }
+                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.status neq MatchPlayerStatus.CANCELED) and (MatchPlayersTable.status neq MatchPlayerStatus.LEFT) }
                 .toList()
 
             val players = matchPlayersRows.map { row ->
@@ -284,6 +285,7 @@ class MatchRepositoryImp : MatchRepository {
                     country = row[UserTable.country],
                     avatarUrl = row[UserTable.profilePic],
                     name = "${row[UserTable.name]} ${row[UserTable.lastName].first()}." ,
+                    status = row[MatchPlayersTable.status]
                 )
             }
 
@@ -398,26 +400,45 @@ class MatchRepositoryImp : MatchRepository {
 
             val currentPlayersCount = MatchPlayersTable
                 .select(MatchPlayersTable.userId)
-                .where { MatchPlayersTable.matchId eq matchId }
+                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.status neq MatchPlayerStatus.CANCELED) and (MatchPlayersTable.status neq MatchPlayerStatus.LEFT) }
                 .count()
 
             if (currentPlayersCount >= maxPlayers) {
                 return@dbQuery false
             }
 
-            val isUserAlreadyInMatch = MatchPlayersTable
-                .select(MatchPlayersTable.userId)
+            val existingPlayerRow = MatchPlayersTable
+                .select(MatchPlayersTable.status)
                 .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) }
-                .count() > 0
+                .singleOrNull()
 
-            if (isUserAlreadyInMatch) {
-                return@dbQuery false
+            if (existingPlayerRow != null) {
+                val status = existingPlayerRow[MatchPlayersTable.status]
+                if (status == MatchPlayerStatus.CANCELED || status == MatchPlayerStatus.LEFT) {
+                    // Re-join logic: Update existing record
+                     val updated = MatchPlayersTable.update({ (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) }) {
+                        it[this.status] = MatchPlayerStatus.RESERVED
+                        it[this.team] = team
+                        it[this.joinedAt] = System.currentTimeMillis()
+                    } > 0
+
+                    if (updated) {
+                        MatchTable.update({ MatchTable.id eq matchId }) {
+                            it[updatedAt] = System.currentTimeMillis()
+                        }
+                    }
+                    return@dbQuery updated
+                } else {
+                    // Already in match (RESERVED or JOINED)
+                    return@dbQuery false
+                }
             }
 
             val inserted = MatchPlayersTable.insert {
                 it[this.matchId] = matchId
                 it[this.userId] = userId
                 it[this.team] = team
+                it[this.status] = MatchPlayerStatus.RESERVED
             }.insertedCount > 0
 
             if (inserted) {
@@ -431,24 +452,53 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun removePlayerFromMatch(matchId: UUID, userId: UUID): Boolean {
         return dbQuery {
-            val deleted = MatchPlayersTable.deleteWhere {
+            // Soft delete: Update status to LEFT
+            val updated = MatchPlayersTable.update({
                 (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId)
+            }) {
+                it[status] = MatchPlayerStatus.LEFT
             } > 0
 
-            if (deleted) {
+            if (updated) {
                 MatchTable.update({ MatchTable.id eq matchId }) {
                     it[updatedAt] = System.currentTimeMillis()
                 }
             }
-            deleted
+            updated
         }
     }
 
     override suspend fun isUserInMatch(matchId: UUID, userId: UUID): Boolean {
         return dbQuery {
             MatchPlayersTable.select(MatchPlayersTable.userId)
-                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) }
+                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) and (MatchPlayersTable.status neq MatchPlayerStatus.CANCELED) and (MatchPlayersTable.status neq MatchPlayerStatus.LEFT) }
                 .count() > 0
+        }
+    }
+
+    override suspend fun getMatchPlayerId(matchId: UUID, userId: UUID): UUID? {
+        return dbQuery {
+            MatchPlayersTable
+                .select(MatchPlayersTable.id)
+                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) }
+                .singleOrNull()?.get(MatchPlayersTable.id)
+        }
+    }
+
+    override suspend fun updatePlayerStatus(matchPlayerId: UUID, status: MatchPlayerStatus): Boolean {
+        return dbQuery {
+            MatchPlayersTable.update({ MatchPlayersTable.id eq matchPlayerId }) {
+                it[this.status] = status
+            } > 0
+        }
+    }
+
+    override suspend fun getExpiredReservations(expirationTime: Long): List<UUID> {
+        return dbQuery {
+            MatchPlayersTable
+                .select(MatchPlayersTable.id)
+                .where { (MatchPlayersTable.status eq MatchPlayerStatus.RESERVED) and (MatchPlayersTable.joinedAt less expirationTime) }
+                .map { it[MatchPlayersTable.id] }
         }
     }
 

@@ -21,6 +21,8 @@ fun Application.module() {
     configureRequestValidation()
     configureRouting()
 
-    //RemoveTokens
+    // Jobs
     scheduleCleanUp()
+    configurePaymentCaptureJob()
+    configureReservationCleanupJob()
 }
