@@ -98,7 +98,12 @@ class PaymentRepositoryImp : PaymentRepository {
 
     override suspend fun getActivePaymentForPlayer(matchId: UUID, userId: UUID): PaymentInfo? {
         return dbQuery {
-            (MatchPlayerPaymentsTable innerJoin MatchPlayersTable)
+            MatchPlayerPaymentsTable
+                .join(
+                    otherTable = MatchPlayersTable,
+                    joinType = JoinType.INNER,
+                    additionalConstraint = { MatchPlayerPaymentsTable.matchPlayerId eq MatchPlayersTable.id }
+                )
                 .select(
                     MatchPlayerPaymentsTable.id,
                     MatchPlayerPaymentsTable.providerPaymentId,
@@ -107,8 +112,13 @@ class PaymentRepositoryImp : PaymentRepository {
                 .where {
                     (MatchPlayersTable.matchId eq matchId) and
                             (MatchPlayersTable.userId eq userId) and
-                            (MatchPlayerPaymentsTable.status inList listOf(PaymentAttemptStatus.CREATED, PaymentAttemptStatus.AUTHORIZED))
+                            (MatchPlayerPaymentsTable.status inList listOf(
+                                PaymentAttemptStatus.CREATED,
+                                PaymentAttemptStatus.AUTHORIZED
+                            ))
                 }
+                .orderBy(MatchPlayerPaymentsTable.createdAt, SortOrder.DESC)
+                .limit(1)
                 .map { row ->
                     PaymentInfo(
                         paymentId = row[MatchPlayerPaymentsTable.id],

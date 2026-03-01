@@ -72,6 +72,9 @@ class StripeWebhookService(
                 // ✅ If you want to consider "paid" until capture
                 "charge.captured" -> handleChargeCaptured(paymentIntent)
 
+                // ✅ Handle cancellation
+                "payment_intent.canceled" -> handlePaymentCanceled(paymentIntent)
+
                 else -> {
                     logger.info("ℹ️ Stripe webhook type ignored. eventId={}, type={}", event.id, event.type)
                 }
@@ -219,11 +222,45 @@ class StripeWebhookService(
             logger.error("❌ Failed to mark payment as AUTHORIZED. paymentIntentId={}", paymentIntentId)
         }
 
+        // ✅ Also mark player as JOINED because funds are secured (authorized)
+        val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(paymentIntentId)
+        if (matchPlayerId != null) {
+            val playerUpdated = matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
+            if (playerUpdated) {
+                logger.info("✅ Player marked as JOINED (Authorized). matchPlayerId={}", matchPlayerId)
+            } else {
+                logger.error("❌ Failed to update player status to JOINED. matchPlayerId={}", matchPlayerId)
+            }
+        } else {
+            logger.warn("⚠️ Could not find matchPlayerId for authorized payment. paymentIntentId={}", paymentIntentId)
+        }
+
         paymentIntent.metadata["matchId"]?.let { matchIdStr ->
             val matchId = UUID.fromString(matchIdStr)
             publishMatchUpdate(matchId)
             logger.info("📡 Match update sent after amount_capturable_updated. matchId={}", matchId)
         }
+    }
+
+    private suspend fun handlePaymentCanceled(paymentIntent: PaymentIntent) {
+        val paymentIntentId = paymentIntent.id ?: return
+        logger.info("🚫 payment_intent.canceled. paymentIntentId={}", paymentIntentId)
+
+        val updated = paymentRepository.updatePaymentStatus(
+            providerPaymentId = paymentIntentId,
+            status = PaymentAttemptStatus.CANCELED
+        )
+
+        if (updated) {
+            logger.info("✅ Payment marked as CANCELED in DB. paymentIntentId={}", paymentIntentId)
+        } else {
+            logger.warn("⚠️ Failed to mark payment as CANCELED (maybe not found?). paymentIntentId={}", paymentIntentId)
+        }
+
+        // Note: We don't necessarily need to update player status here because usually
+        // the cancellation is triggered by 'leaveMatch' which already removes the player.
+        // But if cancellation happens from Stripe Dashboard, we might want to ensure player is removed.
+        // For now, we just update payment status to keep DB consistent.
     }
 
     /**
