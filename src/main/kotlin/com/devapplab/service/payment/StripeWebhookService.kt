@@ -105,11 +105,7 @@ class StripeWebhookService(
      * - charge.*         -> data.object.payment_intent = "pi_..."
      */
     private suspend fun extractPaymentIntent(event: Event, payload: String): PaymentIntent? {
-        // 1) Happy path: Stripe SDK could deserialize
-        val stripeObj = runCatching { event.dataObjectDeserializer.`object`.orElse(null) }.getOrNull()
-        if (stripeObj is PaymentIntent) return stripeObj
-
-        // 2) Fallback: parse PaymentIntent ID from payload
+        // 1) Parse PaymentIntent ID from payload
         val piId = extractPaymentIntentIdFromPayload(payload)
         if (piId.isNullOrBlank()) {
             logger.warn(
@@ -119,12 +115,7 @@ class StripeWebhookService(
             return null
         }
 
-        logger.warn(
-            "⚠️ Could not deserialize PaymentIntent from event. Fetching from Stripe. eventId={}, piId={}",
-            event.id, piId
-        )
-
-        // 3) Retrieve from Stripe (IO)
+        // 2) Retrieve from Stripe (IO) - Always fetch to ensure latest state and avoid deserialization issues
         return withContext(Dispatchers.IO) {
             runCatching { PaymentIntent.retrieve(piId) }
                 .onFailure {

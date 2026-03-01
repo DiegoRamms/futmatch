@@ -233,6 +233,18 @@ class StripePaymentService(
 
         return try {
             val intent = PaymentIntent.retrieve(paymentId)
+
+            // ✅ Check status before cancelling to avoid "payment_intent_unexpected_state"
+            if (intent.status == "succeeded") {
+                logger.warn("⚠️ Cannot cancel PaymentIntent because it is already SUCCEEDED (User will not be refunded automatically). paymentId={}", paymentId)
+                return false
+            }
+
+            if (intent.status == "canceled") {
+                logger.info("ℹ️ PaymentIntent is already canceled. paymentId={}", paymentId)
+                return true
+            }
+
             val canceledIntent = intent.cancel()
 
             if (canceledIntent.status == "canceled") {
