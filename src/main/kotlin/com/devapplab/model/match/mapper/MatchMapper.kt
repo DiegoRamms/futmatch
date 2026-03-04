@@ -42,22 +42,6 @@ fun UpdateMatchRequest.toMatch(adminId: UUID, matchId: UUID): Match {
     )
 }
 
-fun MatchBaseInfo.toResponse(): MatchResponse {
-    return MatchResponse(
-        id = this.id,
-        fieldId = this.fieldId,
-        dateTime = this.dateTime,
-        dateTimeEnd = this.dateTimeEnd,
-        maxPlayers = this.maxPlayers,
-        minPlayersRequired = this.minPlayersRequired,
-        matchPriceInCents = matchPrice.multiply(BigDecimal(100)).longValueExact(),
-        discountPriceInCents = 0L, // Set to 0L as base info doesn't carry this
-        status = this.status,
-        genderType = this.genderType,
-        playerLevel = this.playerLevel
-    )
-}
-
 fun MatchWithFieldBaseInfo.toResponse(): MatchWithFieldResponse {
     return MatchWithFieldResponse(
         matchId = matchId,
@@ -84,7 +68,7 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
     val prices = calculatePrices()
     val teams = buildTeamSummary()
     val location = buildLocation()
-    val availableSpots = this.maxPlayers - this.players.size
+    val availableSpots = this.maxPlayers - this.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }.size
 
     return MatchSummaryResponse(
         id = this.matchId,
@@ -107,7 +91,7 @@ fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
     val prices = calculatePrices()
     val teams = buildTeamSummary()
     val location = buildLocation()
-    val availableSpots = this.maxPlayers - this.players.size
+    val availableSpots = this.maxPlayers - this.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }.size
 
     return MatchDetailResponse(
         id = this.matchId,
@@ -158,16 +142,16 @@ private fun MatchWithField.calculatePrices(): PriceCalculationResult {
 }
 
 private fun MatchWithField.buildTeamSummary(): TeamSummaryResponse {
-    val teamA = this.players.filter { it.team == TeamType.A }
-    val teamB = this.players.filter { it.team == TeamType.B }
+    val teamA = this.players.filter { it.team == TeamType.A && (it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED) }
+    val teamB = this.players.filter { it.team == TeamType.B && (it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED) }
 
     val teamASummary = TeamPlayersSummary(
         playerCount = teamA.size,
-        players = teamA.map { PlayerSummary(it.userId, it.avatarUrl, it.gender, it.name, it.country) }
+        players = teamA.map { PlayerSummary(it.userId, it.avatarUrl, it.gender, it.name, it.country, it.status) }
     )
     val teamBSummary = TeamPlayersSummary(
         playerCount = teamB.size,
-        players = teamB.map { PlayerSummary(it.userId, it.avatarUrl, it.gender, it.name, it.country) }
+        players = teamB.map { PlayerSummary(it.userId, it.avatarUrl, it.gender, it.name, it.country, it.status) }
     )
     return TeamSummaryResponse(teamASummary, teamBSummary)
 }

@@ -17,6 +17,9 @@ import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.mfa.MfaCodeTable
+import com.devapplab.data.database.payments.MatchPlayerPaymentsTable
+import com.devapplab.data.database.payments.StripeWebhookEventsTable
+import com.devapplab.data.database.user.UserPaymentProfileTable
 import io.ktor.server.application.*
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.Database
@@ -57,6 +60,9 @@ fun Application.configureDatabase() {
             PasswordResetTokensTable,
             LoginAttemptTable,
             PendingRegistrationTable,
+            MatchPlayerPaymentsTable,
+            UserPaymentProfileTable,
+            StripeWebhookEventsTable
         )
 
         if (isDevelopment) {

@@ -157,6 +157,18 @@ class UserService(private val dbExecutor: DbExecutor, private val repo: UserRepo
 }
 ```
 
+### Payment Integration (Stripe & Others)
+To support multiple payment providers (e.g., Stripe, OpenPay) and allow future switching:
+1.  **Interface:** Use `PaymentService` interface in `service/payment/`.
+2.  **Implementation:** Create specific implementations (e.g., `StripePaymentService`).
+3.  **Factory:** Use `PaymentServiceFactory` to select the provider at runtime.
+4.  **Database:** Store `provider` (enum) and `providerPaymentId` in `MatchPlayerPaymentsTable`.
+
+### Code Comments & Logs
+*   **Language:** All comments and logs must be in **English**.
+*   **Comments:** Use comments sparingly, only when necessary to explain complex logic or "why" something is done. Avoid commenting obvious code.
+*   **Logs:** Use meaningful log messages in English.
+
 ---
 
 ## 4. Checklist for AI
@@ -171,6 +183,7 @@ Before marking a task as complete, verify:
 - [ ] **Money:** Did I handle the Long (API) <-> BigDecimal (DB) conversion correctly?
 - [ ] **Transactions:** Did I use `DbExecutor` and `Tx` methods for complex atomic operations?
 - [ ] **Mappers:** Did I create the mapper file instead of putting logic in the controller?
+- [ ] **Language:** Are all comments and logs in English?
 
 ---
 

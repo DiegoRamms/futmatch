@@ -1,8 +1,10 @@
 package com.devapplab.data.repository.user
 
 import com.devapplab.config.dbQuery
+import com.devapplab.data.database.user.UserPaymentProfileTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.auth.UserSignInInfo
+import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
@@ -130,6 +132,34 @@ class UserRepositoryImpl : UserRepository {
 
     override suspend fun deleteUser(id: UUID): Boolean = dbQuery {
         UserTable.deleteWhere { UserTable.id eq id } > 0
+    }
+
+    override suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String? = dbQuery {
+        UserPaymentProfileTable.selectAll()
+            .where { (UserPaymentProfileTable.userId eq userId) and (UserPaymentProfileTable.provider eq provider) }
+            .firstOrNull()
+            ?.get(UserPaymentProfileTable.providerCustomerId)
+    }
+
+    override suspend fun upsertPaymentProfile(userId: UUID, provider: PaymentProvider, providerCustomerId: String): Boolean = dbQuery {
+        val existing = UserPaymentProfileTable.selectAll()
+            .where { (UserPaymentProfileTable.userId eq userId) and (UserPaymentProfileTable.provider eq provider) }
+            .firstOrNull()
+
+        if (existing != null) {
+            UserPaymentProfileTable.update({ (UserPaymentProfileTable.userId eq userId) and (UserPaymentProfileTable.provider eq provider) }) {
+                it[UserPaymentProfileTable.providerCustomerId] = providerCustomerId
+                it[updatedAt] = System.currentTimeMillis()
+            } > 0
+        } else {
+            UserPaymentProfileTable.insert {
+                it[UserPaymentProfileTable.userId] = userId
+                it[UserPaymentProfileTable.provider] = provider
+                it[UserPaymentProfileTable.providerCustomerId] = providerCustomerId
+                it[createdAt] = System.currentTimeMillis()
+                it[updatedAt] = System.currentTimeMillis()
+            }.insertedCount > 0
+        }
     }
 
     private fun ResultRow.toUser(): User {

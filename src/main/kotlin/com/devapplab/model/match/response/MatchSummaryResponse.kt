@@ -2,6 +2,7 @@ package com.devapplab.model.match.response
 
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.GenderType
+import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.user.Gender
 import com.devapplab.utils.UUIDSerializer
@@ -46,4 +47,5 @@ data class PlayerSummary(
     val gender: Gender,
     val name: String,
     val country: String? = null,
+    val status: MatchPlayerStatus? = null,
 )

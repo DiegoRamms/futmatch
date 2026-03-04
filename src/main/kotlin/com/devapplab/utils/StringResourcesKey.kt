@@ -157,6 +157,9 @@ enum class StringResourcesKey(val value: String) {
     LOCATION_ID_REQUIRED_ERROR("location_id_required_error"),
     LOCATION_ADDRESS_ALREADY_EXISTS_ERROR("location_address_already_exists_error"),
 
+    PAYMENT_FAILED_TITLE("payment_failed_title"),
+    PAYMENT_FAILED_DESCRIPTION("payment_failed_description"),
+
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),
     EMAIL_MFA_MESSAGE("email_mfa_message"),

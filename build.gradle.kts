@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.cloudinary)
     // Security fix for CVE-2025-48924
     implementation(libs.commons.lang3)
+    implementation(libs.stripe.java)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 

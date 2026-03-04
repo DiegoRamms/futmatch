@@ -1,6 +1,7 @@
 package com.devapplab.data.repository.user
 
 import com.devapplab.model.auth.UserSignInInfo
+import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
@@ -20,4 +21,6 @@ interface UserRepository {
     suspend fun updateProfilePic(userId: UUID, fileName: String): Boolean
     fun markEmailAsVerified(userId: UUID): Boolean
     suspend fun deleteUser(id: UUID): Boolean
+    suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String?
+    suspend fun upsertPaymentProfile(userId: UUID, provider: PaymentProvider, providerCustomerId: String): Boolean
 }

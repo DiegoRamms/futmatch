@@ -4,6 +4,7 @@ import com.devapplab.features.auth.AuthController
 import com.devapplab.features.field.FieldController
 import com.devapplab.features.location.LocationController
 import com.devapplab.features.match.MatchController
+import com.devapplab.features.payment.PaymentController
 import com.devapplab.features.user.UserController
 import org.koin.core.module.dsl.scopedOf
 import org.koin.dsl.module
@@ -16,5 +17,6 @@ val controllerModule = module {
         scopedOf(::FieldController)
         scopedOf(::MatchController)
         scopedOf(::LocationController)
+        scopedOf(::PaymentController)
     }
 }

@@ -4,6 +4,8 @@ import com.devapplab.features.auth.authRouting
 import com.devapplab.features.field.fieldRouting
 import com.devapplab.features.location.locationRouting
 import com.devapplab.features.match.matchRouting
+import com.devapplab.features.payment.paymentsRouting
+import com.devapplab.features.payment.stripeRouting
 import com.devapplab.features.user.userRouting
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
@@ -104,12 +106,14 @@ fun Application.configureRouting() {
         //TODO Validate rate limit with Client
         staticFiles("/uploads", File("uploads"))
         authRouting()
+        stripeRouting()
         authenticate("auth-jwt") {
             rateLimit(RateLimitName(RateLimitType.PROTECTED.value)) {
                 userRouting()
                 fieldRouting()
                 matchRouting()
                 locationRouting()
+                paymentsRouting()
             }
         }
     }

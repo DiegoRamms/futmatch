@@ -19,5 +19,6 @@ enum class ErrorCode {
     MATCH_OVERLAP,
     MATCH_FULL,
     MATCH_NOT_SCHEDULED,
-    MATCH_TEAM_FULL
+    MATCH_TEAM_FULL,
+    PAYMENT_FAILED
 }

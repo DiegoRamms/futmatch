@@ -1,6 +1,8 @@
 package com.devapplab.di
 
 import com.devapplab.model.EmailConfig
+import com.devapplab.model.StripeConfig
+import com.devapplab.model.WebhookConfig
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
 import io.ktor.server.config.ApplicationConfig
 import org.koin.dsl.module
@@ -21,6 +23,20 @@ val configModule = module {
             apiToken = config.property("email.apiToken").getString(),
             fromEmail = "hello@futmatch.mx",
             fromName = "Futmatch"
+        )
+    }
+    single {
+        val config = get<ApplicationConfig>()
+        StripeConfig(
+            apiKey = config.propertyOrNull("payment.stripe.apiKey")?.getString() ?: "",
+            publishableKey = config.propertyOrNull("payment.stripe.publishableKey")?.getString() ?: ""
+        )
+    }
+
+    single {
+        val config = get<ApplicationConfig>()
+        WebhookConfig(
+            webhookSecret = config.propertyOrNull("payment.stripe.webhookSecret")?.getString() ?: "",
         )
     }
 }

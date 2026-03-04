@@ -9,6 +9,8 @@ import com.devapplab.service.auth.SignInService
 import com.devapplab.service.auth.auth_token.JWTService
 import com.devapplab.service.auth.auth_token.RefreshTokenServiceImp
 import com.devapplab.service.auth.mfa.MfaCodeService
+import com.devapplab.service.billing.BillingService
+import com.devapplab.service.billing.StripeBillingService
 import com.devapplab.service.clean.CleanupDataService
 import com.devapplab.service.email.RealEmailServiceTestImp
 import com.devapplab.service.field.FieldService
@@ -18,7 +20,12 @@ import com.devapplab.service.hashing.HashingServiceImpl
 import com.devapplab.service.image.ImageServiceImp
 import com.devapplab.service.location.LocationService
 import com.devapplab.service.match.MatchService
+import com.devapplab.service.notification.NotificationServiceImp
 import com.devapplab.service.password_reset.PasswordResetTokenServiceImpl
+import com.devapplab.service.payment.PaymentService
+import com.devapplab.service.payment.PaymentServiceFactory
+import com.devapplab.service.payment.StripePaymentService
+import com.devapplab.service.payment.StripeWebhookService
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -42,7 +49,12 @@ val serviceModule = module {
     singleOf(::LocationService)
     singleOf(::ImageServiceImp) { bind<com.devapplab.service.image.ImageService>() }
     singleOf(::CleanupDataService)
-    singleOf(::PasswordResetTokenServiceImpl) { bind<com.devapplab.service.password_reset.PasswordResetTokenService>()  }
+    singleOf(::PasswordResetTokenServiceImpl) { bind<com.devapplab.service.password_reset.PasswordResetTokenService>() }
     singleOf(::FirebaseAuthService)
     singleOf(::MatchSignalsService)
+    singleOf(::PaymentServiceFactory)
+    singleOf(::StripeWebhookService)
+    singleOf(::NotificationServiceImp) { bind<com.devapplab.service.notification.NotificationService>() }
+    singleOf(::StripeBillingService) { bind<BillingService>() }
+    singleOf(::StripePaymentService) { bind<PaymentService>() }
 }
