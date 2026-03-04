@@ -493,12 +493,12 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
-    override suspend fun getExpiredReservations(expirationTime: Long): List<UUID> {
+    override suspend fun getExpiredReservations(expirationTime: Long): List<Pair<UUID, UUID>> {
         return dbQuery {
             MatchPlayersTable
-                .select(MatchPlayersTable.id)
+                .select(MatchPlayersTable.id, MatchPlayersTable.matchId)
                 .where { (MatchPlayersTable.status eq MatchPlayerStatus.RESERVED) and (MatchPlayersTable.joinedAt less expirationTime) }
-                .map { it[MatchPlayersTable.id] }
+                .map { it[MatchPlayersTable.id] to it[MatchPlayersTable.matchId] }
         }
     }
 

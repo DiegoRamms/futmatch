@@ -1,26 +1,29 @@
 package com.devapplab.service.payment
 
-import com.devapplab.model.payment.*
+import com.devapplab.model.StripeConfig
+import com.devapplab.model.payment.PaymentAttemptStatus
+import com.devapplab.model.payment.PaymentCaptureMethod
+import com.devapplab.model.payment.PaymentFailureReason
+import com.devapplab.model.payment.PaymentOperationResult
+import com.devapplab.model.payment.PaymentProvider
 import com.stripe.Stripe
 import com.stripe.exception.StripeException
 import com.stripe.model.Customer
 import com.stripe.model.CustomerSession
 import com.stripe.model.PaymentIntent
-import com.stripe.param.CustomerCreateParams
 import com.stripe.param.CustomerSessionCreateParams
 import com.stripe.param.PaymentIntentCaptureParams
 import com.stripe.param.PaymentIntentCreateParams
 import org.slf4j.LoggerFactory
 
 class StripePaymentService(
-    private val apiKey: String,
-    private val publishableKey: String
+    private val stripeConfig: StripeConfig
 ) : PaymentService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     init {
-        Stripe.apiKey = apiKey
+        Stripe.apiKey = stripeConfig.apiKey
         logger.info("💳 StripePaymentService initialized")
     }
 
@@ -33,23 +36,26 @@ class StripePaymentService(
     ): PaymentOperationResult {
 
         logger.info(
-            "💳 Creating Stripe PaymentIntent. amount={}, currency={}, captureMethod={}, customerId={}",
+            "💳 Creating Stripe PaymentIntent. amount={}, currency={}, captureMethod={}, customerIdPresent={}",
             amount,
             currency,
             captureMethod,
-            customerId
+            !customerId.isNullOrBlank()
         )
 
+        val safeCustomerId = customerId?.takeIf { it.isNotBlank() }
+        if (safeCustomerId == null) {
+            logger.warn("⚠️ Missing customerId. BillingService should create/return one before calling createPaymentIntent.")
+            return PaymentOperationResult.Failure(
+                PaymentFailureReason.PROVIDER_ERROR,
+                "Missing customerId"
+            )
+        }
+
         return try {
-            val customer = if (customerId != null) {
-                logger.info("➡️ Creating/Retrieving customer...")
-                Customer.retrieve(customerId)
+            val customer = Customer.retrieve(safeCustomerId)
 
-            } else {
-                val customerParams = CustomerCreateParams.builder().build()
-                Customer.create(customerParams)
-            }
-
+            // ✅ Create CustomerSession (for saved methods / redisplay / save)
             val customerSessionParams = CustomerSessionCreateParams.builder()
                 .setCustomer(customer.id)
                 .setComponents(
@@ -74,34 +80,47 @@ class StripePaymentService(
                 .build()
 
             logger.info("➡️ Creating customer session...")
-            val customerSession = CustomerSession.create(customerSessionParams)
+            val customerSession: CustomerSession = CustomerSession.create(customerSessionParams)
 
+            val capture = when (captureMethod) {
+                PaymentCaptureMethod.AUTOMATIC -> PaymentIntentCreateParams.CaptureMethod.AUTOMATIC
+                PaymentCaptureMethod.MANUAL -> PaymentIntentCreateParams.CaptureMethod.MANUAL
+            }
 
             val params = PaymentIntentCreateParams.builder()
                 .setAmount(amount)
                 .setCurrency(currency)
                 .setCustomer(customer.id)
                 .putAllMetadata(metadata)
-                .setCaptureMethod(
-                    when (captureMethod) {
-                        PaymentCaptureMethod.AUTOMATIC ->
-                            PaymentIntentCreateParams.CaptureMethod.AUTOMATIC
-
-                        PaymentCaptureMethod.MANUAL ->
-                            PaymentIntentCreateParams.CaptureMethod.MANUAL
-                    }
-                )
+                .setCaptureMethod(capture)
                 .setAutomaticPaymentMethods(
                     PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                         .setEnabled(true)
-                        .setAllowRedirects(
-                            PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER
-                        )
+                        .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
                         .build()
                 )
                 .build()
+
             logger.info("➡️ Creating payment intent...")
-            val intent = PaymentIntent.create(params)
+            val intent: PaymentIntent = PaymentIntent.create(params)
+
+            val clientSecret = intent.clientSecret
+            if (clientSecret.isNullOrBlank()) {
+                logger.error("🔥 Stripe returned PaymentIntent without client_secret. paymentId={}", intent.id)
+                return PaymentOperationResult.Failure(
+                    PaymentFailureReason.PROVIDER_ERROR,
+                    "Missing clientSecret from Stripe"
+                )
+            }
+
+            val sessionClientSecret = customerSession.clientSecret
+            if (sessionClientSecret.isNullOrBlank()) {
+                logger.error("🔥 Stripe returned CustomerSession without client_secret. customerId={}", customer.id)
+                return PaymentOperationResult.Failure(
+                    PaymentFailureReason.PROVIDER_ERROR,
+                    "Missing customerSessionClientSecret from Stripe"
+                )
+            }
 
             logger.info(
                 "✅ Stripe PaymentIntent created successfully. paymentId={}, status={}, amount={}",
@@ -112,17 +131,16 @@ class StripePaymentService(
 
             PaymentOperationResult.Success(
                 PaymentIntentResult(
-                    clientSecret = intent.clientSecret,
+                    clientSecret = clientSecret,
                     paymentId = intent.id,
                     provider = PaymentProvider.STRIPE,
                     customer = customer.id,
-                    customerSessionClientSecret = customerSession.clientSecret,
-                    publishableKey = publishableKey
+                    customerSessionClientSecret = sessionClientSecret,
+                    publishableKey = stripeConfig.publishableKey
                 )
             )
 
         } catch (e: StripeException) {
-
             logger.error(
                 "🔥 Stripe error creating payment. statusCode={}, requestId={}, code={}, param={}, message={}",
                 e.statusCode,
@@ -137,32 +155,23 @@ class StripePaymentService(
                 "card_declined" -> PaymentFailureReason.DECLINED
                 else -> PaymentFailureReason.PROVIDER_ERROR
             }
+
             PaymentOperationResult.Failure(reason, e.stripeError?.message)
 
         } catch (e: Exception) {
-
             logger.error("🔥 Unexpected error creating payment", e)
             PaymentOperationResult.Failure(PaymentFailureReason.UNKNOWN, e.message)
         }
     }
 
-    override suspend fun confirmPayment(
-        paymentId: String
-    ): PaymentAttemptStatus {
-
-        logger.info(
-            "💳 Confirming Stripe PaymentIntent status. paymentId={}",
-            paymentId
-        )
+    override suspend fun confirmPayment(paymentId: String): PaymentAttemptStatus {
+        logger.info("💳 Confirming Stripe PaymentIntent status. paymentId={}", paymentId)
 
         return try {
-
             val intent = PaymentIntent.retrieve(paymentId)
 
             val status = when (intent.status) {
-
                 "succeeded" -> PaymentAttemptStatus.SUCCEEDED
-
                 "canceled" -> PaymentAttemptStatus.CANCELED
 
                 "requires_payment_method",
@@ -182,14 +191,8 @@ class StripePaymentService(
             )
 
             status
-
         } catch (e: Exception) {
-
-            logger.error(
-                "🔥 Failed to retrieve Stripe PaymentIntent status. paymentId={}",
-                paymentId,
-                e
-            )
+            logger.error("🔥 Failed to retrieve Stripe PaymentIntent status. paymentId={}", paymentId, e)
             PaymentAttemptStatus.FAILED
         }
     }
@@ -199,17 +202,22 @@ class StripePaymentService(
 
         return try {
             val intent = PaymentIntent.retrieve(paymentId)
+
             val params = PaymentIntentCaptureParams.builder()
                 .setAmountToCapture(amount)
                 .build()
-            
+
             val capturedIntent = intent.capture(params)
 
             if (capturedIntent.status == "succeeded") {
                 logger.info("✅ Stripe PaymentIntent captured successfully. paymentId={}", paymentId)
                 true
             } else {
-                logger.warn("⚠️ Stripe PaymentIntent capture status not succeeded. status={}, paymentId={}", capturedIntent.status, paymentId)
+                logger.warn(
+                    "⚠️ Stripe PaymentIntent capture status not succeeded. status={}, paymentId={}",
+                    capturedIntent.status,
+                    paymentId
+                )
                 false
             }
         } catch (e: StripeException) {
@@ -234,9 +242,11 @@ class StripePaymentService(
         return try {
             val intent = PaymentIntent.retrieve(paymentId)
 
-            // ✅ Check status before cancelling to avoid "payment_intent_unexpected_state"
             if (intent.status == "succeeded") {
-                logger.warn("⚠️ Cannot cancel PaymentIntent because it is already SUCCEEDED (User will not be refunded automatically). paymentId={}", paymentId)
+                logger.warn(
+                    "⚠️ Cannot cancel PaymentIntent because it is already SUCCEEDED. paymentId={}",
+                    paymentId
+                )
                 return false
             }
 
@@ -251,7 +261,11 @@ class StripePaymentService(
                 logger.info("✅ Stripe PaymentIntent canceled successfully. paymentId={}", paymentId)
                 true
             } else {
-                logger.warn("⚠️ Stripe PaymentIntent cancel status not canceled. status={}, paymentId={}", canceledIntent.status, paymentId)
+                logger.warn(
+                    "⚠️ Stripe PaymentIntent cancel status not canceled. status={}, paymentId={}",
+                    canceledIntent.status,
+                    paymentId
+                )
                 false
             }
         } catch (e: StripeException) {

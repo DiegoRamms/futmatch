@@ -1,9 +1,9 @@
 package com.devapplab.di
 
 import com.devapplab.model.EmailConfig
+import com.devapplab.model.StripeConfig
 import com.devapplab.model.WebhookConfig
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
-import com.devapplab.service.payment.StripePaymentService
 import io.ktor.server.config.ApplicationConfig
 import org.koin.dsl.module
 
@@ -27,7 +27,7 @@ val configModule = module {
     }
     single {
         val config = get<ApplicationConfig>()
-        StripePaymentService(
+        StripeConfig(
             apiKey = config.propertyOrNull("payment.stripe.apiKey")?.getString() ?: "",
             publishableKey = config.propertyOrNull("payment.stripe.publishableKey")?.getString() ?: ""
         )
