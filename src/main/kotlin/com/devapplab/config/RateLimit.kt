@@ -114,6 +114,11 @@ fun Application.configureRateLimit() {
             rateLimiter(limit = 300, refillPeriod = 60.seconds)
             requestKey { call -> "stripe:webhook:ip:${call.clientIp()}" }
         }
+
+        register(RateLimitName(RateLimitType.CRON_JOB.value)) {
+            rateLimiter(limit = 1, refillPeriod = 5.minutes)
+            requestKey { call -> "cron:ip:${call.clientIp()}" }
+        }
     }
 }
 
@@ -140,4 +145,5 @@ enum class RateLimitType(val value: String) {
     MFA_VERIFY_REGISTRATION("mfa_verify_registration"),
     MFA_VERIFY_REGISTRATION_COMPLETE("mfa_verify_registration_complete"),
     STRIPE_WEBHOOK("stripe_webhook"),
+    CRON_JOB("cron_job"),
 }

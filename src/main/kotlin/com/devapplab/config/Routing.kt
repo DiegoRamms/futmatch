@@ -1,6 +1,7 @@
 package com.devapplab.config
 
 import com.devapplab.features.auth.authRouting
+import com.devapplab.features.cron.cronRouting
 import com.devapplab.features.field.fieldRouting
 import com.devapplab.features.location.locationRouting
 import com.devapplab.features.match.matchRouting
@@ -107,6 +108,7 @@ fun Application.configureRouting() {
         staticFiles("/uploads", File("uploads"))
         authRouting()
         stripeRouting()
+        cronRouting()
         authenticate("auth-jwt") {
             rateLimit(RateLimitName(RateLimitType.PROTECTED.value)) {
                 userRouting()

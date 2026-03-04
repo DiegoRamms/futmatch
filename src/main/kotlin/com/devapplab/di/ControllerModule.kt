@@ -1,6 +1,7 @@
 package com.devapplab.di
 
 import com.devapplab.features.auth.AuthController
+import com.devapplab.features.cron.CronController
 import com.devapplab.features.field.FieldController
 import com.devapplab.features.location.LocationController
 import com.devapplab.features.match.MatchController
@@ -18,5 +19,6 @@ val controllerModule = module {
         scopedOf(::MatchController)
         scopedOf(::LocationController)
         scopedOf(::PaymentController)
+        scopedOf(::CronController)
     }
 }
