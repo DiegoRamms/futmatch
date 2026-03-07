@@ -9,6 +9,6 @@ import org.jetbrains.exposed.sql.Table
  */
 object StripeWebhookEventsTable : Table("stripe_webhook_events") {
     val eventId = varchar("event_id", 255).uniqueIndex()
-    val createdAt = long("created_at").default(System.currentTimeMillis())
+    val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
     override val primaryKey = PrimaryKey(eventId)
 }

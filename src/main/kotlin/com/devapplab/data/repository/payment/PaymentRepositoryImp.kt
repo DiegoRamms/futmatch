@@ -107,7 +107,8 @@ class PaymentRepositoryImp : PaymentRepository {
                 .select(
                     MatchPlayerPaymentsTable.id,
                     MatchPlayerPaymentsTable.providerPaymentId,
-                    MatchPlayerPaymentsTable.status
+                    MatchPlayerPaymentsTable.status,
+                    MatchPlayerPaymentsTable.provider
                 )
                 .where {
                     (MatchPlayersTable.matchId eq matchId) and
@@ -123,7 +124,38 @@ class PaymentRepositoryImp : PaymentRepository {
                     PaymentInfo(
                         paymentId = row[MatchPlayerPaymentsTable.id],
                         providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
-                        status = row[MatchPlayerPaymentsTable.status]
+                        status = row[MatchPlayerPaymentsTable.status],
+                        provider = row[MatchPlayerPaymentsTable.provider]
+                    )
+                }
+                .singleOrNull()
+        }
+    }
+
+    override suspend fun getActivePaymentByMatchPlayerId(matchPlayerId: UUID): PaymentInfo? {
+        return dbQuery {
+            MatchPlayerPaymentsTable
+                .select(
+                    MatchPlayerPaymentsTable.id,
+                    MatchPlayerPaymentsTable.providerPaymentId,
+                    MatchPlayerPaymentsTable.status,
+                    MatchPlayerPaymentsTable.provider
+                )
+                .where {
+                    (MatchPlayerPaymentsTable.matchPlayerId eq matchPlayerId) and
+                            (MatchPlayerPaymentsTable.status inList listOf(
+                                PaymentAttemptStatus.CREATED,
+                                PaymentAttemptStatus.AUTHORIZED
+                            ))
+                }
+                .orderBy(MatchPlayerPaymentsTable.createdAt, SortOrder.DESC)
+                .limit(1)
+                .map { row ->
+                    PaymentInfo(
+                        paymentId = row[MatchPlayerPaymentsTable.id],
+                        providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
+                        status = row[MatchPlayerPaymentsTable.status],
+                        provider = row[MatchPlayerPaymentsTable.provider]
                     )
                 }
                 .singleOrNull()

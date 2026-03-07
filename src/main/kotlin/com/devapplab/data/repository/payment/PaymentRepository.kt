@@ -31,6 +31,8 @@ interface PaymentRepository {
     ): List<PendingPaymentInfo>
 
     suspend fun getActivePaymentForPlayer(matchId: UUID, userId: UUID): PaymentInfo?
+
+    suspend fun getActivePaymentByMatchPlayerId(matchPlayerId: UUID): PaymentInfo?
 }
 
 data class PendingPaymentInfo(
@@ -46,5 +48,6 @@ data class PendingPaymentInfo(
 data class PaymentInfo(
     val paymentId: UUID,
     val providerPaymentId: String?,
-    val status: PaymentAttemptStatus
+    val status: PaymentAttemptStatus,
+    val provider: PaymentProvider
 )

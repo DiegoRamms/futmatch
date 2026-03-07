@@ -21,8 +21,8 @@ object FieldTable : Table("fields") {
     val fieldType = enumerationByName("field_type", 20, FieldType::class).nullable()
     val hasParking = bool("has_parking").default(false)
     val extraInfo = text("extra_info").nullable()
-    val createdAt = long("created_at").default(System.currentTimeMillis())
-    val updatedAt = long("updated_at").default(System.currentTimeMillis())
+    val createdAt = long("created_at").clientDefault {System.currentTimeMillis()}
+    val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis()}
 
     override val primaryKey = PrimaryKey(id)
 }

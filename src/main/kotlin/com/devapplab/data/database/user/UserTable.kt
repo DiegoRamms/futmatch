@@ -19,8 +19,8 @@ object UserTable : Table("users") {
     val level = enumerationByName("level", USER_PLAYER_LEVEL_MAX_LENGTH, PlayerLevel::class)
     val isEmailVerified = bool("is_email_verified").default(false)
     val role = enumerationByName("role", USER_ROLE_MAX_LENGTH, UserRole::class)
-    val createdAt = long("created_at").default(System.currentTimeMillis())
-    val updatedAt = long("updated_at").default(System.currentTimeMillis())
+    val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
+    val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
 
     override val primaryKey = PrimaryKey(id)
 }

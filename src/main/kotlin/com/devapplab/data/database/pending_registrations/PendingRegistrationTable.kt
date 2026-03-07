@@ -21,8 +21,8 @@ object PendingRegistrationTable : Table("pending_registrations") {
     val verificationCode = varchar("verification_code", 64)
     val expiresAt = long("expires_at")
 
-    val createdAt = long("created_at").default(System.currentTimeMillis())
-    val updatedAt = long("updated_at").default(System.currentTimeMillis())
+    val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
+    val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
 
     override val primaryKey = PrimaryKey(id)
 }

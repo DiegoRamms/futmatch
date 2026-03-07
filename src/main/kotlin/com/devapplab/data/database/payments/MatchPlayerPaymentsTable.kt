@@ -25,8 +25,8 @@ object MatchPlayerPaymentsTable : Table("match_player_payments") {
     val failureCode = varchar("failure_code", 64).nullable()
     val failureMessage = varchar("failure_message", 255).nullable()
 
-    val createdAt = long("created_at").default(System.currentTimeMillis())
-    val updatedAt = long("updated_at").default(System.currentTimeMillis())
+    val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
+    val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
 
     override val primaryKey = PrimaryKey(id)
 

@@ -20,8 +20,8 @@ object MatchTable : Table("matches") {
     val status = enumerationByName("status", 20, MatchStatus::class)
     val playerLevel = enumerationByName("player_level", 20, PlayerLevel::class).default(PlayerLevel.ANY)
     val genderType = enumerationByName("gender_type", 20, GenderType::class).default(GenderType.MIXED)
-    val createdAt = long("created_at").default(System.currentTimeMillis())
-    val updatedAt = long("updated_at").default(System.currentTimeMillis())
+    val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
+    val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
 
     override val primaryKey = PrimaryKey(id)
 }

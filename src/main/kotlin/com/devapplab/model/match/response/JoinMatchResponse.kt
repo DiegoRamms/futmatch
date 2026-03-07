@@ -12,5 +12,6 @@ data class JoinMatchResponse(
     val currency: String,
     val customer: String?,
     val customerSessionClientSecret: String?,
-    val publishableKey: String?
+    val publishableKey: String?,
+    val reservationTtlMs: Long
 )

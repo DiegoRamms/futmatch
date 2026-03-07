@@ -12,8 +12,8 @@ object DeviceTable : Table("devices") {
     val isTrusted = bool("is_trusted").default(false)
     val isActive = bool("is_active").default(true)
 
-    val lastUsedAt = long("last_used_at").default(System.currentTimeMillis())
-    val createdAt = long("created_at").default(System.currentTimeMillis())
+    val lastUsedAt = long("last_used_at").clientDefault { (System.currentTimeMillis()) }
+    val createdAt = long("created_at").clientDefault { (System.currentTimeMillis()) }
 
     override val primaryKey = PrimaryKey(id)
 }

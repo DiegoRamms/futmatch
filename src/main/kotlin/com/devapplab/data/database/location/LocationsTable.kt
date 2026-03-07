@@ -9,8 +9,8 @@ object LocationsTable : Table("locations") {
     val country = varchar("country", 100).nullable()
     val latitude = double("latitude")
     val longitude = double("longitude")
-    val createdAt = long("created_at").default(System.currentTimeMillis())
-    val updatedAt = long("updated_at").default(System.currentTimeMillis())
+    val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
+    val updatedAt = long("updated_at").clientDefault { (System.currentTimeMillis()) }
 
     override val primaryKey = PrimaryKey(id)
 }

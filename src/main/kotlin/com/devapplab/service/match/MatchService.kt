@@ -2,6 +2,7 @@ package com.devapplab.service.match
 
 import com.devapplab.data.repository.discount.DiscountRepository
 import com.devapplab.data.repository.match.MatchRepository
+import com.devapplab.data.repository.payment.PaymentInfo
 import com.devapplab.data.repository.payment.PaymentRepository
 import com.devapplab.data.repository.payment.PendingPaymentInfo
 import com.devapplab.data.repository.user.UserRepository
@@ -62,7 +63,7 @@ class MatchService(
         val SIGNAL_TTL_AFTER_END = 30.days
         val SIGNAL_TTL_AFTER_CANCEL = 1.days
         val CAPTURE_METHOD_THRESHOLD = 6.hours
-        val RESERVATION_TTL = 10.minutes
+        val RESERVATION_TTL = 5.minutes
     }
 
     suspend fun create(match: Match, locale: Locale): AppResult<MatchResponse> {
@@ -361,7 +362,8 @@ class MatchService(
                             currency = "mxn",
                             customer = paymentResult.data.customer,
                             customerSessionClientSecret = paymentResult.data.customerSessionClientSecret,
-                            publishableKey = paymentResult.data.publishableKey
+                            publishableKey = paymentResult.data.publishableKey,
+                            reservationTtlMs = RESERVATION_TTL.inWholeMilliseconds
                         )
                     )
 
@@ -430,28 +432,7 @@ class MatchService(
         // Check for active payment to cancel
         val activePayment = paymentRepository.getActivePaymentForPlayer(matchId, userId)
         if (activePayment != null) {
-            logger.info("💳 Found active payment ${activePayment.paymentId} for user $userId. Attempting to cancel...")
-            if (activePayment.providerPaymentId == null) {
-                logger.warn("⚠️ Failed to cancel payment ${activePayment.paymentId} in Stripe. due to providerPaymentId is null")
-            } else {
-                // We assume Stripe for now, but could use factory if provider was stored in PaymentInfo
-                val paymentService = paymentServiceFactory.getService(PaymentProvider.STRIPE)
-                val canceled = paymentService.cancelPayment(activePayment.providerPaymentId)
-
-                if (canceled) {
-                    paymentRepository.updatePaymentStatus(
-                        activePayment.providerPaymentId,
-                        PaymentAttemptStatus.CANCELED
-                    )
-
-                    logger.info("✅ Payment ${activePayment.paymentId} canceled successfully.")
-                } else {
-                    logger.warn("⚠️ Failed to cancel payment ${activePayment.paymentId} in Stripe.")
-                    // We proceed to remove player anyway, but log the issue.
-                    // Depending on business logic, we might want to block leaving or handle differently.
-                }
-            }
-
+            cancelActivePayment(activePayment)
         }
 
         val left = matchRepository.removePlayerFromMatch(matchId, userId)
@@ -482,6 +463,13 @@ class MatchService(
         logger.info("🧹 Found ${expiredReservations.size} expired reservations. Cancelling...")
 
         expiredReservations.forEach { (matchPlayerId, matchId) ->
+            // 1. Check for active payment to cancel
+            val activePayment = paymentRepository.getActivePaymentByMatchPlayerId(matchPlayerId)
+            if (activePayment != null) {
+                cancelActivePayment(activePayment)
+            }
+
+            // 2. Update player status to CANCELED
             val updated = matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
             if (updated) {
                 logger.info("🚫 Reservation cancelled: matchPlayerId=$matchPlayerId")
@@ -489,6 +477,26 @@ class MatchService(
                 // TODO: Notify user about cancellation?
             } else {
                 logger.error("❌ Failed to cancel reservation: matchPlayerId=$matchPlayerId")
+            }
+        }
+    }
+
+    private suspend fun cancelActivePayment(activePayment: PaymentInfo) {
+        logger.info("💳 Found active payment ${activePayment.paymentId}. Attempting to cancel...")
+        if (activePayment.providerPaymentId == null) {
+            logger.warn("⚠️ Failed to cancel payment ${activePayment.paymentId} in Stripe. due to providerPaymentId is null")
+        } else {
+            val paymentService = paymentServiceFactory.getService(activePayment.provider)
+            val canceled = paymentService.cancelPayment(activePayment.providerPaymentId)
+
+            if (canceled) {
+                paymentRepository.updatePaymentStatus(
+                    activePayment.providerPaymentId,
+                    PaymentAttemptStatus.CANCELED
+                )
+                logger.info("✅ Payment ${activePayment.paymentId} canceled successfully.")
+            } else {
+                logger.warn("⚠️ Failed to cancel payment ${activePayment.paymentId} in Stripe.")
             }
         }
     }
