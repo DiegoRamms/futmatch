@@ -1,6 +1,7 @@
 package com.devapplab.data.database.user
 
 import com.devapplab.model.user.*
+import com.devapplab.utils.LocaleTag
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.java.javaUUID
 
@@ -19,11 +20,11 @@ object UserTable : Table("users") {
     val profilePic = text("profile_pic").nullable()
     val level = enumerationByName("level", USER_PLAYER_LEVEL_MAX_LENGTH, PlayerLevel::class)
     val isEmailVerified = bool("is_email_verified").default(false)
+    val isNotificationsEnabled = bool("is_notifications_enabled").default(true)
+    val locale = varchar("locale", 10).default(LocaleTag.LAN_TAG_MX.value)
     val role = enumerationByName("role", USER_ROLE_MAX_LENGTH, UserRole::class)
     val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
     val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
 
     override val primaryKey = PrimaryKey(id)
 }
-
-

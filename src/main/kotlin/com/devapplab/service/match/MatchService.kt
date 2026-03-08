@@ -26,6 +26,7 @@ import com.devapplab.service.image.ImageService
 import com.devapplab.service.notification.NotificationService
 import com.devapplab.service.payment.PaymentServiceFactory
 import com.devapplab.utils.Constants
+import com.devapplab.utils.LocaleTag
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
@@ -462,7 +463,13 @@ class MatchService(
 
         logger.info("🧹 Found ${expiredReservations.size} expired reservations. Cancelling...")
 
-        expiredReservations.forEach { (matchPlayerId, matchId) ->
+        expiredReservations.forEach { expiredReservation ->
+            val matchPlayerId = expiredReservation.matchPlayerId
+            val matchId = expiredReservation.matchId
+            val userId = expiredReservation.userId
+            val localeTag = expiredReservation.locale
+            val locale = Locale.forLanguageTag(localeTag)
+
             // 1. Check for active payment to cancel
             val activePayment = paymentRepository.getActivePaymentByMatchPlayerId(matchPlayerId)
             if (activePayment != null) {
@@ -474,7 +481,8 @@ class MatchService(
             if (updated) {
                 logger.info("🚫 Reservation cancelled: matchPlayerId=$matchPlayerId")
                 notifyMatchUpdate(matchId)
-                // TODO: Notify user about cancellation?
+
+                notificationService.sendReservationExpiredNotification(userId, matchId, locale)
             } else {
                 logger.error("❌ Failed to cancel reservation: matchPlayerId=$matchPlayerId")
             }
@@ -548,7 +556,9 @@ class MatchService(
             notifyMatchUpdate(paymentInfo.matchId)
 
             // Send Push Notification to user
-            notificationService.sendPaymentFailedNotification(paymentInfo.userId, paymentInfo.matchId)
+            // TODO: Get user locale
+            val locale = Locale.forLanguageTag(LocaleTag.LAN_TAG_MX.value)
+            notificationService.sendPaymentFailedNotification(paymentInfo.userId, paymentInfo.matchId, locale)
         } else {
             logger.error("❌ Failed to remove player after payment failure: matchPlayerId=${paymentInfo.matchPlayerId}")
         }

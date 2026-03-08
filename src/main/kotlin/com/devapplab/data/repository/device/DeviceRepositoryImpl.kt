@@ -4,6 +4,7 @@ import com.devapplab.data.database.device.DeviceTable
 import com.devapplab.model.device.DevicePlatform
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -70,5 +71,13 @@ class DeviceRepositoryImpl : DeviceRepository {
             it[this.pushTokenUpdatedAt] = now
             it[this.lastUsedAt] = now
         } > 0
+    }
+
+    override fun getActiveFcmTokensByUserId(userId: UUID): List<String> {
+        return DeviceTable.selectAll().where {
+            (DeviceTable.userId eq userId) and
+                    (DeviceTable.isActive eq true) and
+                    (DeviceTable.fcmToken neq null)
+        }.mapNotNull { it[DeviceTable.fcmToken] }
     }
 }

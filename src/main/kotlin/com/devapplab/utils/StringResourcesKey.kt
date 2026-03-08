@@ -164,6 +164,11 @@ enum class StringResourcesKey(val value: String) {
     DEVICE_UPDATE_FAILED_TITLE("device_update_failed_title"),
     DEVICE_UPDATE_FAILED_DESCRIPTION("device_update_failed_description"),
 
+    NOTIFICATION_PAYMENT_FAILED_TITLE("notification_payment_failed_title"),
+    NOTIFICATION_PAYMENT_FAILED_BODY("notification_payment_failed_body"),
+    NOTIFICATION_RESERVATION_EXPIRED_TITLE("notification_reservation_expired_title"),
+    NOTIFICATION_RESERVATION_EXPIRED_BODY("notification_reservation_expired_body"),
+
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),
     EMAIL_MFA_MESSAGE("email_mfa_message"),

@@ -17,4 +17,5 @@ interface DeviceRepository {
         appVersion: String,
         osVersion: String
     ): Boolean
+    fun getActiveFcmTokensByUserId(userId: UUID): List<String>
 }

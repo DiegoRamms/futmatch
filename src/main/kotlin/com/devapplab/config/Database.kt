@@ -73,17 +73,22 @@ fun Application.configureDatabase() {
 
         if (migrationStatements.isNotEmpty()) {
             log.info("Pending DB migration statements:")
+
             migrationStatements.forEach { statement ->
                 log.info(statement)
             }
 
-            // Temporal:
-            // en dev las puedes ejecutar automáticamente;
-            // en prod yo preferiría solo loggearlas y revisarlas.
-            if (isDevelopment) {
-                migrationStatements.forEach { statement ->
-                    exec(statement)
-                }
+            val dangerousStatements = migrationStatements.filter {
+                val normalized = it.trim().uppercase()
+                normalized.startsWith("DROP ")
+            }
+
+            if (dangerousStatements.isNotEmpty()) {
+                error("Dangerous migration statements detected. Refusing to run automatically.")
+            }
+
+            migrationStatements.forEach { statement ->
+                exec(statement)
             }
         }
     }
