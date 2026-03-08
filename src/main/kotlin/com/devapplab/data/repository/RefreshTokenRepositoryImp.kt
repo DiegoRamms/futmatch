@@ -5,9 +5,8 @@ import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.auth.RefreshTokenRecord
 import com.devapplab.model.auth.RefreshTokenValidationInfo
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
 
 class RefreshTokenRepositoryImp : RefreshTokenRepository {

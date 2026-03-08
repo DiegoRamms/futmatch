@@ -8,8 +8,8 @@ import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
 
 class UserRepositoryImpl : UserRepository {

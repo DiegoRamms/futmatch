@@ -1,9 +1,10 @@
 package com.devapplab.data.database.location
 
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.java.javaUUID
 
 object LocationsTable : Table("locations") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
+    val id = javaUUID("id").autoGenerate().uniqueIndex()
     val address = text("address").nullable()
     val city = varchar("city", 100).nullable()
     val country = varchar("country", 100).nullable()

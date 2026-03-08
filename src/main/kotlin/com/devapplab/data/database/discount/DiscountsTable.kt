@@ -1,10 +1,12 @@
 package com.devapplab.data.database.discount
 
 import com.devapplab.model.discount.DiscountType
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.java.javaUUID
+
 
 object DiscountsTable : Table("discounts") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
+    val id = javaUUID("id").autoGenerate().uniqueIndex()
     val code = varchar("code", 50).uniqueIndex().nullable()
     val description = text("description")
     val discountType = enumerationByName("discount_type", 20, DiscountType::class)

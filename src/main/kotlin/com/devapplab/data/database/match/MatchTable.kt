@@ -5,13 +5,14 @@ import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.user.PlayerLevel
-import org.jetbrains.exposed.sql.ReferenceOption
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.ReferenceOption
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.java.javaUUID
 
 object MatchTable : Table("matches") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
-    val fieldId = uuid("field_id").references(FieldTable.id, onDelete = ReferenceOption.CASCADE)
-    val adminId = uuid("admin_id").references(UserTable.id, onDelete = ReferenceOption.NO_ACTION)
+    val id = javaUUID("id").autoGenerate().uniqueIndex()
+    val fieldId = javaUUID("field_id").references(FieldTable.id, onDelete = ReferenceOption.CASCADE)
+    val adminId = javaUUID("admin_id").references(UserTable.id, onDelete = ReferenceOption.NO_ACTION)
     val dateTime = long("date_time") // Timestamp de inicio
     val dateTimeEnd = long("date_time_end") // Timestamp de fin
     val maxPlayers = integer("max_players")

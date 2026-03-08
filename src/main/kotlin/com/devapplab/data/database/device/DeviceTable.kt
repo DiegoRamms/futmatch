@@ -2,13 +2,14 @@ package com.devapplab.data.database.device
 
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.device.DevicePlatform
-import org.jetbrains.exposed.sql.ReferenceOption
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.ReferenceOption
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.java.javaUUID
 
 object DeviceTable : Table("devices") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
-    val userId = uuid("user_id").references(UserTable.id, onDelete = ReferenceOption.CASCADE)
-    val platform = enumerationByName("platform", 20, DevicePlatform::class)
+    val id = javaUUID("id").autoGenerate().uniqueIndex()
+    val userId = javaUUID("user_id").references(UserTable.id, onDelete = ReferenceOption.CASCADE)
+    val platform = enumerationByName("platform", 20, DevicePlatform::class).nullable()
     val deviceInfo = text("device_info").nullable()
     val fcmToken = text("fcm_token").nullable()
     val pushTokenUpdatedAt = long("push_token_updated_at").nullable()

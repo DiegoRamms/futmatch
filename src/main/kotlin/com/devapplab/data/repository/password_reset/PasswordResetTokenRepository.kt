@@ -2,11 +2,8 @@ package com.devapplab.data.repository.password_reset
 
 import com.devapplab.data.database.password_reset.PasswordResetTokensTable
 import com.devapplab.model.password_reset.PasswordResetTokenRecord
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
 
 interface PasswordResetTokenRepository {

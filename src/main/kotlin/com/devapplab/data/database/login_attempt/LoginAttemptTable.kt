@@ -1,10 +1,11 @@
 package com.devapplab.data.database.login_attempt
 
 import com.devapplab.model.user.USER_EMAIL_MAX_LENGTH
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.java.javaUUID
 
 object LoginAttemptTable : Table("login_attempts") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
+    val id = javaUUID("id").autoGenerate().uniqueIndex()
     val email = varchar("email", USER_EMAIL_MAX_LENGTH).index()
 
     val attempts = integer("attempts").default(0)

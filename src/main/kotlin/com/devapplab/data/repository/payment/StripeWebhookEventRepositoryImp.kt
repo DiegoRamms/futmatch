@@ -2,9 +2,9 @@ package com.devapplab.data.repository.payment
 
 import com.devapplab.config.dbQuery
 import com.devapplab.data.database.payments.StripeWebhookEventsTable
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
 
 class StripeWebhookEventRepositoryImp : StripeWebhookEventRepository {
 

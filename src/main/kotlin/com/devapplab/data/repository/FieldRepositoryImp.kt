@@ -8,8 +8,15 @@ import com.devapplab.data.database.location.LocationsTable
 import com.devapplab.model.field.*
 import com.devapplab.model.location.Location
 import com.devapplab.utils.ValueAlreadyExistsException
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.inList
 import java.util.*
 
 class FieldRepositoryImp : FieldRepository {

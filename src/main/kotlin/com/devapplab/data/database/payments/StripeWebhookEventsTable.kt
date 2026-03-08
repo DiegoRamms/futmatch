@@ -1,6 +1,6 @@
 package com.devapplab.data.database.payments
 
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.Table
 
 /**
  * Tabla mínima para idempotencia de webhooks.

@@ -1,10 +1,11 @@
 package com.devapplab.data.database.user
 
 import com.devapplab.model.user.*
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.java.javaUUID
 
 object UserTable : Table("users") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
+    val id = javaUUID("id").autoGenerate().uniqueIndex()
     val name = varchar("name", USER_NAME_MAX_LENGTH)
     val lastName = varchar("last_name", USER_LAST_NAME_MAX_LENGTH)
     val email = varchar("email", USER_EMAIL_MAX_LENGTH).uniqueIndex()

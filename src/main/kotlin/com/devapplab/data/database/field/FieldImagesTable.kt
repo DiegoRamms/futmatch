@@ -1,11 +1,13 @@
 package com.devapplab.data.database.field
 
-import org.jetbrains.exposed.sql.ReferenceOption
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.ReferenceOption
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.java.javaUUID
+
 
 object FieldImagesTable : Table("field_images") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
-    val fieldId = uuid("field_id").references(FieldTable.id, onDelete = ReferenceOption.CASCADE)
+    val id = javaUUID("id").autoGenerate().uniqueIndex()
+    val fieldId = javaUUID("field_id").references(FieldTable.id, onDelete = ReferenceOption.CASCADE)
 
     val key = text("key")
 

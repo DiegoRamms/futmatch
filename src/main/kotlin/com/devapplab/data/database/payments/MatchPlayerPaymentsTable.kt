@@ -3,15 +3,16 @@ package com.devapplab.data.database.payments
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.model.payment.PaymentProvider
-import org.jetbrains.exposed.sql.ReferenceOption
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.ReferenceOption
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.java.javaUUID
 
 
 
 object MatchPlayerPaymentsTable : Table("match_player_payments") {
-    val id = uuid("id").autoGenerate().uniqueIndex()
+    val id = javaUUID("id").autoGenerate().uniqueIndex()
 
-    val matchPlayerId = uuid("match_player_id").references(MatchPlayersTable.id, onDelete = ReferenceOption.CASCADE)
+    val matchPlayerId = javaUUID("match_player_id").references(MatchPlayersTable.id, onDelete = ReferenceOption.CASCADE)
 
     val provider = enumerationByName("provider", 20, PaymentProvider::class) // STRIPE, OPEN_PAY
     val providerPaymentId = varchar("provider_payment_id", 128).nullable().uniqueIndex()

@@ -4,9 +4,8 @@ import com.devapplab.data.database.pending_registrations.PendingRegistrationTabl
 import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.pending_registration.PendingRegistration
 import com.devapplab.model.user.UserRole
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
 
 interface PendingRegistrationRepository {

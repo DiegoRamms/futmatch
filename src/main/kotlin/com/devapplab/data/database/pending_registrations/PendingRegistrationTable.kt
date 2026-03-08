@@ -1,10 +1,11 @@
 package com.devapplab.data.database.pending_registrations
 
 import com.devapplab.model.user.*
-import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.java.javaUUID
 
 object PendingRegistrationTable : Table("pending_registrations") {
-    val id = uuid("id").autoGenerate()
+    val id = javaUUID("id").autoGenerate()
     val name = varchar("name", USER_NAME_MAX_LENGTH)
     val lastName = varchar("last_name", USER_LAST_NAME_MAX_LENGTH)
     val email = varchar("email", USER_EMAIL_MAX_LENGTH).uniqueIndex()
