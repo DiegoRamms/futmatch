@@ -1,6 +1,7 @@
 package com.devapplab.data.repository.device
 
 import com.devapplab.data.database.device.DeviceTable
+import com.devapplab.model.device.DevicePlatform
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
@@ -47,6 +48,26 @@ class DeviceRepositoryImpl : DeviceRepository {
     override fun changeDeviceLastUsed(deviceId: UUID): Boolean {
         return DeviceTable.update({ DeviceTable.id eq deviceId }) {
             it[lastUsedAt] = System.currentTimeMillis()
+        } > 0
+    }
+
+    override fun updateDeviceFcmToken(
+        deviceId: UUID,
+        platform: DevicePlatform,
+        fcmToken: String,
+        deviceInfo: String,
+        appVersion: String,
+        osVersion: String
+    ): Boolean {
+        val now = System.currentTimeMillis()
+        return DeviceTable.update({ DeviceTable.id eq deviceId }) {
+            it[this.platform] = platform
+            it[this.fcmToken] = fcmToken
+            it[this.deviceInfo] = deviceInfo
+            it[this.appVersion] = appVersion
+            it[this.osVersion] = osVersion
+            it[this.pushTokenUpdatedAt] = now
+            it[this.lastUsedAt] = now
         } > 0
     }
 }

@@ -160,6 +160,10 @@ enum class StringResourcesKey(val value: String) {
     PAYMENT_FAILED_TITLE("payment_failed_title"),
     PAYMENT_FAILED_DESCRIPTION("payment_failed_description"),
 
+    DEVICE_UPDATE_SUCCESS_MESSAGE("device_update_success_message"),
+    DEVICE_UPDATE_FAILED_TITLE("device_update_failed_title"),
+    DEVICE_UPDATE_FAILED_DESCRIPTION("device_update_failed_description"),
+
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),
     EMAIL_MFA_MESSAGE("email_mfa_message"),

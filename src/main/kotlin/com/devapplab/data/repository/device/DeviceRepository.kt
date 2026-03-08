@@ -1,5 +1,6 @@
 package com.devapplab.data.repository.device
 
+import com.devapplab.model.device.DevicePlatform
 import java.util.*
 
 interface DeviceRepository {
@@ -8,4 +9,12 @@ interface DeviceRepository {
     fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean
     fun markDeviceAsTrusted(deviceId: UUID): Boolean
     fun changeDeviceLastUsed(deviceId: UUID): Boolean
+    fun updateDeviceFcmToken(
+        deviceId: UUID,
+        platform: DevicePlatform,
+        fcmToken: String,
+        deviceInfo: String,
+        appVersion: String,
+        osVersion: String
+    ): Boolean
 }

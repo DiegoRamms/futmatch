@@ -1,6 +1,7 @@
 package com.devapplab.config
 
 import com.devapplab.features.auth.validation.validate
+import com.devapplab.features.device.validation.validate
 import com.devapplab.features.field.validation.validate
 import com.devapplab.features.location.validation.validate
 import com.devapplab.features.match.validation.validate
@@ -9,6 +10,7 @@ import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.request.SignOutRequest
 import com.devapplab.model.auth.response.RefreshJWTRequest
+import com.devapplab.model.device.UpdateFcmTokenRequest
 import com.devapplab.model.field.request.CreateFieldRequest
 import com.devapplab.model.field.request.UpdateFieldRequest
 import com.devapplab.model.location.Location
@@ -67,6 +69,10 @@ fun Application.configureRequestValidation() {
         }
 
         validate<Location> { request ->
+            request.validate()
+        }
+
+        validate<UpdateFcmTokenRequest> { request ->
             request.validate()
         }
     }

@@ -12,6 +12,7 @@ import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.billing.BillingService
 import com.devapplab.service.billing.StripeBillingService
 import com.devapplab.service.clean.CleanupDataService
+import com.devapplab.service.device.DeviceService
 import com.devapplab.service.email.RealEmailServiceTestImp
 import com.devapplab.service.field.FieldService
 import com.devapplab.service.firebase.FirebaseAuthService
@@ -57,4 +58,5 @@ val serviceModule = module {
     singleOf(::NotificationServiceImp) { bind<com.devapplab.service.notification.NotificationService>() }
     singleOf(::StripeBillingService) { bind<BillingService>() }
     singleOf(::StripePaymentService) { bind<PaymentService>() }
+    singleOf(::DeviceService)
 }
