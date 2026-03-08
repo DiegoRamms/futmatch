@@ -30,8 +30,10 @@ import com.devapplab.utils.LocaleTag
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
@@ -452,16 +454,18 @@ class MatchService(
         }
     }
 
-    suspend fun processExpiredReservations() {
+    suspend fun processExpiredReservations() = coroutineScope {
         val expirationTime = System.currentTimeMillis() - RESERVATION_TTL.inWholeMilliseconds
         val expiredReservations = matchRepository.getExpiredReservations(expirationTime)
 
         if (expiredReservations.isEmpty()) {
             logger.info("✅ No expired reservations found.")
-            return
+            return@coroutineScope
         }
 
         logger.info("🧹 Found ${expiredReservations.size} expired reservations. Cancelling...")
+
+        val affectedMatchIds = mutableSetOf<UUID>()
 
         expiredReservations.forEach { expiredReservation ->
             val matchPlayerId = expiredReservation.matchPlayerId
@@ -480,11 +484,28 @@ class MatchService(
             val updated = matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
             if (updated) {
                 logger.info("🚫 Reservation cancelled: matchPlayerId=$matchPlayerId")
-                notifyMatchUpdate(matchId)
 
-                notificationService.sendReservationExpiredNotification(userId, matchId, locale)
+                affectedMatchIds += matchId
+
+                launch {
+                    try {
+                        notificationService.sendReservationExpiredNotification(userId, matchId, locale)
+                    } catch (e: Exception) {
+                        logger.error("📲 Failed to send push notification", e)
+                    }
+                }
             } else {
                 logger.error("❌ Failed to cancel reservation: matchPlayerId=$matchPlayerId")
+            }
+        }
+
+        affectedMatchIds.forEach { affectedMatchId ->
+            launch {
+                try {
+                    notifyMatchUpdate(affectedMatchId)
+                } catch (e: Exception) {
+                    logger.error("🔥 Failed to notify match update", e)
+                }
             }
         }
     }
