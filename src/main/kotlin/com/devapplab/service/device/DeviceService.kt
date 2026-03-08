@@ -11,7 +11,7 @@ import java.util.Locale
 
 class DeviceService(private val deviceRepository: DeviceRepository) {
 
-    fun updateFcmToken(request: UpdateFcmTokenRequest, locale: Locale): AppResult<SimpleResponse> {
+    suspend fun updateFcmToken(request: UpdateFcmTokenRequest, locale: Locale): AppResult<SimpleResponse> {
         val updated = deviceRepository.updateDeviceFcmToken(
             deviceId = request.deviceId,
             platform = request.platform,

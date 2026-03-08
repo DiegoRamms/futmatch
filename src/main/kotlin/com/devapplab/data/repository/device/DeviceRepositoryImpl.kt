@@ -1,5 +1,6 @@
 package com.devapplab.data.repository.device
 
+import com.devapplab.config.dbQuery
 import com.devapplab.data.database.device.DeviceTable
 import com.devapplab.model.device.DevicePlatform
 import org.jetbrains.exposed.v1.core.and
@@ -53,7 +54,7 @@ class DeviceRepositoryImpl : DeviceRepository {
         } > 0
     }
 
-    override fun updateDeviceFcmToken(
+    override suspend fun updateDeviceFcmToken(
         deviceId: UUID,
         platform: DevicePlatform,
         fcmToken: String,
@@ -62,22 +63,25 @@ class DeviceRepositoryImpl : DeviceRepository {
         osVersion: String
     ): Boolean {
         val now = System.currentTimeMillis()
-        return DeviceTable.update({ DeviceTable.id eq deviceId }) {
-            it[this.platform] = platform
-            it[this.fcmToken] = fcmToken
-            it[this.deviceInfo] = deviceInfo
-            it[this.appVersion] = appVersion
-            it[this.osVersion] = osVersion
-            it[this.pushTokenUpdatedAt] = now
-            it[this.lastUsedAt] = now
-        } > 0
+        return dbQuery {
+            DeviceTable.update({ DeviceTable.id eq deviceId }) {
+                it[this.platform] = platform
+                it[this.fcmToken] = fcmToken
+                it[this.deviceInfo] = deviceInfo
+                it[this.appVersion] = appVersion
+                it[this.osVersion] = osVersion
+                it[this.pushTokenUpdatedAt] = now
+                it[this.lastUsedAt] = now
+            } > 0
+        }
     }
 
-    override fun getActiveFcmTokensByUserId(userId: UUID): List<String> {
-        return DeviceTable.selectAll().where {
-            (DeviceTable.userId eq userId) and
-                    (DeviceTable.isActive eq true) and
-                    (DeviceTable.fcmToken neq null)
-        }.mapNotNull { it[DeviceTable.fcmToken] }
-    }
+    override suspend fun getActiveFcmTokensByUserId(userId: UUID): List<String> =
+        dbQuery {
+            DeviceTable.selectAll().where {
+                (DeviceTable.userId eq userId) and
+                        (DeviceTable.isActive eq true) and
+                        (DeviceTable.fcmToken neq null)
+            }.mapNotNull { it[DeviceTable.fcmToken] }
+        }
 }
