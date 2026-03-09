@@ -48,6 +48,7 @@ data class PendingPaymentInfo(
 data class PaymentInfo(
     val paymentId: UUID,
     val providerPaymentId: String?,
+    val clientSecret: String?,
     val status: PaymentAttemptStatus,
     val provider: PaymentProvider
 )

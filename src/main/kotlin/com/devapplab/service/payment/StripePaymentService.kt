@@ -1,11 +1,18 @@
 package com.devapplab.service.payment
 
+import com.devapplab.data.repository.match.MatchRepository
+import com.devapplab.data.repository.payment.PaymentRepository
+import com.devapplab.model.AppResult
 import com.devapplab.model.StripeConfig
+import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.model.payment.PaymentCaptureMethod
 import com.devapplab.model.payment.PaymentFailureReason
 import com.devapplab.model.payment.PaymentOperationResult
 import com.devapplab.model.payment.PaymentProvider
+import com.devapplab.model.payment.PaymentStatusResponse
+import com.devapplab.utils.StringResourcesKey
+import com.devapplab.utils.createError
 import com.stripe.Stripe
 import com.stripe.exception.StripeException
 import com.stripe.model.Customer
@@ -14,10 +21,15 @@ import com.stripe.model.PaymentIntent
 import com.stripe.param.CustomerSessionCreateParams
 import com.stripe.param.PaymentIntentCaptureParams
 import com.stripe.param.PaymentIntentCreateParams
+import io.ktor.http.*
 import org.slf4j.LoggerFactory
+import java.util.Locale
+import java.util.UUID
 
 class StripePaymentService(
-    private val stripeConfig: StripeConfig
+    private val stripeConfig: StripeConfig,
+    private val paymentRepository: PaymentRepository,
+    private val matchRepository: MatchRepository
 ) : PaymentService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -282,5 +294,68 @@ class StripePaymentService(
             logger.error("🔥 Unexpected error canceling payment. paymentId={}", paymentId, e)
             false
         }
+    }
+
+    override suspend fun recoverPaymentStatus(matchId: String, userId: UUID, locale: Locale): AppResult<PaymentStatusResponse?> {
+        val matchUuid = try {
+            UUID.fromString(matchId)
+        } catch (e: IllegalArgumentException) {
+            return locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.BadRequest
+            )
+        }
+
+        // 1. Find active payment for this user and match
+        val activePayment = paymentRepository.getActivePaymentForPlayer(matchUuid, userId) ?: return AppResult.Success(null)
+
+        val providerPaymentId = activePayment.providerPaymentId ?: return AppResult.Success(
+            PaymentStatusResponse(
+                paymentId = activePayment.paymentId.toString(),
+                providerPaymentId = null,
+                clientSecret = activePayment.clientSecret,
+                status = activePayment.status,
+                provider = activePayment.provider
+            )
+        )
+
+        // 2. Check with Stripe
+        val stripeStatus = try {
+            val intent = PaymentIntent.retrieve(providerPaymentId)
+            when (intent.status) {
+                "succeeded" -> PaymentAttemptStatus.SUCCEEDED
+                "canceled" -> PaymentAttemptStatus.CANCELED
+                "requires_capture" -> PaymentAttemptStatus.AUTHORIZED
+                "processing" -> PaymentAttemptStatus.CREATED
+                "requires_payment_method", "requires_confirmation", "requires_action" -> PaymentAttemptStatus.CREATED
+                else -> PaymentAttemptStatus.FAILED
+            }
+        } catch (e: Exception) {
+            logger.error("🔥 Failed to retrieve Stripe PaymentIntent status. paymentId={}", providerPaymentId, e)
+            activePayment.status
+        }
+
+        // 3. Update local DB if status changed
+        if (stripeStatus != activePayment.status) {
+            paymentRepository.updatePaymentStatus(providerPaymentId, stripeStatus)
+
+            if (stripeStatus == PaymentAttemptStatus.SUCCEEDED || stripeStatus == PaymentAttemptStatus.AUTHORIZED) {
+                val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(providerPaymentId)
+                if (matchPlayerId != null) {
+                    matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
+                }
+            }
+        }
+
+        return AppResult.Success(
+            PaymentStatusResponse(
+                paymentId = activePayment.paymentId.toString(),
+                providerPaymentId = providerPaymentId,
+                clientSecret = activePayment.clientSecret,
+                status = stripeStatus,
+                provider = activePayment.provider
+            )
+        )
     }
 }

@@ -8,7 +8,11 @@ import com.devapplab.model.payment.PaymentMethodResponse
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.payment.SetupIntentResponse
 import com.devapplab.service.billing.BillingService
+import com.devapplab.service.payment.PaymentService
 import com.devapplab.service.payment.StripeWebhookService
+import com.devapplab.utils.StringResourcesKey
+import com.devapplab.utils.createError
+import com.devapplab.utils.retrieveLocale
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -16,7 +20,8 @@ import io.ktor.server.response.*
 
 class PaymentController(
     private val billingService: BillingService,
-    private val stripeWebhookService: StripeWebhookService
+    private val stripeWebhookService: StripeWebhookService,
+    private val paymentService: PaymentService
 ) {
 
     suspend fun initCustomerSheet(call: ApplicationCall) {
@@ -105,5 +110,24 @@ class PaymentController(
         } else {
             call.respond(HttpStatusCode.BadRequest)
         }
+    }
+
+    suspend fun recoverPaymentStatus(call: ApplicationCall) {
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val matchId = call.parameters["matchId"]
+        val locale = call.retrieveLocale()
+
+        if (matchId.isNullOrBlank()) {
+            val error = locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.BadRequest
+            )
+            call.respond(error)
+            return
+        }
+
+        val result = paymentService.recoverPaymentStatus(matchId, userId, locale)
+        call.respond(result)
     }
 }

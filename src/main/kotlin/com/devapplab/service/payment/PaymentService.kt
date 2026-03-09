@@ -1,10 +1,14 @@
 package com.devapplab.service.payment
 
+import com.devapplab.model.AppResult
 import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.model.payment.PaymentCaptureMethod
 import com.devapplab.model.payment.PaymentOperationResult
 import com.devapplab.model.payment.PaymentProvider
+import com.devapplab.model.payment.PaymentStatusResponse
 import kotlinx.serialization.Serializable
+import java.util.Locale
+import java.util.UUID
 
 interface PaymentService {
     suspend fun createPaymentIntent(
@@ -36,6 +40,12 @@ interface PaymentService {
     suspend fun cancelPayment(
         paymentId: String
     ): Boolean
+
+    suspend fun recoverPaymentStatus(
+        matchId: String,
+        userId: UUID,
+        locale: Locale
+    ): AppResult<PaymentStatusResponse?>
 }
 
 @Serializable

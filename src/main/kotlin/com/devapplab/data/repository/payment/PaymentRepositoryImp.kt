@@ -108,6 +108,7 @@ class PaymentRepositoryImp : PaymentRepository {
                 .select(
                     MatchPlayerPaymentsTable.id,
                     MatchPlayerPaymentsTable.providerPaymentId,
+                    MatchPlayerPaymentsTable.clientSecret,
                     MatchPlayerPaymentsTable.status,
                     MatchPlayerPaymentsTable.provider
                 )
@@ -125,6 +126,7 @@ class PaymentRepositoryImp : PaymentRepository {
                     PaymentInfo(
                         paymentId = row[MatchPlayerPaymentsTable.id],
                         providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
+                        clientSecret = row[MatchPlayerPaymentsTable.clientSecret],
                         status = row[MatchPlayerPaymentsTable.status],
                         provider = row[MatchPlayerPaymentsTable.provider]
                     )
@@ -139,6 +141,7 @@ class PaymentRepositoryImp : PaymentRepository {
                 .select(
                     MatchPlayerPaymentsTable.id,
                     MatchPlayerPaymentsTable.providerPaymentId,
+                    MatchPlayerPaymentsTable.clientSecret,
                     MatchPlayerPaymentsTable.status,
                     MatchPlayerPaymentsTable.provider
                 )
@@ -155,6 +158,7 @@ class PaymentRepositoryImp : PaymentRepository {
                     PaymentInfo(
                         paymentId = row[MatchPlayerPaymentsTable.id],
                         providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
+                        clientSecret = row[MatchPlayerPaymentsTable.clientSecret],
                         status = row[MatchPlayerPaymentsTable.status],
                         provider = row[MatchPlayerPaymentsTable.provider]
                     )

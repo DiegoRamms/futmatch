@@ -32,5 +32,11 @@ fun Route.paymentsRouting() {
             val controller = call.scope.get<PaymentController>()
             controller.detachMethod(call)
         }
+
+        get("status/{matchId}") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val controller = call.scope.get<PaymentController>()
+            controller.recoverPaymentStatus(call)
+        }
     }
 }
