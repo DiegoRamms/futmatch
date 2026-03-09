@@ -5,9 +5,13 @@ import com.devapplab.data.repository.payment.PaymentRepository
 import com.devapplab.data.repository.payment.StripeWebhookEventRepository
 import com.devapplab.features.match.MatchUpdateBus
 import com.devapplab.model.WebhookConfig
+import com.devapplab.model.firestore.MatchPlayerList
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.payment.PaymentAttemptStatus
+import com.devapplab.service.firebase.MatchPlayerRealtimeService
 import com.devapplab.service.firebase.MatchSignalsService
+import com.devapplab.service.image.ImageService
+import com.devapplab.utils.Constants
 import com.stripe.exception.SignatureVerificationException
 import com.stripe.model.Event
 import com.stripe.model.PaymentIntent
@@ -19,12 +23,15 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
 import java.util.UUID
+import kotlin.time.Duration.Companion.minutes
 
 class StripeWebhookService(
     private val paymentRepository: PaymentRepository,
     private val matchRepository: MatchRepository,
     private val matchUpdateBus: MatchUpdateBus,
     private val matchSignalsService: MatchSignalsService,
+    private val matchPlayerRealtimeService: MatchPlayerRealtimeService,
+    private val imageService: ImageService,
     private val stripeWebhookEventRepository: StripeWebhookEventRepository,
     private val webhookConfig: WebhookConfig,
 ) {
@@ -34,6 +41,10 @@ class StripeWebhookService(
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
+    }
+
+    private companion object {
+        val RESERVATION_TTL = 5.minutes
     }
 
     suspend fun handleWebhook(payload: String, signature: String): Boolean {
@@ -179,7 +190,7 @@ class StripeWebhookService(
 
         paymentIntent.metadata["matchId"]?.let { matchIdStr ->
             val matchId = UUID.fromString(matchIdStr)
-            publishMatchUpdate(matchId)
+            notifyMatchUpdate(matchId)
             logger.info("📡 Match update sent. matchId={}", matchId)
         }
     }
@@ -197,7 +208,7 @@ class StripeWebhookService(
 
         paymentIntent.metadata["matchId"]?.let { matchIdStr ->
             val matchId = UUID.fromString(matchIdStr)
-            publishMatchUpdate(matchId)
+            notifyMatchUpdate(matchId)
             logger.info("📡 Match update sent after failure. matchId={}", matchId)
         }
     }
@@ -237,7 +248,7 @@ class StripeWebhookService(
 
         paymentIntent.metadata["matchId"]?.let { matchIdStr ->
             val matchId = UUID.fromString(matchIdStr)
-            publishMatchUpdate(matchId)
+            notifyMatchUpdate(matchId)
             logger.info("📡 Match update sent after amount_capturable_updated. matchId={}", matchId)
         }
     }
@@ -276,15 +287,39 @@ class StripeWebhookService(
         // Or just update the UI:
         paymentIntent.metadata["matchId"]?.let { matchIdStr ->
             val matchId = UUID.fromString(matchIdStr)
-            publishMatchUpdate(matchId)
+            notifyMatchUpdate(matchId)
             logger.info("📡 Match update sent after charge.captured. matchId={}", matchId)
         }
     }
 
-    private suspend fun publishMatchUpdate(matchId: UUID) {
-        withContext(Dispatchers.Default) {
-            matchUpdateBus.publish(matchId)
-            matchSignalsService.signalMatchUpdateUpsert(matchId.toString())
+    private suspend fun notifyMatchUpdate(matchId: UUID) {
+        //matchUpdateBus.publish(matchId)
+        //matchSignalsService.signalMatchUpdateUpsert(matchId.toString())
+
+        // New logic: Update Firestore projection
+        val match = matchRepository.getMatchById(matchId)
+        if (match != null) {
+            val firestorePlayers = match.players.map { player ->
+                val reservationExpiresAt = if (player.status == MatchPlayerStatus.RESERVED) {
+                    player.joinedAt + RESERVATION_TTL.inWholeMilliseconds
+                } else {
+                    null
+                }
+
+                MatchPlayerList.Player(
+                    playerId = player.userId.toString(),
+                    name = player.name,
+                    avatarUrl = player.avatarUrl?.let { fileName ->
+                        val publicId = "${Constants.BASE_USER_STORAGE_PATH}/${player.userId}/$fileName"
+                        imageService.getImageUrl(publicId)
+                    },
+                    gender = player.gender,
+                    team = player.team,
+                    status = player.status,
+                    reservationExpiresAt = reservationExpiresAt
+                )
+            }
+            matchPlayerRealtimeService.updateMatchPlayers(matchId.toString(), MatchPlayerList(firestorePlayers))
         }
     }
 }
