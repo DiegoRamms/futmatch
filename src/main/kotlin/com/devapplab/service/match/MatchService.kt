@@ -120,11 +120,14 @@ class MatchService(
     }
 
     suspend fun getMatchesByFieldId(fieldId: UUID): AppResult<List<MatchWithFieldResponse>> {
+        logger.info("📋 [MATCH_TRACE] getMatchesByFieldId START | fieldId=$fieldId")
         val matches = matchRepository.getMatchesByFieldId(fieldId).map { it.toResponse() }
+        logger.info("🏁 [MATCH_TRACE] getMatchesByFieldId END | Found ${matches.size} matches")
         return AppResult.Success(matches)
     }
 
     suspend fun getAllMatches(): AppResult<List<MatchWithFieldResponse>> {
+        logger.info("📋 [MATCH_TRACE] getAllMatches START")
         val matches = matchRepository.getAllMatches().map { match ->
             val response = match.toResponse()
             response.copy(
@@ -134,6 +137,7 @@ class MatchService(
                 }
             )
         }
+        logger.info("🏁 [MATCH_TRACE] getAllMatches END | Found ${matches.size} matches")
         return AppResult.Success(matches)
     }
 
@@ -171,6 +175,7 @@ class MatchService(
     }
 
     suspend fun getMatchDetail(locale: Locale, matchId: UUID): AppResult<MatchDetailResponse> {
+        logger.info("👀 [MATCH_TRACE] getMatchDetail START | matchId=$matchId")
         val match = matchRepository.getMatchById(matchId)
             ?: return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,
@@ -182,6 +187,7 @@ class MatchService(
         val matchDetailResponse = match.toMatchDetailResponse()
         val updatedTeams = resolveAvatarUrls(matchDetailResponse.teams)
 
+        logger.info("🏁 [MATCH_TRACE] getMatchDetail END | matchId=$matchId")
         return AppResult.Success(matchDetailResponse.copy(teams = updatedTeams))
     }
 
@@ -246,6 +252,8 @@ class MatchService(
         paymentProvider: PaymentProvider,
         locale: Locale
     ): AppResult<JoinMatchResponse> {
+        logger.info("🟢 [MATCH_TRACE] joinMatch START | userId=$userId | matchId=$matchId | team=$team | provider=$paymentProvider")
+
         val match = matchRepository.getMatchById(matchId)
             ?: return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,
@@ -255,6 +263,7 @@ class MatchService(
             )
 
         if (match.status != MatchStatus.SCHEDULED) {
+            logger.warn("⚠️ [MATCH_TRACE] joinMatch | Match not scheduled | status=${match.status}")
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_NOT_SCHEDULED_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_NOT_SCHEDULED_DESCRIPTION,
@@ -264,6 +273,7 @@ class MatchService(
         }
 
         if (matchRepository.isUserInMatch(matchId, userId)) {
+            logger.warn("⚠️ [MATCH_TRACE] joinMatch | User already in match")
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_ALREADY_JOINED_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_ALREADY_JOINED_DESCRIPTION,
@@ -276,6 +286,7 @@ class MatchService(
             match.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }
 
         if (activePlayers.size >= match.maxPlayers) {
+            logger.warn("⚠️ [MATCH_TRACE] joinMatch | Match full")
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_FULL_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_FULL_DESCRIPTION,
@@ -289,6 +300,7 @@ class MatchService(
             val currentTeamCount = activePlayers.count { it.team == team }
 
             if (currentTeamCount >= maxPerTeam) {
+                logger.warn("⚠️ [MATCH_TRACE] joinMatch | Team full")
                 return locale.createError(
                     titleKey = StringResourcesKey.MATCH_TEAM_FULL_TITLE,
                     descriptionKey = StringResourcesKey.MATCH_TEAM_FULL_DESCRIPTION,
@@ -327,6 +339,8 @@ class MatchService(
             val storedCustomerId = userRepository.getPaymentProfile(userId, paymentProvider)
             val resolvedCustomerId = storedCustomerId ?: billingService.getOrCreateCustomer(userId, paymentProvider)
 
+            logger.info("💳 [MATCH_TRACE] joinMatch | Creating payment intent... | userId=$userId | matchId=$matchId")
+
             val paymentResult = paymentService.createPaymentIntent(
                 amount = amountInCents,
                 currency = "mxn",
@@ -341,6 +355,7 @@ class MatchService(
 
             return when (paymentResult) {
                 is PaymentOperationResult.Success -> {
+                    logger.info("✅ [MATCH_TRACE] joinMatch | Payment intent created | userId=$userId | matchId=$matchId | paymentId=${paymentResult.data.paymentId}")
                     paymentRepository.createPayment(
                         matchPlayerId = matchPlayerId,
                         provider = paymentResult.data.provider,
@@ -356,6 +371,7 @@ class MatchService(
                     // No need to notify again here, we did it before payment creation.
                     // If payment succeeds, webhook will handle status update to JOINED/PAID.
 
+                    logger.info("🏁 [MATCH_TRACE] joinMatch END | Success | userId=$userId | matchId=$matchId")
                     AppResult.Success(
                         JoinMatchResponse(
                             clientSecret = paymentResult.data.clientSecret,
@@ -375,6 +391,7 @@ class MatchService(
 
                 is PaymentOperationResult.Failure -> {
                     // Rollback: Remove player from match because payment creation failed
+                    logger.error("❌ [MATCH_TRACE] joinMatch | Payment creation failed | userId=$userId | matchId=$matchId | reason=${paymentResult.reason}")
                     logger.warn("⚠️ Payment creation failed. Rolling back reservation for user $userId in match $matchId")
                     matchRepository.removePlayerFromMatch(matchId, userId)
 
@@ -396,6 +413,7 @@ class MatchService(
                 }
             }
         } else {
+            logger.error("❌ [MATCH_TRACE] joinMatch | Failed to add player to match DB | userId=$userId | matchId=$matchId")
             return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
@@ -406,6 +424,7 @@ class MatchService(
     }
 
     suspend fun leaveMatch(userId: UUID, matchId: UUID, locale: Locale): AppResult<Boolean> {
+        logger.info("🔴 [MATCH_TRACE] leaveMatch START | userId=$userId | matchId=$matchId")
         val match = matchRepository.getMatchById(matchId)
             ?: return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,
@@ -415,6 +434,7 @@ class MatchService(
             )
 
         if (!matchRepository.isUserInMatch(matchId, userId)) {
+            logger.warn("⚠️ [MATCH_TRACE] leaveMatch | User not in match")
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_NOT_JOINED_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_NOT_JOINED_DESCRIPTION,
@@ -435,16 +455,21 @@ class MatchService(
         // Check for active payment to cancel
         val activePayment = paymentRepository.getActivePaymentForPlayer(matchId, userId)
         if (activePayment != null) {
+            logger.info("💳 [MATCH_TRACE] leaveMatch | Found active payment to cancel | userId=$userId | matchId=$matchId | paymentId=${activePayment.paymentId}")
             cancelActivePayment(activePayment)
+            logger.info("✅ [MATCH_TRACE] leaveMatch | Payment cancelled | userId=$userId | matchId=$matchId")
         }
 
         val left = matchRepository.removePlayerFromMatch(matchId, userId)
 
         if (left) {
+            logger.info("🗑️ [MATCH_TRACE] leaveMatch | Removed player from DB | userId=$userId | matchId=$matchId")
             notifyMatchUpdate(matchId)
 
+            logger.info("🏁 [MATCH_TRACE] leaveMatch END | Success | userId=$userId | matchId=$matchId")
             return AppResult.Success(true)
         } else {
+            logger.error("❌ [MATCH_TRACE] leaveMatch | Failed to remove player from DB | userId=$userId | matchId=$matchId")
             return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
@@ -455,17 +480,16 @@ class MatchService(
     }
 
     suspend fun processExpiredReservations() = coroutineScope {
+        logger.info("🕒 [MATCH_TRACE] processExpiredReservations START")
         val expirationTime = System.currentTimeMillis() - RESERVATION_TTL.inWholeMilliseconds
         val expiredReservations = matchRepository.getExpiredReservations(expirationTime)
 
         if (expiredReservations.isEmpty()) {
-            logger.info("✅ No expired reservations found.")
+            logger.info("✅ [MATCH_TRACE] processExpiredReservations | No expired reservations found.")
             return@coroutineScope
         }
 
-        logger.info("🧹 Found ${expiredReservations.size} expired reservations. Cancelling...")
-
-        val affectedMatchIds = mutableSetOf<UUID>()
+        logger.info("🔍 [MATCH_TRACE] processExpiredReservations | Found ${expiredReservations.size} expired reservations. Cancelling...")
 
         expiredReservations.forEach { expiredReservation ->
             val matchPlayerId = expiredReservation.matchPlayerId
@@ -473,6 +497,8 @@ class MatchService(
             val userId = expiredReservation.userId
             val localeTag = expiredReservation.locale
             val locale = Locale.forLanguageTag(localeTag)
+
+            logger.info("🔄 [MATCH_TRACE] processExpiredReservations | Processing reservation | matchPlayerId=$matchPlayerId | matchId=$matchId | userId=$userId")
 
             // 1. Check for active payment to cancel
             val activePayment = paymentRepository.getActivePaymentByMatchPlayerId(matchPlayerId)
@@ -483,31 +509,28 @@ class MatchService(
             // 2. Update player status to CANCELED
             val updated = matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
             if (updated) {
-                logger.info("🚫 Reservation cancelled: matchPlayerId=$matchPlayerId")
+                logger.info("🚫 [MATCH_TRACE] processExpiredReservations | Reservation cancelled | matchPlayerId=$matchPlayerId")
 
-                affectedMatchIds += matchId
+                launch {
+                    try {
+                        notifyMatchUpdate(matchId)
+                    } catch (e: Exception) {
+                        logger.error("🔥 [MATCH_TRACE] Failed to notify match update", e)
+                    }
+                }
 
                 launch {
                     try {
                         notificationService.sendReservationExpiredNotification(userId, matchId, locale)
                     } catch (e: Exception) {
-                        logger.error("📲 Failed to send push notification", e)
+                        logger.error("📲 [MATCH_TRACE] Failed to send push notification", e)
                     }
                 }
             } else {
-                logger.error("❌ Failed to cancel reservation: matchPlayerId=$matchPlayerId")
+                logger.error("❌ [MATCH_TRACE] Failed to cancel reservation: matchPlayerId=$matchPlayerId")
             }
         }
-
-        affectedMatchIds.forEach { affectedMatchId ->
-            launch {
-                try {
-                    notifyMatchUpdate(affectedMatchId)
-                } catch (e: Exception) {
-                    logger.error("🔥 Failed to notify match update", e)
-                }
-            }
-        }
+        logger.info("🏁 [MATCH_TRACE] processExpiredReservations END")
     }
 
     private suspend fun cancelActivePayment(activePayment: PaymentInfo) {
