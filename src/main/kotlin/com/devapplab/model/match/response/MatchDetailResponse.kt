@@ -23,6 +23,7 @@ data class MatchDetailResponse(
     val genderType: GenderType,
     val status: MatchStatus,
     val availableSpots: Int,
+    val teams: TeamSummaryResponse,
     val location: Location?,
     val footwearType: FootwearType?,
     val fieldType: FieldType?,
