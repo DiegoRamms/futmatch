@@ -179,7 +179,8 @@ class MatchRepositoryImp : MatchRepository {
                             country = row[UserTable.country],
                             avatarUrl = row[UserTable.profilePic],
                             name = "${row[UserTable.name]} ${row[UserTable.lastName].first()}." ,
-                            status = row[MatchPlayersTable.status]
+                            status = row[MatchPlayersTable.status],
+                            joinedAt = row[MatchPlayersTable.joinedAt]
                         )
                     }
                 }
@@ -285,7 +286,8 @@ class MatchRepositoryImp : MatchRepository {
                     country = row[UserTable.country],
                     avatarUrl = row[UserTable.profilePic],
                     name = "${row[UserTable.name]} ${row[UserTable.lastName].first()}." ,
-                    status = row[MatchPlayersTable.status]
+                    status = row[MatchPlayersTable.status],
+                    joinedAt = row[MatchPlayersTable.joinedAt]
                 )
             }
 

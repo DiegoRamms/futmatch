@@ -11,6 +11,7 @@ import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
+import com.devapplab.model.firestore.MatchPlayerList
 import com.devapplab.model.match.Match
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
@@ -21,6 +22,7 @@ import com.devapplab.model.match.mapper.toResponse
 import com.devapplab.model.match.response.*
 import com.devapplab.model.payment.*
 import com.devapplab.service.billing.BillingService
+import com.devapplab.service.firebase.MatchPlayerRealtimeService
 import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.notification.NotificationService
@@ -47,6 +49,7 @@ class MatchService(
     private val matchRepository: MatchRepository,
     private val discountRepository: DiscountRepository,
     private val matchSignalsService: MatchSignalsService,
+    private val matchPlayerRealtimeService: MatchPlayerRealtimeService,
     private val matchUpdateBus: MatchUpdateBus,
     private val imageService: ImageService,
     private val paymentServiceFactory: PaymentServiceFactory,
@@ -185,19 +188,19 @@ class MatchService(
             )
 
         val matchDetailResponse = match.toMatchDetailResponse()
-        val updatedTeams = resolveAvatarUrls(matchDetailResponse.teams)
+        // val updatedTeams = resolveAvatarUrls(matchDetailResponse.teams) // Teams removed from response
 
         logger.info("🏁 [MATCH_TRACE] getMatchDetail END | matchId=$matchId")
-        return AppResult.Success(matchDetailResponse.copy(teams = updatedTeams))
+        return AppResult.Success(matchDetailResponse)
     }
 
     private suspend fun getMatchDetailJson(locale: Locale, matchId: UUID): String {
         val match = matchRepository.getMatchById(matchId)
         return if (match != null) {
             val matchDetailResponse = match.toMatchDetailResponse()
-            val updatedTeams = resolveAvatarUrls(matchDetailResponse.teams)
+            // val updatedTeams = resolveAvatarUrls(matchDetailResponse.teams) // Teams removed from response
 
-            val response = AppResult.Success(matchDetailResponse.copy(teams = updatedTeams))
+            val response = AppResult.Success(matchDetailResponse)
             Json.encodeToString(response)
         } else {
             val error = locale.createError(
@@ -215,6 +218,7 @@ class MatchService(
         if (result) {
             val expireAtMillis = System.currentTimeMillis() + SIGNAL_TTL_AFTER_CANCEL.inWholeMilliseconds
             notifyMatchUpdate(matchUuid, expireAtMillis)
+            matchPlayerRealtimeService.deleteMatchPlayers(matchUuid.toString())
         }
         return AppResult.Success(result)
     }
@@ -609,8 +613,34 @@ class MatchService(
     }
 
     private suspend fun notifyMatchUpdate(matchId: UUID, expireAtMillis: Long? = null) {
-        matchUpdateBus.publish(matchId)
-        matchSignalsService.signalMatchUpdateUpsert(matchId.toString(), expireAtMillis)
+        //matchUpdateBus.publish(matchId)
+        //matchSignalsService.signalMatchUpdateUpsert(matchId.toString(), expireAtMillis)
+
+        // New logic: Update Firestore projection
+        val match = matchRepository.getMatchById(matchId)
+        if (match != null) {
+            val firestorePlayers = match.players.map { player ->
+                val reservationExpiresAt = if (player.status == MatchPlayerStatus.RESERVED) {
+                    player.joinedAt + RESERVATION_TTL.inWholeMilliseconds
+                } else {
+                    null
+                }
+
+                MatchPlayerList.Player(
+                    playerId = player.userId.toString(),
+                    name = player.name,
+                    avatarUrl = player.avatarUrl?.let { fileName ->
+                        val publicId = "${Constants.BASE_USER_STORAGE_PATH}/${player.userId}/$fileName"
+                        imageService.getImageUrl(publicId)
+                    },
+                    gender = com.devapplab.model.match.GenderType.valueOf(player.gender.name),
+                    team = player.team,
+                    status = player.status,
+                    reservationExpiresAt = reservationExpiresAt
+                )
+            }
+            matchPlayerRealtimeService.updateMatchPlayers(matchId.toString(), MatchPlayerList(firestorePlayers))
+        }
     }
 
     fun streamMatchDetail(locale: Locale, matchId: UUID): Flow<String> = flow {

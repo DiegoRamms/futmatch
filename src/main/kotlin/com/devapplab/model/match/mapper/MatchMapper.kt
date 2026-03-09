@@ -89,7 +89,6 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
 
 fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
     val prices = calculatePrices()
-    val teams = buildTeamSummary()
     val location = buildLocation()
     val availableSpots = this.maxPlayers - this.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }.size
 
@@ -105,7 +104,6 @@ fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
         genderType = this.genderType,
         status = this.status,
         availableSpots = if (availableSpots < 0) 0 else availableSpots,
-        teams = teams,
         location = location,
         footwearType = this.fieldFootwearType,
         fieldType = this.fieldType,

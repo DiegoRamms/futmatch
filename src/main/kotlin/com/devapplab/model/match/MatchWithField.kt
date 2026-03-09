@@ -47,5 +47,6 @@ data class MatchPlayerInfo(
     val country: String,
     val name: String,
     val avatarUrl: String?, // From UserTable
-    val status: MatchPlayerStatus = MatchPlayerStatus.RESERVED
+    val status: MatchPlayerStatus = MatchPlayerStatus.RESERVED,
+    val joinedAt: Long // From MatchPlayersTable
 )
