@@ -633,7 +633,7 @@ class MatchService(
                         val publicId = "${Constants.BASE_USER_STORAGE_PATH}/${player.userId}/$fileName"
                         imageService.getImageUrl(publicId)
                     },
-                    gender = com.devapplab.model.match.GenderType.valueOf(player.gender.name),
+                    gender = player.gender,
                     team = player.team,
                     status = player.status,
                     reservationExpiresAt = reservationExpiresAt

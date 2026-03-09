@@ -1,8 +1,8 @@
 package com.devapplab.model.firestore
 
-import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.TeamType
+import com.devapplab.model.user.Gender
 import com.google.cloud.firestore.FieldValue
 
 /**
@@ -16,7 +16,7 @@ data class MatchPlayerList(
         val playerId: String,
         val name: String,
         val avatarUrl: String?,
-        val gender: GenderType,
+        val gender: Gender,
         val team: TeamType,
         val status: MatchPlayerStatus,
         val reservationExpiresAt: Long? = null
