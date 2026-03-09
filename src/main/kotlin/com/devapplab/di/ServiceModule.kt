@@ -16,6 +16,7 @@ import com.devapplab.service.device.DeviceService
 import com.devapplab.service.email.RealEmailServiceTestImp
 import com.devapplab.service.field.FieldService
 import com.devapplab.service.firebase.FirebaseAuthService
+import com.devapplab.service.firebase.MatchPlayerRealtimeService
 import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.hashing.HashingServiceImpl
 import com.devapplab.service.image.ImageServiceImp
@@ -53,6 +54,7 @@ val serviceModule = module {
     singleOf(::PasswordResetTokenServiceImpl) { bind<com.devapplab.service.password_reset.PasswordResetTokenService>() }
     singleOf(::FirebaseAuthService)
     singleOf(::MatchSignalsService)
+    singleOf(::MatchPlayerRealtimeService)
     singleOf(::PaymentServiceFactory)
     singleOf(::StripeWebhookService)
     singleOf(::NotificationServiceImp) { bind<com.devapplab.service.notification.NotificationService>() }
