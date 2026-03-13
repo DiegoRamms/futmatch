@@ -258,6 +258,17 @@ class MatchService(
     ): AppResult<JoinMatchResponse> {
         logger.info("🟢 [MATCH_TRACE] joinMatch START | userId=$userId | matchId=$matchId | team=$team | provider=$paymentProvider")
 
+        // 0. Check for active reservation
+        if (matchRepository.hasActiveReservation(userId)) {
+            logger.warn("⚠️ [MATCH_TRACE] joinMatch | User has pending reservation | userId=$userId")
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_PENDING_RESERVATION_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_PENDING_RESERVATION_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.ALREADY_EXISTS
+            )
+        }
+
         val match = matchRepository.getMatchById(matchId)
             ?: return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,

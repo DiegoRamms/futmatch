@@ -511,6 +511,14 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun hasActiveReservation(userId: UUID): Boolean {
+        return dbQuery {
+            MatchPlayersTable.select(MatchPlayersTable.id)
+                .where { (MatchPlayersTable.userId eq userId) and (MatchPlayersTable.status eq MatchPlayerStatus.RESERVED) }
+                .count() > 0
+        }
+    }
+
     private fun ResultRow.toMatchWithFieldBaseInfo(mainImage: String?): MatchWithFieldBaseInfo {
         val location = if (this.getOrNull(LocationsTable.id) != null) {
             Location(

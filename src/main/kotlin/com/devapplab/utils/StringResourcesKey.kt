@@ -128,6 +128,8 @@ enum class StringResourcesKey(val value: String) {
     MATCH_LEAVE_SUCCESS_MESSAGE("match_leave_success_message"),
     MATCH_NOT_JOINED_TITLE("match_not_joined_title"),
     MATCH_NOT_JOINED_DESCRIPTION("match_not_joined_description"),
+    MATCH_PENDING_RESERVATION_TITLE("match_pending_reservation_title"),
+    MATCH_PENDING_RESERVATION_DESCRIPTION("match_pending_reservation_description"),
 
     PASSWORD_UPDATE_SUCCESS_MESSAGE("password_update_success_message"),
     PASSWORD_UPDATE_FAILED_TITLE("password_update_failed_title"),
