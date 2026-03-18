@@ -169,7 +169,13 @@ Obtiene una lista de partidos asociados a una cancha específica.
             "discountInCents": 0,
             "maxPlayers": 14,
             "minPlayersRequired": 10,
-            "status": "SCHEDULED"
+            "status": "SCHEDULED",
+            "footwearType": "TURF",
+            "fieldType": "SYNTHETIC",
+            "hasParking": true,
+            "mainImage": "https://example.com/field.jpg",
+            "genderType": "MIXED",
+            "playerLevel": "ANY"
         }
     ]
 }
@@ -206,7 +212,13 @@ Obtiene una lista de todos los partidos disponibles.
             "discountInCents": 0,
             "maxPlayers": 14,
             "minPlayersRequired": 10,
-            "status": "SCHEDULED"
+            "status": "SCHEDULED",
+            "footwearType": "TURF",
+            "fieldType": "SYNTHETIC",
+            "hasParking": true,
+            "mainImage": "https://example.com/field.jpg",
+            "genderType": "MIXED",
+            "playerLevel": "ANY"
         }
     ]
 }
@@ -250,7 +262,8 @@ Obtiene una lista de partidos disponibles para jugadores, opcionalmente filtrado
                             "avatarUrl": "https://example.com/avatar1.jpg",
                             "gender": "MALE",
                             "name": "Juan Perez",
-                            "country": "MX"
+                            "country": "MX",
+                            "status": "JOINED"
                         }
                     ]
                 },
@@ -262,7 +275,8 @@ Obtiene una lista de partidos disponibles para jugadores, opcionalmente filtrado
                             "avatarUrl": null,
                             "gender": "FEMALE",
                             "name": "Maria Lopez",
-                            "country": "MX"
+                            "country": "MX",
+                            "status": "JOINED"
                         }
                     ]
                 }
@@ -316,7 +330,8 @@ Obtiene los detalles completos de un partido específico.
                         "avatarUrl": "https://example.com/avatar1.jpg",
                         "gender": "MALE",
                         "name": "Juan Perez",
-                        "country": "MX"
+                        "country": "MX",
+                        "status": "JOINED"
                     }
                 ]
             },
@@ -328,7 +343,8 @@ Obtiene los detalles completos de un partido específico.
                         "avatarUrl": null,
                         "gender": "FEMALE",
                         "name": "Maria Lopez",
-                        "country": "MX"
+                        "country": "MX",
+                        "status": "JOINED"
                     }
                 ]
             }
@@ -340,14 +356,20 @@ Obtiene los detalles completos de un partido específico.
             "country": "US",
             "latitude": 40.7128,
             "longitude": -74.0060
-        }
+        },
+        "footwearType": "TURF",
+        "fieldType": "SYNTHETIC",
+        "hasParking": true,
+        "extraInfo": "Por favor llegar 15 minutos antes",
+        "description": "Partido amistoso semanal",
+        "rules": "No se permiten tacos de metal"
     }
 }
 ```
 
 ### 1.8 Unirse a un Partido
 
-Permite a un usuario unirse a un partido.
+Permite a un usuario unirse a un partido. Esto reservará un lugar e iniciará el flujo de pago.
 
 -   **Método:** `POST`
 -   **Path:** `/match/{matchId}/join`
@@ -359,7 +381,8 @@ Permite a un usuario unirse a un partido.
 #### Ejemplo de Solicitud:
 ```json
 {
-    "team": "A" // Opcional: "A" o "B". Si es null, se asigna automáticamente.
+    "team": "A", // Opcional: "A" o "B". Si es null, se asigna automáticamente.
+    "paymentProvider": "STRIPE" // Por defecto es STRIPE
 }
 ```
 
@@ -367,7 +390,17 @@ Permite a un usuario unirse a un partido.
 ```json
 {
     "status": "success",
-    "data": true
+    "data": {
+        "clientSecret": "pi_123456789_secret_abcdef12345",
+        "paymentId": "pi_123456789",
+        "provider": "STRIPE",
+        "amountInCents": 500,
+        "currency": "mxn",
+        "customer": "cus_123456789",
+        "customerSessionClientSecret": "ek_test_123456",
+        "publishableKey": "pk_test_123456789",
+        "reservationTtlMs": 300000
+    }
 }
 ```
 
@@ -435,7 +468,8 @@ data: {
                     "avatarUrl": "https://example.com/avatar1.jpg",
                     "gender": "MALE",
                     "name": "Juan Perez",
-                    "country": "MX"
+                    "country": "MX",
+                    "status": "JOINED"
                 }
             ]
         },
@@ -447,7 +481,8 @@ data: {
                     "avatarUrl": null,
                     "gender": "FEMALE",
                     "name": "Maria Lopez",
-                    "country": "MX"
+                    "country": "MX",
+                    "status": "JOINED"
                 }
             ]
         }
@@ -459,7 +494,12 @@ data: {
         "country": "US",
         "latitude": 40.7128,
         "longitude": -74.0060
-    }
+    },
+    "footwearType": "TURF",
+    "fieldType": "SYNTHETIC",
+    "hasParking": true,
+    "extraInfo": "Por favor llegar 15 minutos antes",
+    "description": "Partido amistoso semanal",
+    "rules": "No se permiten tacos de metal"
 }
-```
 ```
