@@ -33,6 +33,8 @@ interface PaymentRepository {
     suspend fun getActivePaymentForPlayer(matchId: UUID, userId: UUID): PaymentInfo?
 
     suspend fun getActivePaymentByMatchPlayerId(matchPlayerId: UUID): PaymentInfo?
+
+    suspend fun getPaymentByProviderId(providerPaymentId: String): PaymentInfo?
 }
 
 data class PendingPaymentInfo(

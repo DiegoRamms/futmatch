@@ -38,5 +38,11 @@ fun Route.paymentsRouting() {
             val controller = call.scope.get<PaymentController>()
             controller.recoverPaymentStatus(call)
         }
+
+        get("validate/{providerPaymentId}") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val controller = call.scope.get<PaymentController>()
+            controller.validatePayment(call)
+        }
     }
 }

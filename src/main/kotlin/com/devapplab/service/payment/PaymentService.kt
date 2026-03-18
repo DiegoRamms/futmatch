@@ -46,6 +46,11 @@ interface PaymentService {
         userId: UUID,
         locale: Locale
     ): AppResult<PaymentStatusResponse?>
+
+    suspend fun validatePaymentStatus(
+        providerPaymentId: String,
+        locale: Locale
+    ): AppResult<PaymentStatusResponse>
 }
 
 @Serializable

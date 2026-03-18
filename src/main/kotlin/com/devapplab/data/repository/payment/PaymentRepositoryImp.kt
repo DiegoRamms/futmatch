@@ -166,4 +166,29 @@ class PaymentRepositoryImp : PaymentRepository {
                 .singleOrNull()
         }
     }
+
+    override suspend fun getPaymentByProviderId(providerPaymentId: String): PaymentInfo? {
+        return dbQuery {
+            MatchPlayerPaymentsTable
+                .select(
+                    MatchPlayerPaymentsTable.id,
+                    MatchPlayerPaymentsTable.providerPaymentId,
+                    MatchPlayerPaymentsTable.clientSecret,
+                    MatchPlayerPaymentsTable.status,
+                    MatchPlayerPaymentsTable.provider
+                )
+                .where { MatchPlayerPaymentsTable.providerPaymentId eq providerPaymentId }
+                .limit(1)
+                .map { row ->
+                    PaymentInfo(
+                        paymentId = row[MatchPlayerPaymentsTable.id],
+                        providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
+                        clientSecret = row[MatchPlayerPaymentsTable.clientSecret],
+                        status = row[MatchPlayerPaymentsTable.status],
+                        provider = row[MatchPlayerPaymentsTable.provider]
+                    )
+                }
+                .singleOrNull()
+        }
+    }
 }

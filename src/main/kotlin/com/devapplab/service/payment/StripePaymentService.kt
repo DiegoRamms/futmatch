@@ -3,6 +3,7 @@ package com.devapplab.service.payment
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.payment.PaymentRepository
 import com.devapplab.model.AppResult
+import com.devapplab.model.ErrorCode
 import com.devapplab.model.StripeConfig
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.payment.PaymentAttemptStatus
@@ -355,6 +356,51 @@ class StripePaymentService(
                 clientSecret = activePayment.clientSecret,
                 status = stripeStatus,
                 provider = activePayment.provider
+            )
+        )
+    }
+
+    override suspend fun validatePaymentStatus(providerPaymentId: String, locale: Locale): AppResult<PaymentStatusResponse> {
+        val paymentInfo = paymentRepository.getPaymentByProviderId(providerPaymentId) ?: return locale.createError(
+            titleKey = StringResourcesKey.PAYMENT_NOT_FOUND_TITLE,
+            descriptionKey = StringResourcesKey.PAYMENT_NOT_FOUND_DESCRIPTION,
+            status = HttpStatusCode.NotFound,
+            errorCode = ErrorCode.NOT_FOUND
+        )
+
+        val stripeStatus = try {
+            val intent = PaymentIntent.retrieve(providerPaymentId)
+            when (intent.status) {
+                "succeeded" -> PaymentAttemptStatus.SUCCEEDED
+                "canceled" -> PaymentAttemptStatus.CANCELED
+                "requires_capture" -> PaymentAttemptStatus.AUTHORIZED
+                "processing" -> PaymentAttemptStatus.CREATED
+                "requires_payment_method", "requires_confirmation", "requires_action" -> PaymentAttemptStatus.CREATED
+                else -> PaymentAttemptStatus.FAILED
+            }
+        } catch (e: Exception) {
+            logger.error("🔥 Failed to retrieve Stripe PaymentIntent status. paymentId={}", providerPaymentId, e)
+            paymentInfo.status
+        }
+
+        if (stripeStatus != paymentInfo.status) {
+            paymentRepository.updatePaymentStatus(providerPaymentId, stripeStatus)
+
+            if (stripeStatus == PaymentAttemptStatus.SUCCEEDED || stripeStatus == PaymentAttemptStatus.AUTHORIZED) {
+                val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(providerPaymentId)
+                if (matchPlayerId != null) {
+                    matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
+                }
+            }
+        }
+
+        return AppResult.Success(
+            PaymentStatusResponse(
+                paymentId = paymentInfo.paymentId.toString(),
+                providerPaymentId = paymentInfo.providerPaymentId,
+                clientSecret = paymentInfo.clientSecret,
+                status = stripeStatus,
+                provider = paymentInfo.provider
             )
         )
     }

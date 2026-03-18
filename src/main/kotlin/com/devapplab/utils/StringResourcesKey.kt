@@ -161,6 +161,8 @@ enum class StringResourcesKey(val value: String) {
 
     PAYMENT_FAILED_TITLE("payment_failed_title"),
     PAYMENT_FAILED_DESCRIPTION("payment_failed_description"),
+    PAYMENT_NOT_FOUND_TITLE("payment_not_found_title"),
+    PAYMENT_NOT_FOUND_DESCRIPTION("payment_not_found_description"),
 
     DEVICE_UPDATE_SUCCESS_MESSAGE("device_update_success_message"),
     DEVICE_UPDATE_FAILED_TITLE("device_update_failed_title"),
