@@ -20,6 +20,7 @@ Este documento describe los endpoints de autenticación y las reglas de validaci
 | `playerPosition` | Enum | Sí | *(Valor de enumeración válido)* |
 | `gender` | Enum | Sí | *(Valor de enumeración válido)* |
 | `level` | Enum | Sí | *(Valor de enumeración válido)* |
+| `userRole` | Enum | No | *(Valor de enumeración válido, por defecto PLAYER)* |
 
 ---
 

@@ -51,7 +51,7 @@ Initiates the registration process and sends a verification code to the user's e
     "gender": "MALE",
     "profilePic": null, // (Optional)
     "level": "AMATEUR",
-    "userRole": "PLAYER"
+    "userRole": "PLAYER" // (Optional) Default: PLAYER
 }
 ```
 
