@@ -316,7 +316,8 @@ class StripeWebhookService(
                     gender = player.gender,
                     team = player.team,
                     status = player.status,
-                    reservationExpiresAt = reservationExpiresAt
+                    reservationExpiresAt = reservationExpiresAt,
+                    country = player.country
                 )
             }
             matchPlayerRealtimeService.updateMatchPlayers(matchId.toString(), MatchPlayerList(firestorePlayers))

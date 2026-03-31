@@ -19,6 +19,7 @@ data class MatchPlayerList(
         val gender: Gender,
         val team: TeamType,
         val status: MatchPlayerStatus,
+        val country: String,
         val reservationExpiresAt: Long? = null
     )
 
@@ -32,6 +33,7 @@ data class MatchPlayerList(
                     "gender" to player.gender.name,
                     "team" to player.team.name,
                     "status" to player.status.name,
+                    "country" to player.country,
                     "reservationExpiresAt" to player.reservationExpiresAt
                 )
             },

@@ -647,6 +647,7 @@ class MatchService(
                     gender = player.gender,
                     team = player.team,
                     status = player.status,
+                    country = player.country,
                     reservationExpiresAt = reservationExpiresAt
                 )
             }
