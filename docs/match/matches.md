@@ -381,7 +381,87 @@ Gets a list of available matches for players, optionally filtered by location.
 
 ---
 
-## 7. Get Match Detail
+## 7. Get My Matches (User's Enrolled Matches)
+
+Gets a list of matches where the authenticated user is enrolled (status: `RESERVED` or `JOINED`).
+
+-   **Method:** `GET`
+-   **Path:** `/match/my-matches`
+-   **Required Role:** `PLAYER`, `ADMIN` or `ORGANIZER`
+
+### Query Parameters
+-   `lat` (Double, Optional): Latitude for proximity sort.
+-   `lon` (Double, Optional): Longitude for proximity sort.
+
+### Success Response
+
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+            "fieldName": "Cancha Central",
+            "fieldImages": [
+                {
+                    "id": "img-uuid-1",
+                    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "imagePath": "https://res.cloudinary.com/.../image1.jpg",
+                    "position": 0
+                }
+            ],
+            "startTime": 1715436000000,
+            "endTime": 1715439600000,
+            "originalPriceInCents": 500,
+            "totalDiscountInCents": 0,
+            "priceInCents": 500,
+            "genderType": "MIXED",
+            "status": "SCHEDULED",
+            "availableSpots": 4,
+            "teams": {
+                "teamA": {
+                    "playerCount": 5,
+                    "players": [
+                        {
+                            "id": "user-uuid-1",
+                            "avatarUrl": "https://example.com/avatar1.jpg",
+                            "gender": "MALE",
+                            "name": "Juan Perez",
+                            "country": "MX",
+                            "status": "JOINED"
+                        }
+                    ]
+                },
+                "teamB": {
+                    "playerCount": 5,
+                    "players": [
+                        {
+                            "id": "user-uuid-2",
+                            "avatarUrl": null,
+                            "gender": "FEMALE",
+                            "name": "Maria Lopez",
+                            "country": "MX",
+                            "status": "JOINED"
+                        }
+                    ]
+                }
+            },
+            "location": {
+                "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+                "address": "123 Calle Falsa",
+                "city": "Springfield",
+                "country": "US",
+                "latitude": 40.7128,
+                "longitude": -74.0060
+            }
+        }
+    ]
+}
+```
+
+---
+
+## 8. Get Match Detail
 
 Gets complete details of a specific match.
 
@@ -470,7 +550,7 @@ Gets complete details of a specific match.
 
 ---
 
-## 8. Join Match
+## 9. Join Match
 
 Allows a user to join a match. This will reserve a spot and initiate the payment flow.
 
@@ -518,7 +598,7 @@ Allows a user to join a match. This will reserve a spot and initiate the payment
 
 ---
 
-## 9. Leave Match
+## 10. Leave Match
 
 Allows a user to leave a match they previously joined.
 
@@ -540,7 +620,7 @@ Allows a user to leave a match they previously joined.
 
 ---
 
-## 10. Match Detail Stream (SSE)
+## 11. Match Detail Stream (SSE)
 
 Establishes a persistent **Server-Sent Events (SSE)** connection to receive real-time updates about a match.
 

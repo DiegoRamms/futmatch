@@ -44,6 +44,14 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(result)
     }
 
+    suspend fun getUserMatches(call: ApplicationCall) {
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()
+        val lon = call.request.queryParameters["lon"]?.toDoubleOrNull()
+        val result = matchService.getUserMatches(userId, lat, lon)
+        call.respond(result)
+    }
+
     suspend fun getMatchDetail(call: ApplicationCall) {
         val matchId = UUID.fromString(call.parameters["matchId"])
         val locale = call.retrieveLocale()

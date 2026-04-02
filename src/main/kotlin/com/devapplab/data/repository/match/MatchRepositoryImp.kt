@@ -301,6 +301,134 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun getUserMatches(userId: UUID): List<MatchWithField> {
+        return dbQuery {
+            val now = System.currentTimeMillis()
+            
+            val userMatchRows = (MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
+                .leftJoin(LocationsTable)
+                .selectAll()
+                .where { 
+                    (MatchPlayersTable.userId eq userId) and 
+                    (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED))
+                }
+                .orderBy(MatchTable.dateTime to SortOrder.ASC)
+                .toList()
+
+            if (userMatchRows.isEmpty()) return@dbQuery emptyList()
+
+            val matchIds = userMatchRows.map { it[MatchTable.id] }.distinct()
+            val fieldIds = userMatchRows.map { it[FieldTable.id] }.distinct()
+
+            val allFieldImages = FieldImagesTable
+                .selectAll()
+                .where { FieldImagesTable.fieldId inList fieldIds }
+                .groupBy { it[FieldImagesTable.fieldId] }
+                .mapValues { (_, rows) -> 
+                    rows.map { row -> 
+                        FieldImageBaseInfo(
+                            id = row[FieldImagesTable.id],
+                            fieldId = row[FieldImagesTable.fieldId],
+                            imagePath = row[FieldImagesTable.key],
+                            position = row[FieldImagesTable.position]
+                        )
+                    }
+                }
+
+            val matchPlayersRows = (MatchPlayersTable innerJoin UserTable)
+                .selectAll()
+                .where { (MatchPlayersTable.matchId inList matchIds) and (MatchPlayersTable.status neq MatchPlayerStatus.CANCELED) and (MatchPlayersTable.status neq MatchPlayerStatus.LEFT) }
+                .toList()
+
+            val groupedPlayers: Map<UUID, List<MatchPlayerInfo>> = matchPlayersRows
+                .groupBy { it[MatchPlayersTable.matchId] }
+                .mapValues { (_, rows) ->
+                    rows.map { row ->
+                        MatchPlayerInfo(
+                            userId = row[MatchPlayersTable.userId],
+                            team = row[MatchPlayersTable.team],
+                            gender = row[UserTable.gender],
+                            country = row[UserTable.country],
+                            avatarUrl = row[UserTable.profilePic],
+                            name = "${row[UserTable.name]} ${row[UserTable.lastName].first()}." ,
+                            status = row[MatchPlayersTable.status],
+                            joinedAt = row[MatchPlayersTable.joinedAt]
+                        )
+                    }
+                }
+
+            val discountsByMatch: Map<UUID, List<Discount>> = MatchDiscountsTable
+                .join(DiscountsTable, JoinType.INNER, MatchDiscountsTable.discountId, DiscountsTable.id)
+                .selectAll()
+                .where { (MatchDiscountsTable.matchId inList matchIds) and (DiscountsTable.isActive eq true) }
+                .map { row ->
+                    val matchId = row[MatchDiscountsTable.matchId]
+                    val discount = Discount(
+                        id = row[DiscountsTable.id],
+                        code = row[DiscountsTable.code],
+                        description = row[DiscountsTable.description],
+                        discountType = row[DiscountsTable.discountType],
+                        value = row[DiscountsTable.value],
+                        validFrom = row[DiscountsTable.validFrom],
+                        validTo = row[DiscountsTable.validTo],
+                        isActive = row[DiscountsTable.isActive]
+                    )
+                    matchId to discount
+                }
+                .groupBy({ it.first }, { it.second })
+
+            userMatchRows.map { row ->
+                val fieldId = row[FieldTable.id]
+                val location = if (row.getOrNull(LocationsTable.id) != null) {
+                    Location(
+                        id = row[LocationsTable.id],
+                        address = row[LocationsTable.address],
+                        city = row[LocationsTable.city],
+                        country = row[LocationsTable.country],
+                        latitude = row[LocationsTable.latitude],
+                        longitude = row[LocationsTable.longitude]
+                    )
+                } else null
+
+                val matchId = row[MatchTable.id]
+                val players = groupedPlayers[matchId] ?: emptyList()
+                val discounts = discountsByMatch[matchId] ?: emptyList()
+                val currentFieldImages = allFieldImages[fieldId] ?: emptyList()
+
+                MatchWithField(
+                    matchId = matchId,
+                    fieldId = fieldId,
+                    adminId = row[MatchTable.adminId],
+                    dateTime = row[MatchTable.dateTime],
+                    dateTimeEnd = row[MatchTable.dateTimeEnd],
+                    maxPlayers = row[MatchTable.maxPlayers],
+                    minPlayersRequired = row[MatchTable.minPlayersRequired],
+                    matchPrice = row[MatchTable.matchPrice],
+                    status = row[MatchTable.status],
+                    playerLevel = row[MatchTable.playerLevel],
+                    genderType = row[MatchTable.genderType],
+                    createdAt = row[MatchTable.createdAt],
+                    updatedAt = row[MatchTable.updatedAt],
+                    fieldName = row[FieldTable.name],
+                    fieldLatitude = location?.latitude,
+                    fieldLongitude = location?.longitude,
+                    fieldAddress = location?.address,
+                    fieldCity = location?.city,
+                    fieldCountry = location?.country,
+                    fieldFootwearType = row[FieldTable.footwearType],
+                    fieldType = row[FieldTable.fieldType],
+                    fieldHasParking = row[FieldTable.hasParking],
+                    fieldExtraInfo = row[FieldTable.extraInfo],
+                    fieldDescription = row[FieldTable.description],
+                    fieldRules = row[FieldTable.rules],
+                    fieldImages = currentFieldImages,
+                    players = players,
+                    discounts = discounts
+                )
+            }
+        }
+    }
+
     override suspend fun getMatchById(matchId: UUID): MatchWithField? {
         return dbQuery {
             val matchFieldLocationRow = (MatchTable innerJoin FieldTable)

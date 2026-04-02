@@ -189,6 +189,41 @@ class MatchService(
         return AppResult.Success(finalSortedResponse)
     }
 
+    suspend fun getUserMatches(userId: UUID, userLat: Double?, userLon: Double?): AppResult<List<MatchSummaryResponse>> {
+        logger.info("📋 [MATCH_TRACE] getUserMatches START | userId=$userId")
+        val matchesWithField = matchRepository.getUserMatches(userId)
+
+        val responseWithDistance = matchesWithField.map { match ->
+            val distance = if (
+                userLat != null && userLon != null &&
+                match.fieldLatitude != null && match.fieldLongitude != null
+            ) {
+                calculateDistance(userLat, userLon, match.fieldLatitude, match.fieldLongitude)
+            } else null
+
+            val summary = match.toMatchSummaryResponse()
+            
+            val resolvedImages = summary.fieldImages
+                .filter { it.position == 0 }
+                .map { image ->
+                    val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
+                    image.copy(imagePath = imageService.getImageUrl(publicId))
+                }
+
+            val summaryWithImages = summary.copy(fieldImages = resolvedImages)
+
+            summaryWithImages to distance
+        }
+
+        val finalSortedResponse = responseWithDistance.sortedWith(
+            compareBy<Pair<MatchSummaryResponse, Double?>> { it.first.startTime }
+                .thenBy { it.second ?: Double.MAX_VALUE }
+        ).map { it.first }
+
+        logger.info("🏁 [MATCH_TRACE] getUserMatches END | Found ${matchesWithField.size} matches")
+        return AppResult.Success(finalSortedResponse)
+    }
+
     suspend fun getMatchDetail(locale: Locale, matchId: UUID): AppResult<MatchDetailResponse> {
         logger.info("👀 [MATCH_TRACE] getMatchDetail START | matchId=$matchId")
         val match = matchRepository.getMatchById(matchId)

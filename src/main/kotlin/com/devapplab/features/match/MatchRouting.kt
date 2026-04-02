@@ -40,6 +40,12 @@ fun Route.matchRouting() {
             matchController.getPlayerMatches(call)
         }
 
+        get("my-matches") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val matchController = call.scope.get<MatchController>()
+            matchController.getUserMatches(call)
+        }
+
         get("/{matchId}") {
             val matchController = call.scope.get<MatchController>()
             matchController.getMatchDetail(call)
