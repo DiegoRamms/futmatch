@@ -1,6 +1,7 @@
 package com.devapplab.model.match.mapper
 
 import com.devapplab.model.discount.DiscountType
+import com.devapplab.model.field.mapper.toResponse
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.*
 import com.devapplab.model.match.request.CreateMatchRequest
@@ -58,7 +59,7 @@ fun MatchWithFieldBaseInfo.toResponse(): MatchWithFieldResponse {
         footwearType = footwearType,
         fieldType = fieldType,
         hasParking = hasParking,
-        mainImage = mainImage,
+        fieldImages = fieldImages.map { it.toResponse() },
         genderType = genderType,
         playerLevel = playerLevel
     )
@@ -73,7 +74,7 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
     return MatchSummaryResponse(
         id = this.matchId,
         fieldName = this.fieldName,
-        fieldImageUrl = this.fieldImageUrl,
+        fieldImages = this.fieldImages.map { it.toResponse() },
         startTime = this.dateTime,
         endTime = this.dateTimeEnd,
         originalPriceInCents = prices.originalPriceInCents,
@@ -101,7 +102,7 @@ fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
     return MatchDetailResponse(
         id = this.matchId,
         fieldName = this.fieldName,
-        fieldImageUrl = this.fieldImageUrl,
+        fieldImages = this.fieldImages.map { it.toResponse() },
         startTime = this.dateTime,
         endTime = this.dateTimeEnd,
         originalPriceInCents = prices.originalPriceInCents,

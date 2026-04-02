@@ -2,6 +2,7 @@ package com.devapplab.model.match.response
 
 import com.devapplab.model.field.FieldType
 import com.devapplab.model.field.FootwearType
+import com.devapplab.model.field.response.FieldImageResponse
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
@@ -14,7 +15,6 @@ data class MatchDetailResponse(
     @Serializable(with = UUIDSerializer::class)
     val id: UUID,
     val fieldName: String,
-    val fieldImageUrl: String?,
     val startTime: Long,
     val endTime: Long,
     val originalPriceInCents: Long,
@@ -30,5 +30,6 @@ data class MatchDetailResponse(
     val hasParking: Boolean,
     val extraInfo: String?,
     val description: String,
-    val rules: String
+    val rules: String,
+    val fieldImages: List<FieldImageResponse> = emptyList()
 )

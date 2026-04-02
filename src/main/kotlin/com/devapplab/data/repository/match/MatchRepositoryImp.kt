@@ -10,6 +10,7 @@ import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.discount.Discount
+import com.devapplab.model.field.FieldImageBaseInfo
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.*
 import org.jetbrains.exposed.v1.core.*
@@ -70,13 +71,24 @@ class MatchRepositoryImp : MatchRepository {
             if (rows.isEmpty()) return@dbQuery emptyList()
 
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
-            val images = FieldImagesTable
+            val allFieldImages = FieldImagesTable
                 .selectAll()
-                .where { (FieldImagesTable.fieldId inList fieldIds) and (FieldImagesTable.isPrimary eq true) }
-                .associate { it[FieldImagesTable.fieldId] to it[FieldImagesTable.key] }
+                .where { FieldImagesTable.fieldId inList fieldIds }
+                .groupBy { it[FieldImagesTable.fieldId] }
+                .mapValues { (_, resultRows) -> 
+                    resultRows.map { row -> 
+                        FieldImageBaseInfo(
+                            id = row[FieldImagesTable.id],
+                            fieldId = row[FieldImagesTable.fieldId],
+                            imagePath = row[FieldImagesTable.key],
+                            position = row[FieldImagesTable.position]
+                        )
+                    }
+                }
 
             rows.map { row ->
-                row.toMatchWithFieldBaseInfo(images[row[FieldTable.id]])
+                val id = row[FieldTable.id]
+                row.toMatchWithFieldBaseInfo(allFieldImages[id] ?: emptyList())
             }
         }
     }
@@ -109,13 +121,24 @@ class MatchRepositoryImp : MatchRepository {
             if (rows.isEmpty()) return@dbQuery emptyList()
 
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
-            val images = FieldImagesTable
+            val allFieldImages = FieldImagesTable
                 .selectAll()
-                .where { (FieldImagesTable.fieldId inList fieldIds) and (FieldImagesTable.isPrimary eq true) }
-                .associate { it[FieldImagesTable.fieldId] to it[FieldImagesTable.key] }
+                .where { FieldImagesTable.fieldId inList fieldIds }
+                .groupBy { it[FieldImagesTable.fieldId] }
+                .mapValues { (_, resultRows) -> 
+                    resultRows.map { row -> 
+                        FieldImageBaseInfo(
+                            id = row[FieldImagesTable.id],
+                            fieldId = row[FieldImagesTable.fieldId],
+                            imagePath = row[FieldImagesTable.key],
+                            position = row[FieldImagesTable.position]
+                        )
+                    }
+                }
 
             rows.map { row ->
-                row.toMatchWithFieldBaseInfo(images[row[FieldTable.id]])
+                val id = row[FieldTable.id]
+                row.toMatchWithFieldBaseInfo(allFieldImages[id] ?: emptyList())
             }
         }
     }
@@ -132,13 +155,24 @@ class MatchRepositoryImp : MatchRepository {
             if (rows.isEmpty()) return@dbQuery emptyList()
 
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
-            val images = FieldImagesTable
+            val allFieldImages = FieldImagesTable
                 .selectAll()
-                .where { (FieldImagesTable.fieldId inList fieldIds) and (FieldImagesTable.isPrimary eq true) }
-                .associate { it[FieldImagesTable.fieldId] to it[FieldImagesTable.key] }
+                .where { FieldImagesTable.fieldId inList fieldIds }
+                .groupBy { it[FieldImagesTable.fieldId] }
+                .mapValues { (_, resultRows) -> 
+                    resultRows.map { row -> 
+                        FieldImageBaseInfo(
+                            id = row[FieldImagesTable.id],
+                            fieldId = row[FieldImagesTable.fieldId],
+                            imagePath = row[FieldImagesTable.key],
+                            position = row[FieldImagesTable.position]
+                        )
+                    }
+                }
 
             rows.map { row ->
-                row.toMatchWithFieldBaseInfo(images[row[FieldTable.id]])
+                val id = row[FieldTable.id]
+                row.toMatchWithFieldBaseInfo(allFieldImages[id] ?: emptyList())
             }
         }
     }
@@ -158,10 +192,20 @@ class MatchRepositoryImp : MatchRepository {
             val matchIds = matchFieldLocationRows.map { it[MatchTable.id] }.distinct()
             val fieldIds = matchFieldLocationRows.map { it[FieldTable.id] }.distinct()
 
-            val fieldImages = FieldImagesTable
+            val allFieldImages = FieldImagesTable
                 .selectAll()
-                .where { (FieldImagesTable.fieldId inList fieldIds) and (FieldImagesTable.isPrimary eq true) }
-                .associate { it[FieldImagesTable.fieldId] to it[FieldImagesTable.key] }
+                .where { FieldImagesTable.fieldId inList fieldIds }
+                .groupBy { it[FieldImagesTable.fieldId] }
+                .mapValues { (_, rows) -> 
+                    rows.map { row -> 
+                        FieldImageBaseInfo(
+                            id = row[FieldImagesTable.id],
+                            fieldId = row[FieldImagesTable.fieldId],
+                            imagePath = row[FieldImagesTable.key],
+                            position = row[FieldImagesTable.position]
+                        )
+                    }
+                }
 
             val matchPlayersRows = (MatchPlayersTable innerJoin UserTable)
                 .selectAll()
@@ -221,6 +265,7 @@ class MatchRepositoryImp : MatchRepository {
                 val matchId = row[MatchTable.id]
                 val players = groupedPlayers[matchId] ?: emptyList()
                 val discounts = discountsByMatch[matchId] ?: emptyList()
+                val currentFieldImages = allFieldImages[fieldId] ?: emptyList()
 
                 MatchWithField(
                     matchId = matchId,
@@ -248,7 +293,7 @@ class MatchRepositoryImp : MatchRepository {
                     fieldExtraInfo = row[FieldTable.extraInfo],
                     fieldDescription = row[FieldTable.description],
                     fieldRules = row[FieldTable.rules],
-                    fieldImageUrl = fieldImages[fieldId],
+                    fieldImages = currentFieldImages,
                     players = players,
                     discounts = discounts
                 )
@@ -268,10 +313,17 @@ class MatchRepositoryImp : MatchRepository {
 
             val fieldId = matchFieldLocationRow[FieldTable.id]
 
-            val fieldImage = FieldImagesTable
+            val currentFieldImages = FieldImagesTable
                 .selectAll()
-                .where { (FieldImagesTable.fieldId eq fieldId) and (FieldImagesTable.isPrimary eq true) }
-                .singleOrNull()?.get(FieldImagesTable.key)
+                .where { FieldImagesTable.fieldId eq fieldId }
+                .map { row ->
+                    FieldImageBaseInfo(
+                        id = row[FieldImagesTable.id],
+                        fieldId = row[FieldImagesTable.fieldId],
+                        imagePath = row[FieldImagesTable.key],
+                        position = row[FieldImagesTable.position]
+                    )
+                }
 
             val matchPlayersRows = (MatchPlayersTable innerJoin UserTable)
                 .selectAll()
@@ -345,7 +397,7 @@ class MatchRepositoryImp : MatchRepository {
                 fieldExtraInfo = matchFieldLocationRow[FieldTable.extraInfo],
                 fieldDescription = matchFieldLocationRow[FieldTable.description],
                 fieldRules = matchFieldLocationRow[FieldTable.rules],
-                fieldImageUrl = fieldImage,
+                fieldImages = currentFieldImages,
                 players = players,
                 discounts = discounts
             )
@@ -519,7 +571,7 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
-    private fun ResultRow.toMatchWithFieldBaseInfo(mainImage: String?): MatchWithFieldBaseInfo {
+    private fun ResultRow.toMatchWithFieldBaseInfo(fieldImages: List<FieldImageBaseInfo> = emptyList()): MatchWithFieldBaseInfo {
         val location = if (this.getOrNull(LocationsTable.id) != null) {
             Location(
                 id = this[LocationsTable.id],
@@ -545,7 +597,7 @@ class MatchRepositoryImp : MatchRepository {
             footwearType = this[FieldTable.footwearType],
             fieldType = this[FieldTable.fieldType],
             hasParking = this[FieldTable.hasParking],
-            mainImage = mainImage,
+            fieldImages = fieldImages,
             genderType = this[MatchTable.genderType],
             playerLevel = this[MatchTable.playerLevel]
         )

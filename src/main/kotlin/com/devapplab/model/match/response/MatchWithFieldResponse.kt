@@ -2,6 +2,7 @@ package com.devapplab.model.match.response
 
 import com.devapplab.model.field.FieldType
 import com.devapplab.model.field.FootwearType
+import com.devapplab.model.field.response.FieldImageResponse
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
@@ -28,7 +29,7 @@ data class MatchWithFieldResponse(
     val footwearType: FootwearType?,
     val fieldType: FieldType?,
     val hasParking: Boolean,
-    val mainImage: String?,
+    val fieldImages: List<FieldImageResponse> = emptyList(),
     val genderType: GenderType,
     val playerLevel: PlayerLevel
 )

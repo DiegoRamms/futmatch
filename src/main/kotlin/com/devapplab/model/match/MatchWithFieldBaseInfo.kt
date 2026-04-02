@@ -1,5 +1,6 @@
 package com.devapplab.model.match
 
+import com.devapplab.model.field.FieldImageBaseInfo
 import com.devapplab.model.field.FieldType
 import com.devapplab.model.field.FootwearType
 import com.devapplab.model.location.Location
@@ -21,7 +22,7 @@ data class MatchWithFieldBaseInfo(
     val footwearType: FootwearType?,
     val fieldType: FieldType?,
     val hasParking: Boolean,
-    val mainImage: String?,
+    val fieldImages: List<FieldImageBaseInfo> = emptyList(),
     val genderType: GenderType,
     val playerLevel: PlayerLevel
 )

@@ -1,5 +1,6 @@
 package com.devapplab.model.match.response
 
+import com.devapplab.model.field.response.FieldImageResponse
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchPlayerStatus
@@ -14,7 +15,7 @@ data class MatchSummaryResponse(
     @Serializable(with = UUIDSerializer::class)
     val id: UUID,
     val fieldName: String,
-    val fieldImageUrl: String?,
+    val fieldImages: List<FieldImageResponse> = emptyList(),
     val startTime: Long,
     val endTime: Long,
     val originalPriceInCents: Long,

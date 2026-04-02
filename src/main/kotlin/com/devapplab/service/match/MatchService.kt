@@ -124,7 +124,16 @@ class MatchService(
 
     suspend fun getMatchesByFieldId(fieldId: UUID): AppResult<List<MatchWithFieldResponse>> {
         logger.info("📋 [MATCH_TRACE] getMatchesByFieldId START | fieldId=$fieldId")
-        val matches = matchRepository.getMatchesByFieldId(fieldId).map { it.toResponse() }
+        val matches = matchRepository.getMatchesByFieldId(fieldId).map { match ->
+            val response = match.toResponse()
+
+            val resolvedImages = response.fieldImages.map { image ->
+                val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${response.fieldId}/${image.imagePath}"
+                image.copy(imagePath = imageService.getImageUrl(publicId))
+            }
+
+            response.copy(fieldImages = resolvedImages)
+        }
         logger.info("🏁 [MATCH_TRACE] getMatchesByFieldId END | Found ${matches.size} matches")
         return AppResult.Success(matches)
     }
@@ -133,12 +142,13 @@ class MatchService(
         logger.info("📋 [MATCH_TRACE] getAllMatches START")
         val matches = matchRepository.getAllMatches().map { match ->
             val response = match.toResponse()
-            response.copy(
-                mainImage = response.mainImage?.let { fileName ->
-                    val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${response.fieldId}/$fileName"
-                    imageService.getImageUrl(publicId)
-                }
-            )
+
+            val resolvedImages = response.fieldImages.map { image ->
+                val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${response.fieldId}/${image.imagePath}"
+                image.copy(imagePath = imageService.getImageUrl(publicId))
+            }
+
+            response.copy(fieldImages = resolvedImages)
         }
         logger.info("🏁 [MATCH_TRACE] getAllMatches END | Found ${matches.size} matches")
         return AppResult.Success(matches)
@@ -156,14 +166,16 @@ class MatchService(
             } else null
 
             val summary = match.toMatchSummaryResponse()
-            val updatedTeams = resolveAvatarUrls(summary.teams)
+            
+            val resolvedImages = summary.fieldImages
+                .filter { it.position == 0 }
+                .map { image ->
+                    val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
+                    image.copy(imagePath = imageService.getImageUrl(publicId))
+                }
 
             val summaryWithImages = summary.copy(
-                teams = updatedTeams,
-                fieldImageUrl = summary.fieldImageUrl?.let { fileName ->
-                    val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/$fileName"
-                    imageService.getImageUrl(publicId)
-                }
+                fieldImages = resolvedImages
             )
 
             summaryWithImages to distance
@@ -188,19 +200,31 @@ class MatchService(
             )
 
         val matchDetailResponse = match.toMatchDetailResponse()
-        // val updatedTeams = resolveAvatarUrls(matchDetailResponse.teams) // Teams removed from response
+
+        val resolvedImages = matchDetailResponse.fieldImages.map { image ->
+            val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
+            image.copy(imagePath = imageService.getImageUrl(publicId))
+        }
+
+        val responseWithImages = matchDetailResponse.copy(fieldImages = resolvedImages)
 
         logger.info("🏁 [MATCH_TRACE] getMatchDetail END | matchId=$matchId")
-        return AppResult.Success(matchDetailResponse)
+        return AppResult.Success(responseWithImages)
     }
 
     private suspend fun getMatchDetailJson(locale: Locale, matchId: UUID): String {
         val match = matchRepository.getMatchById(matchId)
         return if (match != null) {
             val matchDetailResponse = match.toMatchDetailResponse()
-            // val updatedTeams = resolveAvatarUrls(matchDetailResponse.teams) // Teams removed from response
 
-            val response = AppResult.Success(matchDetailResponse)
+            val resolvedImages = matchDetailResponse.fieldImages.map { image ->
+                val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
+                image.copy(imagePath = imageService.getImageUrl(publicId))
+            }
+
+            val responseWithImages = matchDetailResponse.copy(fieldImages = resolvedImages)
+
+            val response = AppResult.Success(responseWithImages)
             Json.encodeToString(response)
         } else {
             val error = locale.createError(

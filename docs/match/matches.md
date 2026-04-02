@@ -1,39 +1,38 @@
-# Documentación de Endpoints de Partidos (Matches)
+# Matches API
 
-Este documento describe los endpoints para la gestión de partidos.
+This document describes the API endpoints for match management.
 
-## Conceptos Comunes
+## Common Concepts
 
-### Autenticación
+### Authentication
 
-Todos los endpoints, a menos que se indique lo contrario, son protegidos y requieren un token de acceso de administrador.
+All endpoints, unless otherwise indicated, are protected and require an access token.
 
--   **Header Requerido:** `Authorization: Bearer <access_token>`
+-   **Required Header:** `Authorization: Bearer <access_token>`
 
-### Respuestas
+### Responses
 
-Todos los endpoints retornan un objeto `AppResult` estandarizado.
+All endpoints return a standardized `AppResult` object.
 
--   **Éxito:** `{"status":"success","data":{...}}`
--   **Fallo:** `{"status":"error","error":{...}}`
+-   **Success:** `{"status":"success","data":{...}}`
+-   **Failure:** `{"status":"error","error":{...}}`
 
-### Localización
+### Localization
 
-Para recibir respuestas localizadas, incluye el header `Accept-Language` (ej. `en-US`, `es-MX`).
+To receive localized responses, include the `Accept-Language` header (e.g., `en-US`, `es-MX`).
 
 ---
 
-## 1. Gestión de Partidos
+## 1. Create Match
 
-### 1.1 Crear Partido
+Creates a new scheduled match.
 
-Crea un nuevo partido programado.
-
--   **Método:** `POST`
+-   **Method:** `POST`
 -   **Path:** `/match/admin/create`
--   **Rol Requerido:** `ADMIN` o `ORGANIZER`
+-   **Required Role:** `ADMIN` or `ORGANIZER`
 
-#### Ejemplo de Solicitud:
+### Request Body
+
 ```json
 {
     "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
@@ -41,62 +40,31 @@ Crea un nuevo partido programado.
     "dateTimeEnd": 1715439600000,
     "maxPlayers": 14,
     "minPlayersRequired": 10,
-    "matchPriceInCents": 500, // 5.00
-    "discountIds": [], // (Opcional) Lista de UUIDs de descuentos
-    "status": "SCHEDULED", // (Opcional)
-    "genderType": "MIXED",
-    "playerLevel": "ANY"
-}
-```
-
-#### Ejemplo de Respuesta Exitosa:
-```json
-{
-    "status": "success",
-    "data": {
-        "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
-        "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
-        "dateTime": 1715436000000,
-        "dateTimeEnd": 1715439600000,
-        "maxPlayers": 14,
-        "minPlayersRequired": 10,
-        "matchPriceInCents": 500, // 5.00
-        "discountPriceInCents": 0,
-        "status": "SCHEDULED",
-        "genderType": "MIXED",
-        "playerLevel": "ANY"
-    }
-}
-```
-
-### 1.2 Actualizar Partido
-
-Actualiza la información de un partido existente.
-
--   **Método:** `PUT`
--   **Path:** `/match/admin/update/{matchId}`
--   **Rol Requerido:** `ADMIN` o `ORGANIZER`
-
-#### Parámetros de Ruta:
--   `matchId` (UUID): El ID del partido a actualizar.
-
-#### Ejemplo de Solicitud:
-```json
-{
-    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
-    "dateTime": 1715436000000,
-    "dateTimeEnd": 1715439600000,
-    "maxPlayers": 14,
-    "minPlayersRequired": 10,
-    "matchPriceInCents": 600, // 6.00
-    "discountIds": [], // (Opcional) Lista de UUIDs de descuentos
+    "matchPriceInCents": 500,
+    "discountIds": [],
     "status": "SCHEDULED",
     "genderType": "MIXED",
     "playerLevel": "ANY"
 }
 ```
 
-#### Ejemplo de Respuesta Exitosa:
+### Request Validation
+
+| Field | Type | Required | Validation Rules |
+|:------|:-----|:---------|:----------------|
+| `fieldId` | UUID | Yes | Must be a valid UUID of an existing field. |
+| `dateTime` | Long | Yes | Must be greater than 0. |
+| `dateTimeEnd` | Long | Yes | Must be greater than `dateTime`. |
+| `maxPlayers` | Int | Yes | Must be greater than 0. |
+| `minPlayersRequired` | Int | Yes | Must be between 1 and `maxPlayers` (inclusive). |
+| `matchPriceInCents` | Long | Yes | Must be greater than 0. Note: Value represents cents (e.g., 500 = $5.00). |
+| `discountIds` | List\<UUID\> | No | Optional list of discount UUIDs applicable to the match. |
+| `status` | Enum | No | Optional initial match status (e.g., `SCHEDULED`). Default: `SCHEDULED`. |
+| `genderType` | Enum | No | Must be a valid `GenderType` value (e.g., `MIXED`, `MALE`, `FEMALE`). Default: `MIXED`. |
+| `playerLevel` | Enum | No | Must be a valid `PlayerLevel` value (e.g., `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `ANY`). Default: `ANY`. |
+
+### Success Response
+
 ```json
 {
     "status": "success",
@@ -107,7 +75,7 @@ Actualiza la información de un partido existente.
         "dateTimeEnd": 1715439600000,
         "maxPlayers": 14,
         "minPlayersRequired": 10,
-        "matchPriceInCents": 600, // 6.00
+        "matchPriceInCents": 500,
         "discountPriceInCents": 0,
         "status": "SCHEDULED",
         "genderType": "MIXED",
@@ -116,18 +84,87 @@ Actualiza la información de un partido existente.
 }
 ```
 
-### 1.3 Cancelar Partido
+---
 
-Cancela un partido programado.
+## 2. Update Match
 
--   **Método:** `PATCH`
+Updates an existing match.
+
+-   **Method:** `PUT`
+-   **Path:** `/match/admin/update/{matchId}`
+-   **Required Role:** `ADMIN` or `ORGANIZER`
+
+### Path Parameters
+-   `matchId` (UUID): The ID of the match to update.
+
+### Request Body
+
+```json
+{
+    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "dateTime": 1715436000000,
+    "dateTimeEnd": 1715439600000,
+    "maxPlayers": 14,
+    "minPlayersRequired": 10,
+    "matchPriceInCents": 600,
+    "discountIds": [],
+    "status": "SCHEDULED",
+    "genderType": "MIXED",
+    "playerLevel": "ANY"
+}
+```
+
+### Request Validation
+
+| Field | Type | Required | Validation Rules |
+|:------|:-----|:---------|:----------------|
+| `fieldId` | UUID | Yes | Must be a valid UUID of an existing field. |
+| `dateTime` | Long | Yes | Must be greater than 0. |
+| `dateTimeEnd` | Long | Yes | Must be greater than `dateTime`. |
+| `maxPlayers` | Int | Yes | Must be greater than 0. |
+| `minPlayersRequired` | Int | Yes | Must be between 1 and `maxPlayers` (inclusive). |
+| `matchPriceInCents` | Long | Yes | Must be greater than 0. Note: Value represents cents (e.g., 500 = $5.00). |
+| `discountIds` | List\<UUID\> | No | Optional list of discount UUIDs applicable to the match. |
+| `status` | Enum | Yes | The new match status (e.g., `SCHEDULED`, `CANCELED`). |
+| `genderType` | Enum | Yes | Must be a valid `GenderType` value (e.g., `MIXED`, `MALE`, `FEMALE`). |
+| `playerLevel` | Enum | Yes | Must be a valid `PlayerLevel` value (e.g., `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `ANY`). |
+
+### Success Response
+
+```json
+{
+    "status": "success",
+    "data": {
+        "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+        "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "dateTime": 1715436000000,
+        "dateTimeEnd": 1715439600000,
+        "maxPlayers": 14,
+        "minPlayersRequired": 10,
+        "matchPriceInCents": 600,
+        "discountPriceInCents": 0,
+        "status": "SCHEDULED",
+        "genderType": "MIXED",
+        "playerLevel": "ANY"
+    }
+}
+```
+
+---
+
+## 3. Cancel Match
+
+Cancels a scheduled match.
+
+-   **Method:** `PATCH`
 -   **Path:** `/match/admin/cancel/{matchId}`
--   **Rol Requerido:** `ADMIN` o `ORGANIZER`
+-   **Required Role:** `ADMIN` or `ORGANIZER`
 
-#### Parámetros de Ruta:
--   `matchId` (UUID): El ID del partido a cancelar.
+### Path Parameters
+-   `matchId` (UUID): The ID of the match to cancel.
 
-#### Ejemplo de Respuesta Exitosa:
+### Success Response
+
 ```json
 {
     "status": "success",
@@ -135,18 +172,21 @@ Cancela un partido programado.
 }
 ```
 
-### 1.4 Obtener Partidos por Cancha
+---
 
-Obtiene una lista de partidos asociados a una cancha específica.
+## 4. Get Matches by Field
 
--   **Método:** `GET`
+Gets a list of matches associated with a specific field.
+
+-   **Method:** `GET`
 -   **Path:** `/match/admin/matches/{fieldId}`
--   **Rol Requerido:** `ADMIN` o `ORGANIZER`
+-   **Required Role:** `ADMIN` or `ORGANIZER`
 
-#### Parámetros de Ruta:
--   `fieldId` (UUID): El ID de la cancha.
+### Path Parameters
+-   `fieldId` (UUID): The ID of the field.
 
-#### Ejemplo de Respuesta Exitosa:
+### Success Response
+
 ```json
 {
     "status": "success",
@@ -155,7 +195,7 @@ Obtiene una lista de partidos asociados a una cancha específica.
             "matchId": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
             "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
             "fieldName": "Cancha Central",
-            "fieldLocation": { // (Opcional)
+            "fieldLocation": {
                 "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                 "address": "123 Calle Falsa",
                 "city": "Springfield",
@@ -165,7 +205,7 @@ Obtiene una lista de partidos asociados a una cancha específica.
             },
             "matchDateTime": 1715436000000,
             "matchDateTimeEnd": 1715439600000,
-            "matchPriceInCents": 500, // 5.00
+            "matchPriceInCents": 500,
             "discountInCents": 0,
             "maxPlayers": 14,
             "minPlayersRequired": 10,
@@ -173,7 +213,20 @@ Obtiene una lista de partidos asociados a una cancha específica.
             "footwearType": "TURF",
             "fieldType": "SYNTHETIC",
             "hasParking": true,
-            "mainImage": "https://example.com/field.jpg",
+            "fieldImages": [
+                {
+                    "id": "img-uuid-1",
+                    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "imagePath": "https://res.cloudinary.com/.../image1.jpg",
+                    "position": 0
+                },
+                {
+                    "id": "img-uuid-2",
+                    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "imagePath": "https://res.cloudinary.com/.../image2.jpg",
+                    "position": 1
+                }
+            ],
             "genderType": "MIXED",
             "playerLevel": "ANY"
         }
@@ -181,15 +234,18 @@ Obtiene una lista de partidos asociados a una cancha específica.
 }
 ```
 
-### 1.5 Obtener Todos los Partidos
+---
 
-Obtiene una lista de todos los partidos disponibles.
+## 5. Get All Matches
 
--   **Método:** `GET`
+Gets a list of all available matches.
+
+-   **Method:** `GET`
 -   **Path:** `/match/admin/matches`
--   **Rol Requerido:** `ADMIN` o `ORGANIZER`
+-   **Required Role:** `ADMIN` or `ORGANIZER`
 
-#### Ejemplo de Respuesta Exitosa:
+### Success Response
+
 ```json
 {
     "status": "success",
@@ -198,7 +254,7 @@ Obtiene una lista de todos los partidos disponibles.
             "matchId": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
             "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
             "fieldName": "Cancha Central",
-            "fieldLocation": { // (Opcional)
+            "fieldLocation": {
                 "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                 "address": "123 Calle Falsa",
                 "city": "Springfield",
@@ -208,7 +264,7 @@ Obtiene una lista de todos los partidos disponibles.
             },
             "matchDateTime": 1715436000000,
             "matchDateTimeEnd": 1715439600000,
-            "matchPriceInCents": 500, // 5.00
+            "matchPriceInCents": 500,
             "discountInCents": 0,
             "maxPlayers": 14,
             "minPlayersRequired": 10,
@@ -216,7 +272,20 @@ Obtiene una lista de todos los partidos disponibles.
             "footwearType": "TURF",
             "fieldType": "SYNTHETIC",
             "hasParking": true,
-            "mainImage": "https://example.com/field.jpg",
+            "fieldImages": [
+                {
+                    "id": "img-uuid-1",
+                    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "imagePath": "https://res.cloudinary.com/.../image1.jpg",
+                    "position": 0
+                },
+                {
+                    "id": "img-uuid-2",
+                    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "imagePath": "https://res.cloudinary.com/.../image2.jpg",
+                    "position": 1
+                }
+            ],
             "genderType": "MIXED",
             "playerLevel": "ANY"
         }
@@ -224,19 +293,22 @@ Obtiene una lista de todos los partidos disponibles.
 }
 ```
 
-### 1.6 Obtener Partidos para Jugadores
+---
 
-Obtiene una lista de partidos disponibles para jugadores, opcionalmente filtrados por ubicación.
+## 6. Get Matches for Players
 
--   **Método:** `GET`
+Gets a list of available matches for players, optionally filtered by location.
+
+-   **Method:** `GET`
 -   **Path:** `/match/matches`
--   **Rol Requerido:** Público (o Autenticado)
+-   **Required Role:** Public (or Authenticated)
 
-#### Parámetros de Consulta (Query Params):
--   `lat` (Double, Opcional): Latitud para búsqueda por cercanía.
--   `lon` (Double, Opcional): Longitud para búsqueda por cercanía.
+### Query Parameters
+-   `lat` (Double, Optional): Latitude for proximity search.
+-   `lon` (Double, Optional): Longitude for proximity search.
 
-#### Ejemplo de Respuesta Exitosa:
+### Success Response
+
 ```json
 {
     "status": "success",
@@ -244,7 +316,20 @@ Obtiene una lista de partidos disponibles para jugadores, opcionalmente filtrado
         {
             "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
             "fieldName": "Cancha Central",
-            "fieldImageUrl": "https://example.com/field.jpg",
+            "fieldImages": [
+                {
+                    "id": "img-uuid-1",
+                    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "imagePath": "https://res.cloudinary.com/.../image1.jpg",
+                    "position": 0
+                },
+                {
+                    "id": "img-uuid-2",
+                    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "imagePath": "https://res.cloudinary.com/.../image2.jpg",
+                    "position": 1
+                }
+            ],
             "startTime": 1715436000000,
             "endTime": 1715439600000,
             "originalPriceInCents": 500,
@@ -281,7 +366,7 @@ Obtiene una lista de partidos disponibles para jugadores, opcionalmente filtrado
                     ]
                 }
             },
-            "location": { // (Opcional)
+            "location": {
                 "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                 "address": "123 Calle Falsa",
                 "city": "Springfield",
@@ -294,25 +379,41 @@ Obtiene una lista de partidos disponibles para jugadores, opcionalmente filtrado
 }
 ```
 
-### 1.7 Obtener Detalle de Partido
+---
 
-Obtiene los detalles completos de un partido específico.
+## 7. Get Match Detail
 
--   **Método:** `GET`
+Gets complete details of a specific match.
+
+-   **Method:** `GET`
 -   **Path:** `/match/{matchId}`
--   **Rol Requerido:** Público (o Autenticado)
+-   **Required Role:** Public (or Authenticated)
 
-#### Parámetros de Ruta:
--   `matchId` (UUID): El ID del partido.
+### Path Parameters
+-   `matchId` (UUID): The ID of the match.
 
-#### Ejemplo de Respuesta Exitosa:
+### Success Response
+
 ```json
 {
     "status": "success",
     "data": {
         "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
         "fieldName": "Cancha Central",
-        "fieldImageUrl": "https://example.com/field.jpg",
+        "fieldImages": [
+            {
+                "id": "img-uuid-1",
+                "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                "imagePath": "https://res.cloudinary.com/.../image1.jpg",
+                "position": 0
+            },
+            {
+                "id": "img-uuid-2",
+                "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                "imagePath": "https://res.cloudinary.com/.../image2.jpg",
+                "position": 1
+            }
+        ],
         "startTime": 1715436000000,
         "endTime": 1715439600000,
         "originalPriceInCents": 500,
@@ -367,26 +468,37 @@ Obtiene los detalles completos de un partido específico.
 }
 ```
 
-### 1.8 Unirse a un Partido
+---
 
-Permite a un usuario unirse a un partido. Esto reservará un lugar e iniciará el flujo de pago.
+## 8. Join Match
 
--   **Método:** `POST`
+Allows a user to join a match. This will reserve a spot and initiate the payment flow.
+
+-   **Method:** `POST`
 -   **Path:** `/match/{matchId}/join`
--   **Rol Requerido:** `PLAYER`, `ADMIN` o `ORGANIZER`
+-   **Required Role:** `PLAYER`, `ADMIN` or `ORGANIZER`
 
-#### Parámetros de Ruta:
--   `matchId` (UUID): El ID del partido al que unirse.
+### Path Parameters
+-   `matchId` (UUID): The ID of the match to join.
 
-#### Ejemplo de Solicitud:
+### Request Body
+
 ```json
 {
-    "team": "A", // Opcional: "A" o "B". Si es null, se asigna automáticamente.
-    "paymentProvider": "STRIPE" // Por defecto es STRIPE
+    "team": "A",
+    "paymentProvider": "STRIPE"
 }
 ```
 
-#### Ejemplo de Respuesta Exitosa:
+### Request Validation
+
+| Field | Type | Required | Validation Rules |
+|:------|:-----|:---------|:----------------|
+| `team` | Enum | No | Must be a valid `TeamType` value (`A` or `B`). If null, the system will auto-assign for balance. |
+| `paymentProvider` | Enum | No | Payment provider to use (e.g., `STRIPE`). Default: `STRIPE`. |
+
+### Success Response
+
 ```json
 {
     "status": "success",
@@ -404,18 +516,21 @@ Permite a un usuario unirse a un partido. Esto reservará un lugar e iniciará e
 }
 ```
 
-### 1.9 Salir de un Partido
+---
 
-Permite a un usuario salir de un partido al que se había unido.
+## 9. Leave Match
 
--   **Método:** `POST`
+Allows a user to leave a match they previously joined.
+
+-   **Method:** `POST`
 -   **Path:** `/match/{matchId}/leave`
--   **Rol Requerido:** `PLAYER`, `ADMIN` o `ORGANIZER`
+-   **Required Role:** `PLAYER`, `ADMIN` or `ORGANIZER`
 
-#### Parámetros de Ruta:
--   `matchId` (UUID): El ID del partido del que salir.
+### Path Parameters
+-   `matchId` (UUID): The ID of the match to leave.
 
-#### Ejemplo de Respuesta Exitosa:
+### Success Response
+
 ```json
 {
     "status": "success",
@@ -423,34 +538,50 @@ Permite a un usuario salir de un partido al que se había unido.
 }
 ```
 
-### 1.10 Stream de Detalle de Partido (SSE)
+---
 
-Establece una conexión persistente de **Server-Sent Events (SSE)** para recibir actualizaciones en tiempo real sobre el estado de un partido.
+## 10. Match Detail Stream (SSE)
 
-**¿Cómo funciona?**
-El cliente abre una conexión HTTP única que se mantiene abierta. El servidor utiliza esta conexión para enviar datos ("push") hacia el cliente sin que este tenga que volver a preguntar.
+Establishes a persistent **Server-Sent Events (SSE)** connection to receive real-time updates about a match.
 
-**¿Cada cuándo se actualiza?**
-La actualización es **basada en eventos**, no en un intervalo de tiempo fijo:
-1.  **Inmediatamente** al conectar: Se recibe el estado actual del partido.
-2.  **En tiempo real**: Cada vez que ocurre un cambio en el servidor (ej. un jugador se une, se actualiza el horario, cambia el estado), se envía automáticamente el nuevo objeto JSON. Si no hay cambios, no se envían datos.
+**How it works:**
+The client opens a single HTTP connection that stays open. The server uses this connection to push data to the client without the client having to poll.
 
--   **Método:** `GET`
+**When does it update?**
+Updates are **event-based**, not fixed interval:
+1.  **Immediately** on connect: The current match state is received.
+2.  **In real-time**: Whenever a change occurs on the server (e.g., a player joins, schedule updates, status changes), the new JSON object is automatically sent. If no changes occur, no data is sent.
+
+-   **Method:** `GET`
 -   **Path:** `/match/{matchId}/stream`
--   **Header Requerido:** `Accept: text/event-stream`
--   **Rol Requerido:** Público (o Autenticado)
+-   **Required Header:** `Accept: text/event-stream`
+-   **Required Role:** Public (or Authenticated)
 
-#### Parámetros de Ruta:
--   `matchId` (UUID): El ID del partido que se desea monitorear.
+### Path Parameters
+-   `matchId` (UUID): The ID of the match to monitor.
 
-#### Ejemplo de Respuesta (Stream):
-El servidor envía eventos con el prefijo `data:` seguidos del JSON del partido.
+### Response (Stream)
+
+The server sends events with the `data:` prefix followed by the match JSON.
 
 ```text
 data: {
     "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
     "fieldName": "Cancha Central",
-    "fieldImageUrl": "https://example.com/field.jpg",
+    "fieldImages": [
+        {
+            "id": "img-uuid-1",
+            "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+            "imagePath": "https://res.cloudinary.com/.../image1.jpg",
+            "position": 0
+        },
+        {
+            "id": "img-uuid-2",
+            "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+            "imagePath": "https://res.cloudinary.com/.../image2.jpg",
+            "position": 1
+        }
+    ],
     "startTime": 1715436000000,
     "endTime": 1715439600000,
     "originalPriceInCents": 500,
@@ -503,3 +634,20 @@ data: {
     "rules": "No se permiten tacos de metal"
 }
 ```
+
+---
+
+## Field Images
+
+All responses that include field information return a `fieldImages` array with the field photos.
+
+**Note:** The `getPlayerMatches` endpoint returns only the image with `position = 0` (primary image) for optimization. All other endpoints return the complete array of images.
+
+### FieldImageResponse
+
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `id` | UUID | Unique identifier of the image. |
+| `fieldId` | UUID | The field this image belongs to. |
+| `imagePath` | String | Full signed URL to access the image on Cloudinary. |
+| `position` | Int | Display order (0-3). Used by the client to render images in the correct order. |

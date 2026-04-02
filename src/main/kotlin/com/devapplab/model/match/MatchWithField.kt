@@ -1,6 +1,7 @@
 package com.devapplab.model.match
 
 import com.devapplab.model.discount.Discount
+import com.devapplab.model.field.FieldImageBaseInfo
 import com.devapplab.model.field.FieldType
 import com.devapplab.model.field.FootwearType
 import com.devapplab.model.user.Gender
@@ -35,7 +36,7 @@ data class MatchWithField(
     val fieldExtraInfo: String?, // From FieldTable
     val fieldDescription: String, // From FieldTable
     val fieldRules: String, // From FieldTable
-    val fieldImageUrl: String?, // Derived from FieldImageTable or system
+    val fieldImages: List<FieldImageBaseInfo> = emptyList(), // All images for the field
     val players: List<MatchPlayerInfo>, // From MatchPlayersTable and UserTable
     val discounts: List<Discount> // From MatchDiscountsTable and DiscountsTable
 )
