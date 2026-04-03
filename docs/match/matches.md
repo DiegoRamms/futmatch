@@ -393,6 +393,19 @@ Gets a list of matches where the authenticated user is enrolled (status: `RESERV
 -   `lat` (Double, Optional): Latitude for proximity sort.
 -   `lon` (Double, Optional): Longitude for proximity sort.
 
+### Match Visibility Rules
+
+Matches are returned based on the following rules:
+
+| Match Status | Visibility |
+|:------------|:-----------|
+| `SCHEDULED` | Always shown |
+| `IN_PROGRESS` | Always shown |
+| `COMPLETED` | Shown if ended within the last **4 days** |
+| `CANCELED` | Shown if ended within the last **4 days** |
+
+After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appear in the response.
+
 ### Success Response
 
 ```json

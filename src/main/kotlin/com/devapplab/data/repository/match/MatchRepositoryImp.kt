@@ -16,6 +16,7 @@ import com.devapplab.model.match.*
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
+import kotlin.time.Duration.Companion.days
 
 class MatchRepositoryImp : MatchRepository {
     override suspend fun create(match: Match): MatchBaseInfo {
@@ -304,13 +305,16 @@ class MatchRepositoryImp : MatchRepository {
     override suspend fun getUserMatches(userId: UUID): List<MatchWithField> {
         return dbQuery {
             val now = System.currentTimeMillis()
+            val visiblePastMatchesCutoff = now - 4.days.inWholeMilliseconds
             
             val userMatchRows = (MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
                 .leftJoin(LocationsTable)
                 .selectAll()
                 .where { 
                     (MatchPlayersTable.userId eq userId) and 
-                    (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED))
+                    (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                    ((MatchTable.status inList listOf(MatchStatus.SCHEDULED, MatchStatus.IN_PROGRESS)) or
+                     (MatchTable.dateTimeEnd greaterEq visiblePastMatchesCutoff))
                 }
                 .orderBy(MatchTable.dateTime to SortOrder.ASC)
                 .toList()

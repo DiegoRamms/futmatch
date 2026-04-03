@@ -88,6 +88,23 @@ Create extension functions in `model/<feature>/mapper/<Feature>Mapper.kt` to con
 *   Use `System.currentTimeMillis()` for current time.
 *   **Do not** use `LocalDateTime` or `Instant` in models/tables unless strictly necessary.
 
+### Duration Constants
+For time-based constants, use `kotlin.time.Duration` with the following syntax:
+```kotlin
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+
+// Define constants
+val SIGNAL_TTL_AFTER_END = 30.days
+val CAPTURE_METHOD_THRESHOLD = 6.hours
+val RESERVATION_TTL = 5.minutes
+
+// Use in code
+val expirationTime = System.currentTimeMillis() - RESERVATION_TTL.inWholeMilliseconds
+val timeUntilMatch > CAPTURE_METHOD_THRESHOLD.inWholeMilliseconds
+```
+
 ### Image Uploads
 If the feature requires image uploads:
 1.  Controller: `call.receiveMultipart()`
