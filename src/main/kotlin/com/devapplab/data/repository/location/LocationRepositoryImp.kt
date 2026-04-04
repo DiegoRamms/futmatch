@@ -17,8 +17,8 @@ class LocationRepositoryImp: LocationRepository {
         return dbQuery {
             LocationsTable.insert {
                 it[address] = location.address
-                it[city] = location.city
-                it[country] = location.country
+                it[countryCode] = location.countryCode
+                it[cityCode] = location.cityCode
                 it[latitude] = location.latitude
                 it[longitude] = location.longitude
             }[LocationsTable.id]
@@ -49,8 +49,8 @@ class LocationRepositoryImp: LocationRepository {
         return dbQuery {
             LocationsTable.update({ LocationsTable.id eq location.id!! }) {
                 it[address] = location.address
-                it[city] = location.city
-                it[country] = location.country
+                it[countryCode] = location.countryCode
+                it[cityCode] = location.cityCode
                 it[latitude] = location.latitude
                 it[longitude] = location.longitude
                 it[updatedAt] = System.currentTimeMillis()
@@ -69,8 +69,8 @@ class LocationRepositoryImp: LocationRepository {
     private fun ResultRow.toLocation() = Location(
         id = this[LocationsTable.id],
         address = this[LocationsTable.address],
-        city = this[LocationsTable.city],
-        country = this[LocationsTable.country],
+        countryCode = this[LocationsTable.countryCode],
+        cityCode = this[LocationsTable.cityCode],
         latitude = this[LocationsTable.latitude],
         longitude = this[LocationsTable.longitude]
     )

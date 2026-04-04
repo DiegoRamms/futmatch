@@ -9,8 +9,8 @@ data class Location(
     @Serializable(with = UUIDSerializer::class)
     val id: UUID? = null,
     val address: String?,
-    val city: String?,
-    val country: String?,
+    val countryCode: String?,
+    val cityCode: String?,
     val latitude: Double,
     val longitude: Double,
 )

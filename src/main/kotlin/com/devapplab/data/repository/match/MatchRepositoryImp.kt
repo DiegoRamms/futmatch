@@ -256,8 +256,8 @@ class MatchRepositoryImp : MatchRepository {
                     Location(
                         id = row[LocationsTable.id],
                         address = row[LocationsTable.address],
-                        city = row[LocationsTable.city],
-                        country = row[LocationsTable.country],
+                        countryCode = row[LocationsTable.countryCode],
+                        cityCode = row[LocationsTable.cityCode],
                         latitude = row[LocationsTable.latitude],
                         longitude = row[LocationsTable.longitude]
                     )
@@ -286,8 +286,8 @@ class MatchRepositoryImp : MatchRepository {
                     fieldLatitude = location?.latitude,
                     fieldLongitude = location?.longitude,
                     fieldAddress = location?.address,
-                    fieldCity = location?.city,
-                    fieldCountry = location?.country,
+                    fieldCityCode = location?.cityCode,
+                    fieldCountryCode = location?.countryCode,
                     fieldFootwearType = row[FieldTable.footwearType],
                     fieldType = row[FieldTable.fieldType],
                     fieldHasParking = row[FieldTable.hasParking],
@@ -387,8 +387,8 @@ class MatchRepositoryImp : MatchRepository {
                     Location(
                         id = row[LocationsTable.id],
                         address = row[LocationsTable.address],
-                        city = row[LocationsTable.city],
-                        country = row[LocationsTable.country],
+                        countryCode = row[LocationsTable.countryCode],
+                        cityCode = row[LocationsTable.cityCode],
                         latitude = row[LocationsTable.latitude],
                         longitude = row[LocationsTable.longitude]
                     )
@@ -417,8 +417,8 @@ class MatchRepositoryImp : MatchRepository {
                     fieldLatitude = location?.latitude,
                     fieldLongitude = location?.longitude,
                     fieldAddress = location?.address,
-                    fieldCity = location?.city,
-                    fieldCountry = location?.country,
+                    fieldCityCode = location?.cityCode,
+                    fieldCountryCode = location?.countryCode,
                     fieldFootwearType = row[FieldTable.footwearType],
                     fieldType = row[FieldTable.fieldType],
                     fieldHasParking = row[FieldTable.hasParking],
@@ -496,8 +496,8 @@ class MatchRepositoryImp : MatchRepository {
                 Location(
                     id = matchFieldLocationRow[LocationsTable.id],
                     address = matchFieldLocationRow[LocationsTable.address],
-                    city = matchFieldLocationRow[LocationsTable.city],
-                    country = matchFieldLocationRow[LocationsTable.country],
+                    countryCode = matchFieldLocationRow[LocationsTable.countryCode],
+                    cityCode = matchFieldLocationRow[LocationsTable.cityCode],
                     latitude = matchFieldLocationRow[LocationsTable.latitude],
                     longitude = matchFieldLocationRow[LocationsTable.longitude]
                 )
@@ -521,8 +521,8 @@ class MatchRepositoryImp : MatchRepository {
                 fieldLatitude = location?.latitude,
                 fieldLongitude = location?.longitude,
                 fieldAddress = location?.address,
-                fieldCity = location?.city,
-                fieldCountry = location?.country,
+                fieldCityCode = location?.cityCode,
+                fieldCountryCode = location?.countryCode,
                 fieldFootwearType = matchFieldLocationRow[FieldTable.footwearType],
                 fieldType = matchFieldLocationRow[FieldTable.fieldType],
                 fieldHasParking = matchFieldLocationRow[FieldTable.hasParking],
@@ -708,8 +708,8 @@ class MatchRepositoryImp : MatchRepository {
             Location(
                 id = this[LocationsTable.id],
                 address = this[LocationsTable.address],
-                city = this[LocationsTable.city],
-                country = this[LocationsTable.country],
+                countryCode = this[LocationsTable.countryCode],
+                cityCode = this[LocationsTable.cityCode],
                 latitude = this[LocationsTable.latitude],
                 longitude = this[LocationsTable.longitude]
             )

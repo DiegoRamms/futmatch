@@ -9,11 +9,11 @@ fun Location.validate(): ValidationResult {
         address.isNullOrBlank() ->
             ValidationResult.Invalid(StringResourcesKey.LOCATION_ADDRESS_INVALID_ERROR.value)
         
-        city.isNullOrBlank() ->
-            ValidationResult.Invalid(StringResourcesKey.LOCATION_CITY_INVALID_ERROR.value)
-            
-        country.isNullOrBlank() ->
+        countryCode.isNullOrBlank() ->
             ValidationResult.Invalid(StringResourcesKey.LOCATION_COUNTRY_INVALID_ERROR.value)
+            
+        cityCode.isNullOrBlank() ->
+            ValidationResult.Invalid(StringResourcesKey.LOCATION_CITY_INVALID_ERROR.value)
             
         !isValidCoordinates(latitude, longitude) ->
             ValidationResult.Invalid(StringResourcesKey.LOCATION_COORDINATES_INVALID_ERROR.value)

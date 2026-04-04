@@ -230,8 +230,8 @@ class FieldRepositoryImp : FieldRepository {
             Location(
                 id = it,
                 address = this[LocationsTable.address],
-                city = this[LocationsTable.city],
-                country = this[LocationsTable.country],
+                countryCode = this[LocationsTable.countryCode],
+                cityCode = this[LocationsTable.cityCode],
                 latitude = this[LocationsTable.latitude],
                 longitude = this[LocationsTable.longitude]
             )

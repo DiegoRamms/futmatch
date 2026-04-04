@@ -28,8 +28,8 @@ data class MatchWithField(
     val fieldLatitude: Double?, // From LocationsTable
     val fieldLongitude: Double?, // From LocationsTable
     val fieldAddress: String?, // From LocationsTable
-    val fieldCity: String?, // From LocationsTable
-    val fieldCountry: String?, // From LocationsTable
+    val fieldCityCode: String?, // From LocationsTable
+    val fieldCountryCode: String?, // From LocationsTable
     val fieldFootwearType: FootwearType?, // From FieldTable
     val fieldType: FieldType?, // From FieldTable
     val fieldHasParking: Boolean, // From FieldTable

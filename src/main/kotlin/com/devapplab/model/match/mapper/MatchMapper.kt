@@ -167,8 +167,8 @@ private fun MatchWithField.buildLocation(): Location? {
         Location(
             id = null,
             address = this.fieldAddress,
-            city = this.fieldCity,
-            country = this.fieldCountry,
+            countryCode = this.fieldCountryCode,
+            cityCode = this.fieldCityCode,
             latitude = this.fieldLatitude,
             longitude = this.fieldLongitude
         )
