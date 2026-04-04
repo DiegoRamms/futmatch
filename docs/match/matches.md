@@ -198,8 +198,8 @@ Gets a list of matches associated with a specific field.
             "fieldLocation": {
                 "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                 "address": "123 Calle Falsa",
-                "city": "Springfield",
-                "country": "US",
+                "cityCode": "MX_CDMX",
+                "countryCode": "MX",
                 "latitude": 40.7128,
                 "longitude": -74.0060
             },
@@ -257,8 +257,8 @@ Gets a list of all available matches.
             "fieldLocation": {
                 "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                 "address": "123 Calle Falsa",
-                "city": "Springfield",
-                "country": "US",
+                "cityCode": "MX_CDMX",
+                "countryCode": "MX",
                 "latitude": 40.7128,
                 "longitude": -74.0060
             },
@@ -369,8 +369,8 @@ Gets a list of available matches for players, optionally filtered by location.
             "location": {
                 "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                 "address": "123 Calle Falsa",
-                "city": "Springfield",
-                "country": "US",
+                "cityCode": "MX_CDMX",
+                "countryCode": "MX",
                 "latitude": 40.7128,
                 "longitude": -74.0060
             }
@@ -462,8 +462,8 @@ After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appea
             "location": {
                 "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                 "address": "123 Calle Falsa",
-                "city": "Springfield",
-                "country": "US",
+                "cityCode": "MX_CDMX",
+                "countryCode": "MX",
                 "latitude": 40.7128,
                 "longitude": -74.0060
             }
@@ -546,8 +546,8 @@ Gets complete details of a specific match.
         "location": {
             "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
             "address": "123 Calle Falsa",
-            "city": "Springfield",
-            "country": "US",
+            "cityCode": "MX_CDMX",
+            "countryCode": "MX",
             "latitude": 40.7128,
             "longitude": -74.0060
         },
@@ -714,8 +714,8 @@ data: {
     "location": {
         "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
         "address": "123 Calle Falsa",
-        "city": "Springfield",
-        "country": "US",
+        "cityCode": "MX_CDMX",
+        "countryCode": "MX",
         "latitude": 40.7128,
         "longitude": -74.0060
     },

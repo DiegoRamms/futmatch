@@ -170,8 +170,8 @@ Obtiene una lista de todas las canchas asociadas a la cuenta del administrador q
                 "location": { // (Opcional)
                     "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
                     "address": "123 Calle Falsa",
-                    "city": "Springfield",
-                    "country": "US",
+                    "cityCode": "MX_CDMX",
+                    "countryCode": "MX",
                     "latitude": 40.7128,
                     "longitude": -74.0060
                 }
