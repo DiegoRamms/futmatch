@@ -87,3 +87,44 @@ Content-Type: image/jpeg
     "data": "Imagen subida exitosamente"
 }
 ```
+
+---
+
+## 2. Listar Organizadores
+
+Obtiene una lista de usuarios con rol `ADMIN` u `ORGANIZER` que pueden ser asignados como supervisores de partidos.
+
+*   **Método:** `GET`
+*   **Path:** `/user/admin/organizers`
+*   **Headers:**
+    *   `Authorization: Bearer <access_token>`
+*   **Roles Requeridos:** `ADMIN` o `ORGANIZER`.
+
+#### Ejemplo de Solicitud:
+```http
+GET /user/admin/organizers
+Authorization: Bearer <access_token>
+```
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+            "name": "Juan",
+            "lastName": "Pérez"
+        },
+        {
+            "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+            "name": "María",
+            "lastName": "García"
+        }
+    ]
+}
+```
+
+#### Notas:
+- Solo devuelve usuarios con `status = ACTIVE`.
+- Útil para populate el selector de supervisores al crear o actualizar partidos.

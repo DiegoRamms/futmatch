@@ -5,6 +5,7 @@ import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.user.response.OrganizerListItem
 import java.util.*
 
 interface UserRepository {
@@ -23,4 +24,5 @@ interface UserRepository {
     suspend fun deleteUser(id: UUID): Boolean
     suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String?
     suspend fun upsertPaymentProfile(userId: UUID, provider: PaymentProvider, providerCustomerId: String): Boolean
+    fun getOrganizers(): List<OrganizerListItem>
 }

@@ -23,4 +23,9 @@ class UserController(private val service: UserService) {
         val result = service.uploadProfilePic(userId, multipart, locale)
         call.respond(result)
     }
+
+    suspend fun getOrganizers(call: ApplicationCall) {
+        val result = service.getOrganizers()
+        call.respond(result)
+    }
 }

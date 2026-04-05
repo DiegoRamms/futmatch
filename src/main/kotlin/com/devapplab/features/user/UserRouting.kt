@@ -18,5 +18,11 @@ fun Route.userRouting() {
             val userController = call.scope.get<UserController>()
             userController.uploadProfilePic(call)
         }
+
+        get("admin/organizers") {
+            call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
+            val userController = call.scope.get<UserController>()
+            userController.getOrganizers(call)
+        }
     }
 }

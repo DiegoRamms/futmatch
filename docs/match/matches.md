@@ -36,6 +36,7 @@ Creates a new scheduled match.
 ```json
 {
     "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "supervisorId": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
     "dateTime": 1715436000000,
     "dateTimeEnd": 1715439600000,
     "maxPlayers": 14,
@@ -53,6 +54,7 @@ Creates a new scheduled match.
 | Field | Type | Required | Validation Rules |
 |:------|:-----|:---------|:----------------|
 | `fieldId` | UUID | Yes | Must be a valid UUID of an existing field. |
+| `supervisorId` | UUID | No | Optional UUID of an admin/organizer to assign as match supervisor. Must be a valid user with role `ADMIN` or `ORGANIZER`. Defaults to the creator's ID. |
 | `dateTime` | Long | Yes | Must be greater than 0. |
 | `dateTimeEnd` | Long | Yes | Must be greater than `dateTime`. |
 | `maxPlayers` | Int | Yes | Must be greater than 0. |
@@ -71,6 +73,7 @@ Creates a new scheduled match.
     "data": {
         "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
         "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "supervisorId": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
         "dateTime": 1715436000000,
         "dateTimeEnd": 1715439600000,
         "maxPlayers": 14,
@@ -102,6 +105,7 @@ Updates an existing match.
 ```json
 {
     "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "supervisorId": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
     "dateTime": 1715436000000,
     "dateTimeEnd": 1715439600000,
     "maxPlayers": 14,
@@ -119,6 +123,7 @@ Updates an existing match.
 | Field | Type | Required | Validation Rules |
 |:------|:-----|:---------|:----------------|
 | `fieldId` | UUID | Yes | Must be a valid UUID of an existing field. |
+| `supervisorId` | UUID | No | Optional UUID of an admin/organizer to assign as match supervisor. Must be a valid user with role `ADMIN` or `ORGANIZER`. |
 | `dateTime` | Long | Yes | Must be greater than 0. |
 | `dateTimeEnd` | Long | Yes | Must be greater than `dateTime`. |
 | `maxPlayers` | Int | Yes | Must be greater than 0. |
@@ -137,6 +142,7 @@ Updates an existing match.
     "data": {
         "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
         "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "supervisorId": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
         "dateTime": 1715436000000,
         "dateTimeEnd": 1715439600000,
         "maxPlayers": 14,
@@ -152,7 +158,64 @@ Updates an existing match.
 
 ---
 
-## 3. Cancel Match
+## 3. Complete Match
+
+Registers the final result of a match, including player goals and the best player (MVP).
+
+-   **Method:** `POST`
+-   **Path:** `/match/admin/{matchId}/complete`
+-   **Required Role:** `ADMIN` or `ORGANIZER`
+
+### Path Parameters
+-   `matchId` (UUID): The ID of the match to complete.
+
+### Request Body
+
+```json
+{
+    "goals": [
+        {
+            "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+            "goals": 2
+        },
+        {
+            "userId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+            "goals": 1
+        }
+    ],
+    "bestPlayerId": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+}
+```
+
+### Request Validation
+
+| Field | Type | Required | Validation Rules |
+|:------|:-----|:---------|:----------------|
+| `goals` | List | Yes | Must contain at least one goal entry. |
+| `goals[].userId` | UUID | Yes | Must be a valid UUID of a user enrolled in the match. |
+| `goals[].goals` | Int | Yes | Must be >= 0. |
+| `bestPlayerId` | UUID | Yes | Must be a valid UUID of a user enrolled in the match. |
+
+### Success Response
+
+```json
+{
+    "status": "success",
+    "data": true
+}
+```
+
+### Error Codes
+
+| Code | Description |
+|:-----|:------------|
+| `MATCH_NOT_FOUND` | The specified match does not exist. |
+| `MATCH_ALREADY_COMPLETED` | The match has already been completed. |
+| `INVALID_BEST_PLAYER` | The specified best player is not enrolled in the match. |
+
+---
+
+## 4. Cancel Match
 
 Cancels a scheduled match.
 
@@ -174,7 +237,7 @@ Cancels a scheduled match.
 
 ---
 
-## 4. Get Matches by Field
+## 5. Get Matches by Field
 
 Gets a list of matches associated with a specific field.
 
@@ -236,7 +299,7 @@ Gets a list of matches associated with a specific field.
 
 ---
 
-## 5. Get All Matches
+## 6. Get All Matches
 
 Gets a list of all available matches.
 
@@ -295,7 +358,7 @@ Gets a list of all available matches.
 
 ---
 
-## 6. Get Matches for Players
+## 7. Get Matches for Players
 
 Gets a list of available matches for players, optionally filtered by location.
 
@@ -381,7 +444,7 @@ Gets a list of available matches for players, optionally filtered by location.
 
 ---
 
-## 7. Get My Matches (User's Enrolled Matches)
+## 8. Get My Matches (User's Enrolled Matches)
 
 Gets a list of matches where the authenticated user is enrolled (status: `RESERVED` or `JOINED`).
 
@@ -474,7 +537,7 @@ After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appea
 
 ---
 
-## 8. Get Match Detail
+## 9. Get Match Detail
 
 Gets complete details of a specific match.
 
@@ -563,7 +626,7 @@ Gets complete details of a specific match.
 
 ---
 
-## 9. Join Match
+## 10. Join Match
 
 Allows a user to join a match. This will reserve a spot and initiate the payment flow.
 
@@ -611,7 +674,7 @@ Allows a user to join a match. This will reserve a spot and initiate the payment
 
 ---
 
-## 10. Leave Match
+## 11. Leave Match
 
 Allows a user to leave a match they previously joined.
 
@@ -633,7 +696,7 @@ Allows a user to leave a match they previously joined.
 
 ---
 
-## 11. Match Detail Stream (SSE)
+## 12. Match Detail Stream (SSE)
 
 Establishes a persistent **Server-Sent Events (SSE)** connection to receive real-time updates about a match.
 

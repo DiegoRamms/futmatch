@@ -8,6 +8,9 @@ import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.user.UserRole
+import com.devapplab.model.user.UserStatus
+import com.devapplab.model.user.response.OrganizerListItem
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
@@ -160,6 +163,19 @@ class UserRepositoryImpl : UserRepository {
                 it[updatedAt] = System.currentTimeMillis()
             }.insertedCount > 0
         }
+    }
+
+    override fun getOrganizers(): List<OrganizerListItem> {
+        return UserTable.select(UserTable.id, UserTable.name, UserTable.lastName)
+            .where { 
+                ((UserTable.role eq UserRole.ADMIN) or (UserTable.role eq UserRole.ORGANIZER)) and 
+                (UserTable.status eq UserStatus.ACTIVE)
+            }
+            .map { OrganizerListItem(
+                id = it[UserTable.id],
+                name = it[UserTable.name],
+                lastName = it[UserTable.lastName]
+            ) }
     }
 
     private fun ResultRow.toUser(): User {

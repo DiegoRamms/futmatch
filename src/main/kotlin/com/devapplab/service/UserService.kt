@@ -6,6 +6,7 @@ import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.mapper.toUserResponse
+import com.devapplab.model.user.response.OrganizerListItem
 import com.devapplab.model.user.response.UserResponse
 import com.devapplab.service.image.ImageService
 import com.devapplab.utils.StringResourcesKey
@@ -81,5 +82,10 @@ class UserService(
             data = locale.getString(StringResourcesKey.IMAGE_UPLOAD_SUCCESS_MESSAGE),
             appStatus = HttpStatusCode.OK
         )
+    }
+
+    suspend fun getOrganizers(): AppResult<List<OrganizerListItem>> {
+        val organizers = dbExecutor.tx { userRepository.getOrganizers() }
+        return AppResult.Success(data = organizers, appStatus = HttpStatusCode.OK)
     }
 }
