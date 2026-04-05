@@ -457,7 +457,7 @@ class StripePaymentService(
         logger.info("💳 [MATCH_TRACE] getPaymentHistory START | customerId=$stripeCustomerId | daysBack=$daysBack")
 
         return try {
-            val createdGte = System.currentTimeMillis() - daysBack.days.inWholeMilliseconds
+            val createdGte = (System.currentTimeMillis() - daysBack.days.inWholeMilliseconds) / 1000
 
             val params = PaymentIntentListParams.builder()
                 .setCustomer(stripeCustomerId)
