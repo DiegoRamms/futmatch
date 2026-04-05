@@ -29,6 +29,21 @@ fun Route.matchRouting() {
             val matchController = call.scope.get<MatchController>()
             matchController.cancelMatch(call)
         }
+        get("admin/failed-refunds") {
+            call.requireRole(UserRole.ADMIN)
+            val matchController = call.scope.get<MatchController>()
+            matchController.getFailedRefunds(call)
+        }
+        post("admin/failed-refunds/{failureId}/retry") {
+            call.requireRole(UserRole.ADMIN)
+            val matchController = call.scope.get<MatchController>()
+            matchController.retryFailedRefund(call)
+        }
+        post("admin/failed-refunds/{failureId}/resolve") {
+            call.requireRole(UserRole.ADMIN)
+            val matchController = call.scope.get<MatchController>()
+            matchController.resolveFailedRefundManually(call)
+        }
         post("admin/{matchId}/complete") {
             call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
             val matchController = call.scope.get<MatchController>()

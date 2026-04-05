@@ -1,5 +1,6 @@
 package com.devapplab.data.repository.payment
 
+import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.model.payment.PaymentProvider
 import java.math.BigDecimal
@@ -35,6 +36,8 @@ interface PaymentRepository {
     suspend fun getActivePaymentByMatchPlayerId(matchPlayerId: UUID): PaymentInfo?
 
     suspend fun getPaymentByProviderId(providerPaymentId: String): PaymentInfo?
+
+    suspend fun getMatchPlayersWithPayments(matchId: UUID): List<MatchPlayerPaymentInfo>
 }
 
 data class PendingPaymentInfo(
@@ -53,4 +56,17 @@ data class PaymentInfo(
     val clientSecret: String?,
     val status: PaymentAttemptStatus,
     val provider: PaymentProvider
+)
+
+data class MatchPlayerPaymentInfo(
+    val matchPlayerId: UUID,
+    val userId: UUID,
+    val locale: String,
+    val playerStatus: MatchPlayerStatus,
+    val paymentId: UUID?,
+    val providerPaymentId: String?,
+    val paymentStatus: PaymentAttemptStatus?,
+    val amount: BigDecimal?,
+    val currency: String?,
+    val provider: PaymentProvider?
 )

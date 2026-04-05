@@ -217,7 +217,13 @@ Registers the final result of a match, including player goals and the best playe
 
 ## 4. Cancel Match
 
-Cancels a scheduled match.
+Cancels a scheduled match. This endpoint handles payment refunds and cancellations for all players enrolled in the match.
+
+**Behavior:**
+- `RESERVED` players: Removed from match, notification sent (no charge).
+- `JOINED` + `AUTHORIZED/CREATED` payments: Payment cancelled in Stripe.
+- `JOINED` + `SUCCEEDED` payments: Refund initiated via Stripe. If refund fails, it's recorded for retry.
+- All enrolled players receive a push notification about the cancellation.
 
 -   **Method:** `PATCH`
 -   **Path:** `/match/admin/cancel/{matchId}`
@@ -226,14 +232,55 @@ Cancels a scheduled match.
 ### Path Parameters
 -   `matchId` (UUID): The ID of the match to cancel.
 
+### cURL
+
+```bash
+curl --location --request PATCH '{{base_url}}/match/admin/cancel/{matchId}' \
+--header 'Authorization: Bearer {{token}}'
+```
+
 ### Success Response
 
 ```json
 {
     "status": "success",
-    "data": true
+    "data": {
+        "canceled": true,
+        "totalPlayers": 10,
+        "playersRemoved": 2,
+        "paymentsCancelled": 3,
+        "refundsIssued": 4,
+        "refundFailures": [
+            {
+                "failureId": "uuid",
+                "userId": "uuid",
+                "paymentId": "uuid",
+                "errorMessage": "Refund failed in Stripe"
+            }
+        ]
+    }
 }
 ```
+
+### Response Fields
+
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `canceled` | Boolean | Whether the match was successfully canceled. |
+| `totalPlayers` | Int | Total players enrolled in the match. |
+| `playersRemoved` | Int | Number of RESERVED players removed. |
+| `paymentsCancelled` | Int | Number of AUTHORIZED/CREATED payments cancelled. |
+| `refundsIssued` | Int | Number of successful refunds processed. |
+| `refundFailures` | List | List of failed refunds that need manual retry. |
+
+### Push Notifications Sent
+
+| Player Status | Payment Status | Notification |
+|:--------------|:---------------|:------------|
+| `RESERVED` | N/A | "Match canceled. No charge was made." |
+| `JOINED` | `SUCCEEDED` (refund success) | "Match canceled. Refund initiated." |
+| `JOINED` | `SUCCEEDED` (refund failed) | "Match canceled. Contact support for refund." |
+| `JOINED` | `AUTHORIZED/CREATED` | "Match canceled. Charge released." |
 
 ---
 
@@ -807,3 +854,141 @@ All responses that include field information return a `fieldImages` array with t
 | `fieldId` | UUID | The field this image belongs to. |
 | `imagePath` | String | Full signed URL to access the image on Cloudinary. |
 | `position` | Int | Display order (0-3). Used by the client to render images in the correct order. |
+
+---
+
+## 13. Get Failed Refunds
+
+Gets a list of all failed refund attempts from match cancellations.
+
+-   **Method:** `GET`
+-   **Path:** `/match/admin/failed-refunds`
+-   **Required Role:** `ADMIN`
+
+### Success Response
+
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "id": "uuid",
+            "matchId": "uuid",
+            "fieldName": "Cancha Central",
+            "userId": "uuid",
+            "userName": "Juan Perez",
+            "paymentId": "uuid",
+            "providerPaymentId": "pi_xxx",
+            "amountInCents": 500,
+            "errorMessage": "Refund failed in Stripe",
+            "status": "PENDING",
+            "retryCount": 2,
+            "createdAt": 1234567890
+        }
+    ]
+}
+```
+
+### cURL
+
+```bash
+curl --location '{{base_url}}/match/admin/failed-refunds' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+### RefundFailureStatus Values
+
+| Status | Description |
+|:-------|:------------|
+| `PENDING` | Awaiting retry |
+| `RETRYING` | Currently being retried |
+| `RESOLVED` | Successfully resolved |
+| `FAILED` | Max retries (5) reached |
+
+---
+
+## 14. Retry Failed Refund
+
+Retries a failed refund. Maximum 5 attempts allowed.
+
+-   **Method:** `POST`
+-   **Path:** `/match/admin/failed-refunds/{failureId}/retry`
+-   **Required Role:** `ADMIN`
+
+### Path Parameters
+-   `failureId` (UUID): The ID of the failed refund.
+
+### Success Response
+
+```json
+{
+    "status": "success",
+    "data": {
+        "failureId": "uuid",
+        "status": "RESOLVED",
+        "retryCount": 3,
+        "alreadyReimbursed": false,
+        "errorMessage": null
+    }
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `failureId` | UUID | The ID of the failure record. |
+| `status` | Enum | `RESOLVED` if successful, `PENDING` if can retry again, `FAILED` if max retries reached. |
+| `retryCount` | Int | Number of retry attempts made. |
+| `alreadyReimbursed` | Boolean | True if payment was already reimbursed in Stripe (resolved automatically). |
+| `errorMessage` | String | Error message if retry failed, null if successful. |
+
+### cURL
+
+```bash
+curl --location --request POST '{{base_url}}/match/admin/failed-refunds/{failureId}/retry' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+### Status Behavior
+
+| Response Status | Meaning |
+|:----------------|:--------|
+| `RESOLVED` | Refund successful or payment already reimbursed in Stripe |
+| `PENDING` | Retry failed but can try again |
+| `FAILED` | Maximum 5 retries reached |
+
+---
+
+## 15. Resolve Failed Refund Manually
+
+Marks a failed refund as resolved (used when resolved outside the app, e.g., manual refund in Stripe dashboard).
+
+-   **Method:** `POST`
+-   **Path:** `/match/admin/failed-refunds/{failureId}/resolve`
+-   **Required Role:** `ADMIN`
+
+### Path Parameters
+-   `failureId` (UUID): The ID of the failed refund.
+
+### Success Response
+
+```json
+{
+    "status": "success",
+    "data": {
+        "failureId": "uuid",
+        "status": "RESOLVED",
+        "retryCount": 5,
+        "alreadyReimbursed": false,
+        "errorMessage": null
+    }
+}
+```
+
+### cURL
+
+```bash
+curl --location --request POST '{{base_url}}/match/admin/failed-refunds/{failureId}/resolve' \
+--header 'Authorization: Bearer {{token}}'
+```

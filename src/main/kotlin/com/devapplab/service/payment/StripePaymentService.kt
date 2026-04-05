@@ -19,9 +19,11 @@ import com.stripe.exception.StripeException
 import com.stripe.model.Customer
 import com.stripe.model.CustomerSession
 import com.stripe.model.PaymentIntent
+import com.stripe.model.Refund
 import com.stripe.param.CustomerSessionCreateParams
 import com.stripe.param.PaymentIntentCaptureParams
 import com.stripe.param.PaymentIntentCreateParams
+import com.stripe.param.RefundCreateParams
 import io.ktor.http.*
 import org.slf4j.LoggerFactory
 import java.util.Locale
@@ -293,6 +295,47 @@ class StripePaymentService(
             false
         } catch (e: Exception) {
             logger.error("🔥 Unexpected error canceling payment. paymentId={}", paymentId, e)
+            false
+        }
+    }
+
+    override suspend fun refundPayment(paymentId: String, amount: Long?): Boolean {
+        logger.info("💰 Refunding Stripe PaymentIntent. paymentId={}, amount={}", paymentId, amount)
+
+        return try {
+            val paramsBuilder = RefundCreateParams.builder()
+                .setPaymentIntent(paymentId)
+
+            amount?.let {
+                paramsBuilder.setAmount(it)
+            }
+
+            val refund = Refund.create(paramsBuilder.build())
+
+            if (refund.status == "succeeded") {
+                logger.info("✅ Stripe Refund processed successfully. paymentId={}, refundId={}", paymentId, refund.id)
+                true
+            } else {
+                logger.warn(
+                    "⚠️ Stripe Refund status not succeeded. status={}, paymentId={}, refundId={}",
+                    refund.status,
+                    paymentId,
+                    refund.id
+                )
+                false
+            }
+        } catch (e: StripeException) {
+            logger.error(
+                "🔥 Stripe error refunding payment. statusCode={}, requestId={}, code={}, message={}",
+                e.statusCode,
+                e.requestId,
+                e.stripeError?.code,
+                e.stripeError?.message,
+                e
+            )
+            false
+        } catch (e: Exception) {
+            logger.error("🔥 Unexpected error refunding payment. paymentId={}", paymentId, e)
             false
         }
     }

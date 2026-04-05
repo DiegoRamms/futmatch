@@ -96,7 +96,8 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
 
     suspend fun cancelMatch(call: ApplicationCall) {
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't cancel match")
-        val result = matchService.cancelMatch(matchId)
+        val locale = call.retrieveLocale()
+        val result = matchService.cancelMatch(matchId, locale)
         call.respond(result)
     }
 
@@ -131,6 +132,25 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val request = call.receive<CompleteMatchRequest>()
         val locale = call.retrieveLocale()
         val result = matchService.completeMatch(matchId, userId, request, locale)
+        call.respond(result)
+    }
+
+    suspend fun getFailedRefunds(call: ApplicationCall) {
+        val result = matchService.getFailedRefunds()
+        call.respond(result)
+    }
+
+    suspend fun retryFailedRefund(call: ApplicationCall) {
+        val failureId = call.parameters["failureId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't find failure id")
+        val locale = call.retrieveLocale()
+        val result = matchService.retryFailedRefund(failureId, locale)
+        call.respond(result)
+    }
+
+    suspend fun resolveFailedRefundManually(call: ApplicationCall) {
+        val failureId = call.parameters["failureId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't find failure id")
+        val locale = call.retrieveLocale()
+        val result = matchService.resolveFailedRefundManually(failureId, locale)
         call.respond(result)
     }
 }

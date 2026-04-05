@@ -13,6 +13,8 @@ import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepositoryImpl
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.match.MatchRepositoryImp
+import com.devapplab.data.repository.match.MatchRefundFailureRepository
+import com.devapplab.data.repository.match.MatchRefundFailureRepositoryImpl
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepositoryImpl
 import com.devapplab.data.repository.payment.PaymentRepository
@@ -35,6 +37,7 @@ val repositoryModule = module {
     singleOf(::AuthRepositoryImpl) { bind<AuthRepository>() }
     singleOf(::FieldRepositoryImp) { bind<FieldRepository>() }
     singleOf(::MatchRepositoryImp) { bind<MatchRepository>() }
+    singleOf(::MatchRefundFailureRepositoryImpl) { bind<MatchRefundFailureRepository>() }
     singleOf(::PasswordResetTokenRepositoryImpl) { bind<PasswordResetTokenRepository>() }
     singleOf(::LoginAttemptRepositoryImpl) { bind<LoginAttemptRepository>() }
     singleOf(::PendingRegistrationRepositoryImpl) { bind<PendingRegistrationRepository>() }

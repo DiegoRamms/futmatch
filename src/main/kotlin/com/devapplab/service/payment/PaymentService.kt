@@ -41,6 +41,15 @@ interface PaymentService {
         paymentId: String
     ): Boolean
 
+    /**
+     * Refunds a captured payment.
+     * Returns true if refund was successful.
+     */
+    suspend fun refundPayment(
+        paymentId: String,
+        amount: Long? = null
+    ): Boolean
+
     suspend fun recoverPaymentStatus(
         matchId: String,
         userId: UUID,

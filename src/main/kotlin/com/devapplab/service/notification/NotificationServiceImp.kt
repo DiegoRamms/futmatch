@@ -1,6 +1,7 @@
 package com.devapplab.service.notification
 
 import com.devapplab.data.repository.device.DeviceRepository
+import com.devapplab.model.match.RefundStatus
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.getString
 import com.google.firebase.messaging.FirebaseMessaging
@@ -37,6 +38,32 @@ class NotificationServiceImp(
             title = title,
             body = body,
             data = mapOf("matchId" to matchId.toString(), "type" to "RESERVATION_EXPIRED")
+        )
+    }
+
+    override suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus) {
+        val title = when (refundStatus) {
+            RefundStatus.REFUNDED -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_TITLE)
+            RefundStatus.FAILED -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_TITLE)
+            RefundStatus.NO_CHARGE -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_TITLE)
+        }
+        
+        val body = when (refundStatus) {
+            RefundStatus.REFUNDED -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_BODY)
+            RefundStatus.FAILED -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_BODY)
+            RefundStatus.NO_CHARGE -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_BODY)
+        }
+
+        notifyUser(
+            userId = userId,
+            title = title,
+            body = body,
+            data = mapOf(
+                "matchId" to matchId.toString(),
+                "fieldName" to fieldName,
+                "type" to "MATCH_CANCELED",
+                "refundStatus" to refundStatus.name
+            )
         )
     }
 

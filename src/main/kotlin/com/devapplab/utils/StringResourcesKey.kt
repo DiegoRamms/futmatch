@@ -177,6 +177,12 @@ enum class StringResourcesKey(val value: String) {
     NOTIFICATION_PAYMENT_FAILED_BODY("notification_payment_failed_body"),
     NOTIFICATION_RESERVATION_EXPIRED_TITLE("notification_reservation_expired_title"),
     NOTIFICATION_RESERVATION_EXPIRED_BODY("notification_reservation_expired_body"),
+    NOTIFICATION_MATCH_CANCELED_TITLE("notification_match_canceled_title"),
+    NOTIFICATION_MATCH_CANCELED_BODY("notification_match_canceled_body"),
+    NOTIFICATION_MATCH_CANCELED_REFUND_TITLE("notification_match_canceled_refund_title"),
+    NOTIFICATION_MATCH_CANCELED_REFUND_BODY("notification_match_canceled_refund_body"),
+    NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_TITLE("notification_match_canceled_refund_failed_title"),
+    NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_BODY("notification_match_canceled_refund_failed_body"),
 
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),

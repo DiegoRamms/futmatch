@@ -4,6 +4,7 @@ import com.devapplab.config.dbQuery
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.payments.MatchPlayerPaymentsTable
+import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.payment.PaymentAttemptStatus
@@ -189,6 +190,40 @@ class PaymentRepositoryImp : PaymentRepository {
                     )
                 }
                 .singleOrNull()
+        }
+    }
+
+    override suspend fun getMatchPlayersWithPayments(matchId: UUID): List<MatchPlayerPaymentInfo> {
+        return dbQuery {
+            (MatchPlayersTable innerJoin UserTable)
+                .leftJoin(MatchPlayerPaymentsTable, { MatchPlayerPaymentsTable.matchPlayerId eq MatchPlayersTable.id })
+                .select(
+                    MatchPlayersTable.id,
+                    MatchPlayersTable.userId,
+                    UserTable.locale,
+                    MatchPlayersTable.status,
+                    MatchPlayerPaymentsTable.id,
+                    MatchPlayerPaymentsTable.providerPaymentId,
+                    MatchPlayerPaymentsTable.status,
+                    MatchPlayerPaymentsTable.amount,
+                    MatchPlayerPaymentsTable.currency,
+                    MatchPlayerPaymentsTable.provider
+                )
+                .where { MatchPlayersTable.matchId eq matchId }
+                .map { row ->
+                    MatchPlayerPaymentInfo(
+                        matchPlayerId = row[MatchPlayersTable.id],
+                        userId = row[MatchPlayersTable.userId],
+                        locale = row[UserTable.locale],
+                        playerStatus = row[MatchPlayersTable.status],
+                        paymentId = row[MatchPlayerPaymentsTable.id],
+                        providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
+                        paymentStatus = row[MatchPlayerPaymentsTable.status],
+                        amount = row[MatchPlayerPaymentsTable.amount],
+                        currency = row[MatchPlayerPaymentsTable.currency],
+                        provider = row[MatchPlayerPaymentsTable.provider]
+                    )
+                }
         }
     }
 }
