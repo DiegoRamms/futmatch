@@ -150,3 +150,74 @@ Valida el estado actual de un pago específico directamente con el proveedor y a
     }
 }
 ```
+
+---
+
+## 5. Historial de Pagos
+
+### 5.1 Obtener Historial de Pagos
+Obtiene el historial de pagos del usuario actual desde Stripe.
+
+- **Método:** `GET`
+- **Path:** `/user/payments`
+- **Roles Permitidos:** `PLAYER`, `ADMIN`, `ORGANIZER`
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "id": "pi_123456789",
+            "amount": 25000,
+            "currency": "mxn",
+            "status": "succeeded",
+            "createdAt": 1704067200000,
+            "paidAt": 1704067300000,
+            "paymentMethod": {
+                "last4": "4242",
+                "brand": "visa"
+            },
+            "refund": null
+        },
+        {
+            "id": "pi_987654321",
+            "amount": 25000,
+            "currency": "mxn",
+            "status": "succeeded",
+            "createdAt": 1703980800000,
+            "paidAt": 1703980900000,
+            "paymentMethod": {
+                "last4": "4242",
+                "brand": "visa"
+            },
+            "refund": {
+                "id": "re_abc123",
+                "amount": 25000,
+                "status": "succeeded",
+                "createdAt": 1704153600000,
+                "refundedAt": 1704153700000
+            }
+        }
+    ]
+}
+```
+
+#### Campos de Respuesta:
+- `id` (String): ID del PaymentIntent de Stripe.
+- `amount` (Long): Monto en la unidad más pequeña de la moneda (centavos para MXN).
+- `currency` (String): Código de moneda ISO (ej. `mxn`).
+- `status` (String): Estado del pago (`succeeded`, `canceled`, `requires_payment_method`, etc.).
+- `createdAt` (Long): Timestamp de creación del pago en milisegundos.
+- `paidAt` (Long): Timestamp cuando el pago fue completado exitosamente.
+- `paymentMethod` (Object|null): Información de la tarjeta utilizada.
+  - `last4` (String): Últimos 4 dígitos de la tarjeta.
+  - `brand` (String): Marca de la tarjeta (`visa`, `mastercard`, etc.).
+- `refund` (Object|null): Información del reembolso (si existe).
+  - `id` (String): ID del reembolso en Stripe.
+  - `amount` (Long): Monto reembolsado en la unidad más pequeña de la moneda.
+  - `status` (String): Estado del reembolso (`succeeded`, `pending`, `failed`).
+  - `createdAt` (Long): Timestamp de creación del reembolso.
+  - `refundedAt` (Long): Timestamp cuando el reembolso fue procesado.
+
+*Nota: El historial retorna los pagos de los últimos 30 días ordenados del más reciente al más antiguo.*

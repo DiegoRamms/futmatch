@@ -9,9 +9,12 @@ import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.model.payment.PaymentCaptureMethod
 import com.devapplab.model.payment.PaymentFailureReason
+import com.devapplab.model.payment.PaymentHistoryItem
+import com.devapplab.model.payment.PaymentMethodInfo
 import com.devapplab.model.payment.PaymentOperationResult
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.payment.PaymentStatusResponse
+import com.devapplab.model.payment.RefundInfo
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.stripe.Stripe
@@ -23,10 +26,12 @@ import com.stripe.model.Refund
 import com.stripe.param.CustomerSessionCreateParams
 import com.stripe.param.PaymentIntentCaptureParams
 import com.stripe.param.PaymentIntentCreateParams
+import com.stripe.param.PaymentIntentListParams
 import com.stripe.param.RefundCreateParams
 import io.ktor.http.*
 import org.slf4j.LoggerFactory
 import java.util.Locale
+import kotlin.time.Duration.Companion.days
 import java.util.UUID
 
 class StripePaymentService(
@@ -343,7 +348,7 @@ class StripePaymentService(
     override suspend fun recoverPaymentStatus(matchId: String, userId: UUID, locale: Locale): AppResult<PaymentStatusResponse?> {
         val matchUuid = try {
             UUID.fromString(matchId)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
@@ -446,5 +451,67 @@ class StripePaymentService(
                 provider = paymentInfo.provider
             )
         )
+    }
+
+    override suspend fun getPaymentHistory(stripeCustomerId: String, daysBack: Int): List<PaymentHistoryItem> {
+        logger.info("💳 [MATCH_TRACE] getPaymentHistory START | customerId=$stripeCustomerId | daysBack=$daysBack")
+
+        return try {
+            val createdGte = System.currentTimeMillis() - daysBack.days.inWholeMilliseconds
+
+            val params = PaymentIntentListParams.builder()
+                .setCustomer(stripeCustomerId)
+                .setCreated(
+                    PaymentIntentListParams.Created.builder()
+                        .setGte(createdGte)
+                        .build()
+                )
+                .setLimit(100)
+                .build()
+
+            val paymentIntents = PaymentIntent.list(params)
+
+            val historyItems = paymentIntents.data.mapNotNull { intent ->
+                val charge = intent.latestChargeObject
+
+                val paymentMethod = if (charge?.paymentMethodDetails?.card != null) {
+                    PaymentMethodInfo(
+                        last4 = charge.paymentMethodDetails.card?.last4 ?: "",
+                        brand = charge.paymentMethodDetails.card?.brand ?: ""
+                    )
+                } else null
+
+                val refund = charge?.refunds?.data?.firstOrNull()?.let { refundObj ->
+                    RefundInfo(
+                        id = refundObj.id,
+                        amount = refundObj.amount,
+                        status = refundObj.status,
+                        createdAt = refundObj.created * 1000,
+                        refundedAt = refundObj.created * 1000
+                    )
+                }
+
+                PaymentHistoryItem(
+                    id = intent.id,
+                    amount = intent.amount,
+                    currency = intent.currency,
+                    status = intent.status,
+                    createdAt = intent.created * 1000,
+                    paidAt = (charge?.created ?: intent.created) * 1000,
+                    paymentMethod = paymentMethod,
+                    refund = refund
+                )
+            }
+
+            logger.info("🏁 [MATCH_TRACE] getPaymentHistory END | count=${historyItems.size}")
+            historyItems
+
+        } catch (e: StripeException) {
+            logger.error("🔥 [MATCH_TRACE] getPaymentHistory | Stripe error | customerId=$stripeCustomerId", e)
+            emptyList()
+        } catch (e: Exception) {
+            logger.error("🔥 [MATCH_TRACE] getPaymentHistory | Unexpected error | customerId=$stripeCustomerId", e)
+            emptyList()
+        }
     }
 }

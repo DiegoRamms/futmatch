@@ -3,6 +3,7 @@ package com.devapplab.service.payment
 import com.devapplab.model.AppResult
 import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.model.payment.PaymentCaptureMethod
+import com.devapplab.model.payment.PaymentHistoryItem
 import com.devapplab.model.payment.PaymentOperationResult
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.payment.PaymentStatusResponse
@@ -60,6 +61,11 @@ interface PaymentService {
         providerPaymentId: String,
         locale: Locale
     ): AppResult<PaymentStatusResponse>
+
+    suspend fun getPaymentHistory(
+        stripeCustomerId: String,
+        daysBack: Int = 30
+    ): List<PaymentHistoryItem>
 }
 
 @Serializable

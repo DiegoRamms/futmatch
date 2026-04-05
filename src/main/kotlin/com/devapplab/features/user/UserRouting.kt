@@ -24,5 +24,11 @@ fun Route.userRouting() {
             val userController = call.scope.get<UserController>()
             userController.getOrganizers(call)
         }
+
+        get("payments") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val userController = call.scope.get<UserController>()
+            userController.getPaymentHistory(call)
+        }
     }
 }
