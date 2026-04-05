@@ -204,7 +204,53 @@ Before marking a task as complete, verify:
 
 ---
 
-## 5. Questions to Ask the User
+## 5. Text Files & Localization (i18n)
+
+When working with text files (strings, messages, .properties, translation JSONs), follow these rules strictly:
+
+### Encoding & Characters
+- All content must be in **UTF-8**.
+- DO NOT use Unicode escapes (e.g., `\u00E1`).
+- DO NOT generate corrupt characters (e.g., `ï¿½`).
+- Use real Spanish characters: á, é, í, ó, ú, ñ, ¿, ¡.
+
+### Format
+- Keep original format (e.g., `key=value`).
+- DO NOT modify key names.
+- DO NOT add quotes.
+- DO NOT add comments.
+- DO NOT change dynamic placeholders like `{minutes}`, `{seconds}`, `{value}`.
+
+### Restrictions
+- DO NOT "optimize" encoding.
+- DO NOT convert to ASCII.
+- DO NOT use escape sequences.
+- DO NOT change language.
+- DO NOT restructure the file.
+
+### Goal
+The result must be:
+- Human-readable
+- Correct in Spanish
+- Production-ready
+- Free of encoding errors
+
+### Critical Rule
+If text contains corrupt characters (e.g., `ï¿½`), you **must** fix them automatically.
+
+### If Encoding Gets Corrupted
+If a `.properties` file gets corrupted, restore it from git and use `iconv` to convert from ISO-8859-1 to UTF-8:
+```bash
+git show HEAD:src/main/resources/app_strings_es_MX.properties | iconv -f ISO-8859-1 -t UTF-8 > app_strings_es_MX.properties
+```
+
+### Expected Output
+- Return ONLY the final clean file.
+- No explanations.
+
+---
+
+## 6. Questions to Ask the User
 
 If the user request is vague, ask these questions before generating code:
 
