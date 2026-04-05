@@ -132,6 +132,16 @@ Follow the style in `FieldRepositoryImp.kt`:
 *   Use DSL methods: `insert`, `update`, `deleteWhere`, `selectAll`.
 *   Map results manually using private extension functions (e.g., `ResultRow.toModel()`).
 
+**Join Syntax (CRITICAL):**
+When using `leftJoin` or `join`, pass columns directly as separate parameters, NOT as an `eq` expression:
+```kotlin
+// CORRECT:
+.leftJoin(OtherTable, { OtherTable.columnA }, { MyTable.columnB })
+
+// INCORRECT (causes "Missing join condition" error):
+.leftJoin(OtherTable, { OtherTable.columnA eq MyTable.columnB })
+```
+
 ### Transaction Management (Advanced)
 For complex operations requiring atomicity (rollback on failure), use `DbExecutor`.
 

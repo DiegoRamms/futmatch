@@ -196,7 +196,7 @@ class PaymentRepositoryImp : PaymentRepository {
     override suspend fun getMatchPlayersWithPayments(matchId: UUID): List<MatchPlayerPaymentInfo> {
         return dbQuery {
             (MatchPlayersTable innerJoin UserTable)
-                .leftJoin(MatchPlayerPaymentsTable, { MatchPlayerPaymentsTable.matchPlayerId eq MatchPlayersTable.id })
+                .leftJoin(MatchPlayerPaymentsTable, { MatchPlayerPaymentsTable.matchPlayerId }, { MatchPlayersTable.id })
                 .select(
                     MatchPlayersTable.id,
                     MatchPlayersTable.userId,
