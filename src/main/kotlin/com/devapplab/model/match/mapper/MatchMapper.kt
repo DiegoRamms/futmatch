@@ -14,6 +14,7 @@ fun CreateMatchRequest.toMatch(adminId: UUID): Match {
     return Match(
         fieldId = this.fieldId,
         adminId = adminId,
+        supervisorId = this.supervisorId,
         dateTime = this.dateTime,
         dateTimeEnd = this.dateTimeEnd,
         maxPlayers = this.maxPlayers,
@@ -31,6 +32,7 @@ fun UpdateMatchRequest.toMatch(adminId: UUID, matchId: UUID): Match {
         id = matchId,
         fieldId = this.fieldId,
         adminId = adminId,
+        supervisorId = this.supervisorId,
         dateTime = this.dateTime,
         dateTimeEnd = this.dateTimeEnd,
         maxPlayers = this.maxPlayers,

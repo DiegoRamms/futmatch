@@ -8,6 +8,7 @@ data class Match(
     val id: UUID = UUID.randomUUID(),
     val fieldId: UUID,
     val adminId: UUID,
+    val supervisorId: UUID? = null,
     val dateTime: Long,
     val dateTimeEnd: Long,
     val maxPlayers: Int,

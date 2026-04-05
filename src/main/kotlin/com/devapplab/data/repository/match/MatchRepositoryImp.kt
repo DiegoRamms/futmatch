@@ -6,7 +6,9 @@ import com.devapplab.data.database.field.FieldImagesTable
 import com.devapplab.data.database.field.FieldTable
 import com.devapplab.data.database.location.LocationsTable
 import com.devapplab.data.database.match.MatchDiscountsTable
+import com.devapplab.data.database.match.MatchPlayerGoalsTable
 import com.devapplab.data.database.match.MatchPlayersTable
+import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.discount.Discount
@@ -24,6 +26,7 @@ class MatchRepositoryImp : MatchRepository {
             val matchResult = MatchTable.insert {
                 it[fieldId] = match.fieldId
                 it[adminId] = match.adminId
+                it[supervisorId] = match.supervisorId
                 it[dateTime] = match.dateTime
                 it[dateTimeEnd] = match.dateTimeEnd
                 it[maxPlayers] = match.maxPlayers
@@ -550,6 +553,7 @@ class MatchRepositoryImp : MatchRepository {
         return dbQuery {
             val updatedRows = MatchTable.update({ MatchTable.id eq matchId }) {
                 it[fieldId] = match.fieldId
+                it[supervisorId] = match.supervisorId
                 it[dateTime] = match.dateTime
                 it[dateTimeEnd] = match.dateTimeEnd
                 it[maxPlayers] = match.maxPlayers
@@ -733,5 +737,65 @@ class MatchRepositoryImp : MatchRepository {
             genderType = this[MatchTable.genderType],
             playerLevel = this[MatchTable.playerLevel]
         )
+    }
+
+    override suspend fun setPlayerGoals(matchId: UUID, goals: List<PlayerGoalInput>): Boolean {
+        return dbQuery {
+            goals.forEach { goalInput ->
+                MatchPlayerGoalsTable.insert {
+                    it[this.matchId] = matchId
+                    it[this.userId] = goalInput.userId
+                    it[this.goalsCount] = goalInput.goals
+                }
+            }
+            true
+        }
+    }
+
+    override suspend fun setBestPlayer(matchId: UUID, bestPlayerId: UUID): Boolean {
+        return dbQuery {
+            val existing = MatchResultsTable.select(MatchResultsTable.matchId eq matchId).singleOrNull()
+            if (existing != null) {
+                MatchResultsTable.update({ MatchResultsTable.matchId eq matchId }) {
+                    it[this.bestPlayerId] = bestPlayerId
+                    it[updatedAt] = System.currentTimeMillis()
+                }
+            } else {
+                MatchResultsTable.insert {
+                    it[this.matchId] = matchId
+                    it[this.bestPlayerId] = bestPlayerId
+                }
+            }
+            true
+        }
+    }
+
+    override suspend fun getMatchPlayerGoals(matchId: UUID): List<MatchPlayerGoal> {
+        return dbQuery {
+            MatchPlayerGoalsTable
+                .select(MatchPlayerGoalsTable.matchId eq matchId)
+                .map { row ->
+                    MatchPlayerGoal(
+                        id = row[MatchPlayerGoalsTable.id],
+                        matchId = row[MatchPlayerGoalsTable.matchId],
+                        userId = row[MatchPlayerGoalsTable.userId],
+                        goalsCount = row[MatchPlayerGoalsTable.goalsCount]
+                    )
+                }
+        }
+    }
+
+    override suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int> {
+        return dbQuery {
+            val goals: List<Pair<TeamType, Int>> = (MatchPlayerGoalsTable innerJoin MatchPlayersTable)
+                .select(MatchPlayerGoalsTable.matchId eq matchId)
+                .map { row: ResultRow ->
+                    Pair(row[MatchPlayersTable.team], row[MatchPlayerGoalsTable.goalsCount])
+                }
+
+            val teamAScore = goals.filter { (team, _) -> team == TeamType.A }.sumOf { (_, goalsCount) -> goalsCount }
+            val teamBScore = goals.filter { (team, _) -> team == TeamType.B }.sumOf { (_, goalsCount) -> goalsCount }
+            Pair(teamAScore, teamBScore)
+        }
     }
 }

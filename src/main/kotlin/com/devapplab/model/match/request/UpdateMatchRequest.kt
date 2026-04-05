@@ -16,6 +16,8 @@ data class UpdateMatchRequest(
     val maxPlayers: Int,
     val minPlayersRequired: Int,
     val matchPriceInCents: Long,
+    @Serializable(with = UUIDSerializer::class)
+    val supervisorId: UUID? = null,
     val discountIds: List<@Serializable(with = UUIDSerializer::class) UUID>? = null,
     val status: MatchStatus,
     val genderType: GenderType,

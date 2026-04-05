@@ -2,6 +2,7 @@ package com.devapplab.features.match
 
 import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
+import com.devapplab.model.match.CompleteMatchRequest
 import com.devapplab.model.match.mapper.toMatch
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.request.JoinMatchRequest
@@ -121,6 +122,15 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val locale = call.retrieveLocale()
         val result = matchService.leaveMatch(userId, matchId, locale)
+        call.respond(result)
+    }
+
+    suspend fun completeMatch(call: ApplicationCall) {
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't complete match")
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val request = call.receive<CompleteMatchRequest>()
+        val locale = call.retrieveLocale()
+        val result = matchService.completeMatch(matchId, userId, request, locale)
         call.respond(result)
     }
 }

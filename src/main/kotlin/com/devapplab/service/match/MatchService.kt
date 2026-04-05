@@ -12,6 +12,7 @@ import com.devapplab.model.ErrorCode
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
 import com.devapplab.model.firestore.MatchPlayerList
+import com.devapplab.model.match.CompleteMatchRequest
 import com.devapplab.model.match.Match
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
@@ -775,5 +776,57 @@ class MatchService(
             teamA = teams.teamA.copy(players = teams.teamA.players.map(transformPlayer)),
             teamB = teams.teamB.copy(players = teams.teamB.players.map(transformPlayer))
         )
+    }
+
+    suspend fun completeMatch(
+        matchId: UUID,
+        userId: UUID,
+        request: CompleteMatchRequest,
+        locale: Locale
+    ): AppResult<Boolean> {
+        logger.info("🏆 [MATCH_TRACE] completeMatch START | matchId=$matchId | userId=$userId")
+
+        val matchWithField = matchRepository.getMatchById(matchId)
+            ?: return locale.createError(
+                titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                status = HttpStatusCode.NotFound,
+                errorCode = ErrorCode.NOT_FOUND
+            )
+
+        if (matchWithField.status == MatchStatus.COMPLETED) {
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_ALREADY_COMPLETED
+            )
+        }
+
+        val bestPlayerInput = request.goals.find { it.isBestPlayer }
+        if (bestPlayerInput != null) {
+            matchRepository.setBestPlayer(matchId, bestPlayerInput.userId)
+        }
+
+        matchRepository.setPlayerGoals(matchId, request.goals)
+
+        val matchToUpdate = Match(
+            id = matchId,
+            fieldId = matchWithField.fieldId,
+            adminId = matchWithField.adminId,
+            dateTime = matchWithField.dateTime,
+            dateTimeEnd = matchWithField.dateTimeEnd,
+            maxPlayers = matchWithField.maxPlayers,
+            minPlayersRequired = matchWithField.minPlayersRequired,
+            matchPrice = matchWithField.matchPrice,
+            status = MatchStatus.COMPLETED,
+            genderType = matchWithField.genderType,
+            playerLevel = matchWithField.playerLevel
+        )
+
+        matchRepository.updateMatch(matchId, matchToUpdate)
+
+        logger.info("🏆 [MATCH_TRACE] completeMatch END | matchId=$matchId")
+        return AppResult.Success(true)
     }
 }

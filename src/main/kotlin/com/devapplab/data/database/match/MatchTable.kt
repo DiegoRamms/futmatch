@@ -13,8 +13,9 @@ object MatchTable : Table("matches") {
     val id = javaUUID("id").autoGenerate().uniqueIndex()
     val fieldId = javaUUID("field_id").references(FieldTable.id, onDelete = ReferenceOption.CASCADE)
     val adminId = javaUUID("admin_id").references(UserTable.id, onDelete = ReferenceOption.NO_ACTION)
-    val dateTime = long("date_time") // Timestamp de inicio
-    val dateTimeEnd = long("date_time_end") // Timestamp de fin
+    val supervisorId = javaUUID("supervisor_id").nullable()
+    val dateTime = long("date_time")
+    val dateTimeEnd = long("date_time_end")
     val maxPlayers = integer("max_players")
     val minPlayersRequired = integer("min_players_required")
     val matchPrice = decimal("match_price", 10, 2)
@@ -22,7 +23,7 @@ object MatchTable : Table("matches") {
     val playerLevel = enumerationByName("player_level", 20, PlayerLevel::class).default(PlayerLevel.ANY)
     val genderType = enumerationByName("gender_type", 20, GenderType::class).default(GenderType.MIXED)
     val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
-    val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
+    val updatedAt = long("updated_at").clientDefault { (System.currentTimeMillis()) }
 
     override val primaryKey = PrimaryKey(id)
 }

@@ -16,6 +16,8 @@ data class CreateMatchRequest(
     val maxPlayers: Int,
     val minPlayersRequired: Int,
     val matchPriceInCents: Long,
+    @Serializable(with = UUIDSerializer::class)
+    val supervisorId: UUID? = null,
     val discountIds: List<@Serializable(with = UUIDSerializer::class) UUID>? = null,
     val status: MatchStatus = MatchStatus.SCHEDULED,
     val genderType: GenderType = GenderType.MIXED,

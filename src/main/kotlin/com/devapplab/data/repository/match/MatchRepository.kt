@@ -21,4 +21,8 @@ interface MatchRepository {
     suspend fun updatePlayerStatus(matchPlayerId: UUID, status: MatchPlayerStatus): Boolean
     suspend fun getExpiredReservations(expirationTime: Long): List<ExpiredReservation>
     suspend fun hasActiveReservation(userId: UUID): Boolean
+    suspend fun setPlayerGoals(matchId: UUID, goals: List<PlayerGoalInput>): Boolean
+    suspend fun setBestPlayer(matchId: UUID, bestPlayerId: UUID): Boolean
+    suspend fun getMatchPlayerGoals(matchId: UUID): List<MatchPlayerGoal>
+    suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int>
 }

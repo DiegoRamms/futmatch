@@ -9,6 +9,7 @@ import com.devapplab.data.database.field.FieldTable
 import com.devapplab.data.database.location.LocationsTable
 import com.devapplab.data.database.login_attempt.LoginAttemptTable
 import com.devapplab.data.database.match.MatchDiscountsTable
+import com.devapplab.data.database.match.MatchPlayerGoalsTable
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
@@ -54,6 +55,7 @@ fun Application.configureDatabase() {
         MatchTable,
         MatchDiscountsTable,
         MatchPlayersTable,
+        MatchPlayerGoalsTable,
         MatchResultsTable,
         PasswordResetTokensTable,
         LoginAttemptTable,
