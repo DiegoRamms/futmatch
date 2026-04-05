@@ -467,6 +467,7 @@ class StripePaymentService(
                         .build()
                 )
                 .setLimit(100)
+                .addExpand("data.latest_charge")
                 .build()
 
             val paymentIntents = PaymentIntent.list(params)
