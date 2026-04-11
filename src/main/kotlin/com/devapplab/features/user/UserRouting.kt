@@ -30,5 +30,29 @@ fun Route.userRouting() {
             val userController = call.scope.get<UserController>()
             userController.getPaymentHistory(call)
         }
+
+        patch("/profile/name") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val userController = call.scope.get<UserController>()
+            userController.updateName(call)
+        }
+
+        patch("/profile/country") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val userController = call.scope.get<UserController>()
+            userController.updateCountry(call)
+        }
+
+        patch("/profile/gender") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val userController = call.scope.get<UserController>()
+            userController.updateGender(call)
+        }
+
+        patch("/profile/position") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val userController = call.scope.get<UserController>()
+            userController.updatePosition(call)
+        }
     }
 }

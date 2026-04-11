@@ -128,3 +128,130 @@ Authorization: Bearer <access_token>
 #### Notas:
 - Solo devuelve usuarios con `status = ACTIVE`.
 - Útil para populate el selector de supervisores al crear o actualizar partidos.
+
+---
+
+## 3. Editar Perfil de Usuario
+
+### 3.1 Editar Nombre y Apellido
+
+Actualiza el nombre y apellido del usuario autenticado.
+
+*   **Método:** `PATCH`
+*   **Path:** `/user/profile/name`
+*   **Roles Requeridos:** `PLAYER`, `ADMIN`, `ORGANIZER`
+
+#### Body (JSON):
+```json
+{
+    "name": "Juan",
+    "lastName": "Pérez"
+}
+```
+
+#### Validaciones:
+- `name`: No vacío, máximo 100 caracteres
+- `lastName`: No vacío, máximo 100 caracteres
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": null
+}
+```
+
+---
+
+### 3.2 Editar País
+
+Actualiza el código de país del usuario autenticado.
+
+*   **Método:** `PATCH`
+*   **Path:** `/user/profile/country`
+*   **Roles Requeridos:** `PLAYER`, `ADMIN`, `ORGANIZER`
+
+#### Body (JSON):
+```json
+{
+    "countryCode": "MX"
+}
+```
+
+#### Validaciones:
+- `countryCode`: No vacío
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": null
+}
+```
+
+---
+
+### 3.3 Editar Género
+
+Actualiza el género del usuario autenticado.
+
+*   **Método:** `PATCH`
+*   **Path:** `/user/profile/gender`
+*   **Roles Requeridos:** `PLAYER`, `ADMIN`, `ORGANIZER`
+
+#### Body (JSON):
+```json
+{
+    "gender": "MALE"
+}
+```
+
+#### Valores Permitidos:
+- `MALE` - Masculino
+- `FEMALE` - Femenino
+- `OTHER` - Otro
+
+#### Validaciones:
+- `gender`: Debe ser uno de los valores permitidos
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": null
+}
+```
+
+---
+
+### 3.4 Editar Posición de Jugador
+
+Actualiza la posición de juego del usuario autenticado.
+
+*   **Método:** `PATCH`
+*   **Path:** `/user/profile/position`
+*   **Roles Requeridos:** `PLAYER`, `ADMIN`, `ORGANIZER`
+
+#### Body (JSON):
+```json
+{
+    "position": "MIDFIELDER"
+}
+```
+
+#### Valores Permitidos:
+- `GOALKEEPER` - Portero
+- `DEFENDER` - Defensa
+- `MIDFIELDER` - Mediocampista
+- `FORWARD` - Delantero
+
+#### Validaciones:
+- `position`: Debe ser uno de los valores permitidos
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": null
+}
+```

@@ -4,6 +4,8 @@ import com.devapplab.utils.Constants
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
+import com.devapplab.model.user.Gender
+import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.mapper.toUserResponse
 import com.devapplab.model.user.response.OrganizerListItem
@@ -108,5 +110,61 @@ class UserService(
 
         logger.info("🏁 [MATCH_TRACE] getPaymentHistory END | userId=$userId | count=${history.size}")
         return AppResult.Success(data = history, appStatus = HttpStatusCode.OK)
+    }
+
+    suspend fun updateName(userId: UUID, name: String, lastName: String, locale: Locale): AppResult<Unit> {
+        val updated = dbExecutor.tx { userRepository.updateNameTx(userId, name.trim(), lastName.trim()) }
+        return if (updated) {
+            AppResult.Success(data = Unit, appStatus = HttpStatusCode.OK)
+        } else {
+            locale.createError(status = HttpStatusCode.NotFound)
+        }
+    }
+
+    suspend fun updateCountry(userId: UUID, countryCode: String, locale: Locale): AppResult<Unit> {
+        val updated = dbExecutor.tx { userRepository.updateCountryTx(userId, countryCode.trim()) }
+        return if (updated) {
+            AppResult.Success(data = Unit, appStatus = HttpStatusCode.OK)
+        } else {
+            locale.createError(status = HttpStatusCode.NotFound)
+        }
+    }
+
+    suspend fun updateGender(userId: UUID, gender: String, locale: Locale): AppResult<Unit> {
+        val genderEnum = try {
+            Gender.valueOf(gender.uppercase())
+        } catch (_: IllegalArgumentException) {
+            return locale.createError(
+                titleKey = StringResourcesKey.USER_PROFILE_GENDER_INVALID,
+                descriptionKey = StringResourcesKey.USER_PROFILE_GENDER_INVALID,
+                status = HttpStatusCode.BadRequest
+            )
+        }
+
+        val updated = dbExecutor.tx { userRepository.updateGenderTx(userId, genderEnum) }
+        return if (updated) {
+            AppResult.Success(data = Unit, appStatus = HttpStatusCode.OK)
+        } else {
+            locale.createError(status = HttpStatusCode.NotFound)
+        }
+    }
+
+    suspend fun updatePosition(userId: UUID, position: String, locale: Locale): AppResult<Unit> {
+        val positionEnum = try {
+            PlayerPosition.valueOf(position.uppercase())
+        } catch (_: IllegalArgumentException) {
+            return locale.createError(
+                titleKey = StringResourcesKey.USER_PROFILE_POSITION_INVALID,
+                descriptionKey = StringResourcesKey.USER_PROFILE_POSITION_INVALID,
+                status = HttpStatusCode.BadRequest
+            )
+        }
+
+        val updated = dbExecutor.tx { userRepository.updatePositionTx(userId, positionEnum) }
+        return if (updated) {
+            AppResult.Success(data = Unit, appStatus = HttpStatusCode.OK)
+        } else {
+            locale.createError(status = HttpStatusCode.NotFound)
+        }
     }
 }

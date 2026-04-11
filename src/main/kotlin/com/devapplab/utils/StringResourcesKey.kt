@@ -184,6 +184,16 @@ enum class StringResourcesKey(val value: String) {
     NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_TITLE("notification_match_canceled_refund_failed_title"),
     NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_BODY("notification_match_canceled_refund_failed_body"),
 
+    // User Profile
+    USER_PROFILE_NAME_UPDATED("user_profile_name_updated"),
+    USER_PROFILE_COUNTRY_UPDATED("user_profile_country_updated"),
+    USER_PROFILE_GENDER_UPDATED("user_profile_gender_updated"),
+    USER_PROFILE_POSITION_UPDATED("user_profile_position_updated"),
+    USER_PROFILE_NAME_INVALID("user_profile_name_invalid"),
+    USER_PROFILE_COUNTRY_INVALID("user_profile_country_invalid"),
+    USER_PROFILE_GENDER_INVALID("user_profile_gender_invalid"),
+    USER_PROFILE_POSITION_INVALID("user_profile_position_invalid"),
+
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),
     EMAIL_MFA_MESSAGE("email_mfa_message"),

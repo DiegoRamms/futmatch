@@ -2,7 +2,9 @@ package com.devapplab.data.repository.user
 
 import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.payment.PaymentProvider
+import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PendingUser
+import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.response.OrganizerListItem
@@ -20,6 +22,10 @@ interface UserRepository {
     fun addUser(user: User): UUID
     suspend fun updateUser(id: UUID, updatedUser: User): Boolean
     suspend fun updateProfilePic(userId: UUID, fileName: String): Boolean
+    fun updateNameTx(userId: UUID, name: String, lastName: String): Boolean
+    fun updateCountryTx(userId: UUID, countryCode: String): Boolean
+    fun updateGenderTx(userId: UUID, gender: Gender): Boolean
+    fun updatePositionTx(userId: UUID, position: PlayerPosition): Boolean
     fun markEmailAsVerified(userId: UUID): Boolean
     suspend fun deleteUser(id: UUID): Boolean
     suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String?

@@ -5,6 +5,7 @@ import com.devapplab.features.device.validation.validate
 import com.devapplab.features.field.validation.validate
 import com.devapplab.features.location.validation.validate
 import com.devapplab.features.match.validation.validate
+import com.devapplab.features.user.validation.validate
 import com.devapplab.model.auth.request.ForgotPasswordRequest
 import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.auth.request.SignInRequest
@@ -20,7 +21,11 @@ import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.model.mfa.MfaCodeRequest
 import com.devapplab.model.mfa.MfaCodeVerificationRequest
 import com.devapplab.model.mfa.VerifyResetMfaRequest
+import com.devapplab.model.user.request.UpdateCountryRequest
+import com.devapplab.model.user.request.UpdateGenderRequest
+import com.devapplab.model.user.request.UpdateNameRequest
 import com.devapplab.model.user.request.UpdatePasswordRequest
+import com.devapplab.model.user.request.UpdatePositionRequest
 import io.ktor.server.application.*
 import io.ktor.server.plugins.requestvalidation.*
 
@@ -78,6 +83,19 @@ fun Application.configureRequestValidation() {
         }
 
         validate<UpdateFcmTokenRequest> { request ->
+            request.validate()
+        }
+
+        validate<UpdateNameRequest> { request ->
+            request.validate()
+        }
+        validate<UpdateCountryRequest> { request ->
+            request.validate()
+        }
+        validate<UpdateGenderRequest> { request ->
+            request.validate()
+        }
+        validate<UpdatePositionRequest> { request ->
             request.validate()
         }
     }

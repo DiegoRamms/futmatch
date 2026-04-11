@@ -5,7 +5,9 @@ import com.devapplab.data.database.user.UserPaymentProfileTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.payment.PaymentProvider
+import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PendingUser
+import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.UserRole
@@ -115,6 +117,35 @@ class UserRepositoryImpl : UserRepository {
     override suspend fun updateProfilePic(userId: UUID, fileName: String): Boolean = dbQuery {
         UserTable.update({ UserTable.id eq userId }) {
             it[profilePic] = fileName
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
+    }
+
+    override fun updateNameTx(userId: UUID, name: String, lastName: String): Boolean {
+        return UserTable.update({ UserTable.id eq userId }) {
+            it[UserTable.name] = name
+            it[UserTable.lastName] = lastName
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
+    }
+
+    override fun updateCountryTx(userId: UUID, countryCode: String): Boolean {
+        return UserTable.update({ UserTable.id eq userId }) {
+            it[UserTable.country] = countryCode
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
+    }
+
+    override fun updateGenderTx(userId: UUID, gender: Gender): Boolean {
+        return UserTable.update({ UserTable.id eq userId }) {
+            it[UserTable.gender] = gender
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
+    }
+
+    override fun updatePositionTx(userId: UUID, position: PlayerPosition): Boolean {
+        return UserTable.update({ UserTable.id eq userId }) {
+            it[UserTable.playerPosition] = position
             it[updatedAt] = System.currentTimeMillis()
         } > 0
     }

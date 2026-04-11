@@ -2,6 +2,10 @@ package com.devapplab.features.user
 
 import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
+import com.devapplab.model.user.request.UpdateCountryRequest
+import com.devapplab.model.user.request.UpdateGenderRequest
+import com.devapplab.model.user.request.UpdateNameRequest
+import com.devapplab.model.user.request.UpdatePositionRequest
 import com.devapplab.service.UserService
 import com.devapplab.utils.respond
 import com.devapplab.utils.retrieveLocale
@@ -32,6 +36,38 @@ class UserController(private val service: UserService) {
     suspend fun getPaymentHistory(call: ApplicationCall) {
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val result = service.getPaymentHistory(userId)
+        call.respond(result)
+    }
+
+    suspend fun updateName(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val request = call.receive<UpdateNameRequest>()
+        val result = service.updateName(userId, request.name, request.lastName, locale)
+        call.respond(result)
+    }
+
+    suspend fun updateCountry(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val request = call.receive<UpdateCountryRequest>()
+        val result = service.updateCountry(userId, request.countryCode, locale)
+        call.respond(result)
+    }
+
+    suspend fun updateGender(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val request = call.receive<UpdateGenderRequest>()
+        val result = service.updateGender(userId, request.gender, locale)
+        call.respond(result)
+    }
+
+    suspend fun updatePosition(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val request = call.receive<UpdatePositionRequest>()
+        val result = service.updatePosition(userId, request.position, locale)
         call.respond(result)
     }
 }
