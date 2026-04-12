@@ -364,7 +364,16 @@ class SignInService(
         return authenticatedResponseGenerator.generate(locale, userId, deviceId, userRole, jwtConfig)
     }
 
-    suspend fun signOut(locale: Locale, deviceId: UUID): AppResult<SignOutResponse> {
+    suspend fun signOut(locale: Locale, userId: UUID, deviceId: UUID): AppResult<SignOutResponse> {
+        val isOwnedByUser = dbExecutor.tx {
+            deviceRepository.isValidDeviceIdForUser(deviceId, userId)
+        }
+
+        if (!isOwnedByUser) {
+            logger.warn("⚠️ signOut denied. deviceId=$deviceId does not belong to userId=$userId")
+            return locale.respondSignOutAccessDeniedError()
+        }
+
         val wasRevoke = dbExecutor.tx {
             authRepository.revokeRefreshToken(deviceId)
         }
@@ -428,5 +437,12 @@ class SignInService(
         StringResourcesKey.AUTH_SIGN_OUT_FAILED_DESCRIPTION,
         status = HttpStatusCode.InternalServerError,
         errorCode = ErrorCode.GENERAL_ERROR
+    )
+
+    private fun Locale.respondSignOutAccessDeniedError(): AppResult.Failure = createError(
+        StringResourcesKey.ACCESS_DENIED_TITLE,
+        StringResourcesKey.ACCESS_DENIED_DESCRIPTION,
+        status = HttpStatusCode.Forbidden,
+        errorCode = ErrorCode.ACCESS_DENIED
     )
 }

@@ -2,6 +2,7 @@ package com.devapplab.features.auth
 
 import com.devapplab.config.RateLimitType
 import com.devapplab.config.getJWTConfig
+import io.ktor.server.auth.*
 import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.routing.*
 import org.koin.ktor.plugin.scope
@@ -61,10 +62,12 @@ fun Route.authRouting() {
             }
         }
 
-        rateLimit(configuration = RateLimitName(RateLimitType.SIGN_OUT.value)) {
-            post("/signOut") {
-                val authController = call.scope.get<AuthController>()
-                authController.signOut(call)
+        authenticate("auth-jwt") {
+            rateLimit(configuration = RateLimitName(RateLimitType.SIGN_OUT.value)) {
+                post("/signOut") {
+                    val authController = call.scope.get<AuthController>()
+                    authController.signOut(call)
+                }
             }
         }
 
@@ -90,4 +93,3 @@ fun Route.authRouting() {
         }
     }
 }
-

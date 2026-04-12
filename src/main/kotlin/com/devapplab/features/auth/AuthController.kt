@@ -1,5 +1,7 @@
 package com.devapplab.features.auth
 
+import com.devapplab.config.getIdentifier
+import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.request.*
 import com.devapplab.model.auth.response.RefreshJWTRequest
@@ -77,8 +79,9 @@ class AuthController(
 
     suspend fun signOut(call: ApplicationCall){
         val locale: Locale = call.retrieveLocale()
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<SignOutRequest>()
-        val result = signInService.signOut(locale, request.deviceId)
+        val result = signInService.signOut(locale, userId, request.deviceId)
         call.respond(result)
     }
 
