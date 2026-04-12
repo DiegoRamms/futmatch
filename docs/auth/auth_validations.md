@@ -78,6 +78,12 @@ Este documento describe los endpoints de autenticación y las reglas de validaci
 | :--- | :--- | :--- | :--- |
 | `deviceId` | UUID | Sí | • No debe ser un UUID vacío. |
 
+**Header requerido:**
+- `Authorization: Bearer <access_token>`
+
+**Regla de seguridad adicional (server-side):**
+- El `deviceId` debe pertenecer al usuario autenticado.
+
 ---
 
 ### 7. Olvidé mi Contraseña (`POST /auth/forgot-password`)
@@ -96,7 +102,7 @@ Este documento describe los endpoints de autenticación y las reglas de validaci
 
 | Campo | Tipo | Requerido | Reglas de Validación |
 | :--- | :--- | :--- | :--- |
-| `userId` | UUID | Sí | • No debe ser un UUID vacío. |
+| `email` | String | Sí | • Debe cumplir con el formato estándar de correo electrónico.<br>Regex: `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$` |
 | `code` | String | Sí | • No debe estar vacío o en blanco. |
 
 ---

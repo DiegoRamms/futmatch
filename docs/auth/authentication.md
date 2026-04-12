@@ -253,7 +253,7 @@ Obtains a new access token using a refresh token.
 
 *   **Method:** `POST`
 *   **Path:** `/auth/refresh`
-*   **Headers:** Requires `Authorization: Bearer <refresh_token>`
+*   **Headers:** Requires `X-Refresh-Token: <refresh_token>`
 *   **Description:** Provides a new `accessToken`. If the refresh token is near expiration, it will be rotated (a new `refreshToken` will be returned). **Note:** This endpoint does NOT return a new `firebaseToken`, as the Firebase SDK handles its own session refresh.
 
 #### Example Request Body:
@@ -287,6 +287,8 @@ Invalidates the session for a specific device.
 
 *   **Method:** `POST`
 *   **Path:** `/auth/signOut`
+*   **Headers:** Requires `Authorization: Bearer <access_token>`
+*   **Note:** The `deviceId` must belong to the authenticated user.
 
 #### Example Request:
 ```json
@@ -316,6 +318,7 @@ Initiates the password reset process.
 
 *   **Method:** `POST`
 *   **Path:** `/auth/forgot-password`
+*   **Security Note:** This endpoint always returns a generic success response to avoid account enumeration.
 
 #### Example Request:
 ```json
@@ -329,7 +332,6 @@ Initiates the password reset process.
 {
     "status": "success",
     "data": {
-        "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
         "newCodeSent": true,
         "expiresInSeconds": 300,
         "resendCodeTimeInSeconds": 60
@@ -347,7 +349,7 @@ Verifies the password reset code and returns a temporary `resetToken`.
 #### Example Request:
 ```json
 {
-    "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "email": "john.doe@example.com",
     "code": "123456"
 }
 ```

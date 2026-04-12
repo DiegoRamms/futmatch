@@ -51,32 +51,33 @@ class PasswordResetService(
         forgotPasswordRequest: ForgotPasswordRequest
     ): AppResult<ForgotPasswordResponse> {
 
-        val email = forgotPasswordRequest.email
+        val email = forgotPasswordRequest.email.trim()
+        val genericSuccessResponse = AppResult.Success(
+            ForgotPasswordResponse(
+                newCodeSent = true,
+                expiresInSeconds = 300,
+                resendCodeTimeInSeconds = mfaRateLimitConfig.minWaitSeconds
+            )
+        )
 
-        // 1) DB read (tx corta)
         val user = runCatching {
             dbExecutor.tx { userRepository.findByEmail(email) }
         }.getOrElse { error ->
             logger.error("🔥 forgotPassword getUser DB error email=$email", error)
-            return locale.createError(
-                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
-                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
-            )
-        } ?: return locale.respondUserNotFoundError()
+            return genericSuccessResponse
+        } ?: return genericSuccessResponse
 
         if (user.status == UserStatus.BLOCKED) {
-            return locale.respondSignInBlockedUserError()
+            return genericSuccessResponse
         }
         if (!user.isEmailVerified) {
-            return locale.respondUserNotVerifiedError()
+            return genericSuccessResponse
         }
 
-        // 2) CPU fuera de tx
         val code = MfaUtils.generateCode()
         val expiresAt = MfaUtils.calculateExpiration(300)
         val hashedMfaCode = hashingService.hashOpaqueToken(code)
 
-        // 3) DB: rate-limit + deactivate + insert (tx corta)
         val creationResult = runCatching {
             dbExecutor.tx {
                 mfaCodeService.createMfaCode(
@@ -91,53 +92,24 @@ class PasswordResetService(
             }
         }.getOrElse { error ->
             logger.error("🔥 forgotPassword createMfaCode DB error userId=${user.id}", error)
-            return locale.createError(
-                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
-                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
-            )
+            return genericSuccessResponse
         }
 
-        return when (creationResult) {
+        when (creationResult) {
             is MfaCreationResult.Created -> {
                 runCatching {
                     emailService.sendMfaPasswordResetEmail(user.email, code, locale)
                     logger.info("✅ Sent password reset code to user ${user.id}")
                 }.getOrElse { error ->
                     logger.error("📧 Failed to send password reset email to userId=${user.id}", error)
-                    return locale.createError(
-                        StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
-                        StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
-                    )
                 }
-
-                AppResult.Success(
-                    ForgotPasswordResponse(
-                        userId = user.id,
-                        newCodeSent = true,
-                        expiresInSeconds = creationResult.expiresInSeconds,
-                        resendCodeTimeInSeconds = mfaRateLimitConfig.minWaitSeconds
-                    )
-                )
             }
 
-            is MfaCreationResult.Cooldown -> {
-                locale.createError(
-                    titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
-                    descriptionKey = StringResourcesKey.MFA_COOLDOWN_DESCRIPTION,
-                    status = HttpStatusCode.Conflict,
-                    placeholders = mapOf("seconds" to creationResult.retryAfterSeconds.toString())
-                )
-            }
-
-            is MfaCreationResult.Locked -> {
-                locale.createError(
-                    titleKey = StringResourcesKey.MFA_GENERATION_LOCKED_TITLE,
-                    descriptionKey = StringResourcesKey.MFA_GENERATION_LOCKED_DESCRIPTION,
-                    status = HttpStatusCode.Forbidden,
-                    placeholders = mapOf("minutes" to creationResult.lockDurationMinutes.toString())
-                )
-            }
+            is MfaCreationResult.Cooldown -> logger.info("ℹ️ forgotPassword cooldown for email=$email")
+            is MfaCreationResult.Locked -> logger.info("ℹ️ forgotPassword locked window for email=$email")
         }
+
+        return genericSuccessResponse
     }
 
     suspend fun updatePassword(
@@ -216,18 +188,16 @@ class PasswordResetService(
         verifyResetMfaRequest: VerifyResetMfaRequest,
     ): AppResult<VerifyResetMfaResponse> {
 
-        val userId = verifyResetMfaRequest.userId
+        val email = verifyResetMfaRequest.email.trim()
 
-        // CPU fuera de tx
         val hashedInput = hashingService.hashOpaqueToken(verifyResetMfaRequest.code)
 
-        // CPU fuera de tx (token material listo para persistir)
         val tokenData = passwordResetTokenService.generateResetTokenData()
 
         val result = runCatching {
             dbExecutor.tx {
-                val user = userRepository.getUserById(userId)
-                    ?: return@tx ResetMfaResult.UserNotFound
+                val user = userRepository.findByEmail(email)
+                    ?: return@tx ResetMfaResult.InvalidCode
 
                 val latestCode = mfaCodeService.getLatestValidMfaCode(
                     userId = user.id,
@@ -253,7 +223,7 @@ class PasswordResetService(
                 ResetMfaResult.Success(tokenData.plainToken)
             }
         }.getOrElse { error ->
-            logger.error("🔥 verifyResetMfa DB error userId=$userId", error)
+            logger.error("🔥 verifyResetMfa DB error email=$email", error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -261,7 +231,7 @@ class PasswordResetService(
         }
 
         return when (result) {
-            ResetMfaResult.UserNotFound -> locale.respondUserNotFoundError()
+            ResetMfaResult.UserNotFound -> locale.respondInvalidMfaCodeError()
             ResetMfaResult.InvalidCode -> locale.respondInvalidMfaCodeError()
             is ResetMfaResult.Success -> AppResult.Success(VerifyResetMfaResponse(result.resetToken))
         }
@@ -286,21 +256,5 @@ class PasswordResetService(
             titleKey = StringResourcesKey.MFA_CODE_INVALID_TITLE,
             descriptionKey = StringResourcesKey.MFA_CODE_INVALID_DESCRIPTION,
             status = HttpStatusCode.Unauthorized
-        )
-
-    private fun Locale.respondSignInBlockedUserError(): AppResult.Failure =
-        createError(
-            StringResourcesKey.AUTH_SIGN_IN_BLOCKED_TITLE,
-            StringResourcesKey.AUTH_SIGN_IN_BLOCKED_DESCRIPTION,
-            status = HttpStatusCode.Forbidden,
-            errorCode = ErrorCode.AUTH_USER_BLOCKED
-        )
-
-    private fun Locale.respondUserNotVerifiedError(): AppResult.Failure =
-        createError(
-            StringResourcesKey.AUTH_USER_NOT_VERIFIED_TITLE,
-            StringResourcesKey.AUTH_USER_NOT_VERIFIED_DESCRIPTION,
-            status = HttpStatusCode.Forbidden,
-            errorCode = ErrorCode.AUTH_USER_NOT_VERIFIED
         )
 }
