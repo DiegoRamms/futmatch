@@ -43,17 +43,18 @@ class AuthTokenManagementService(
         jwtConfig: JWTConfig
     ): AppResult<AuthResponse> {
 
-        val (userId, deviceId) = refreshJWTRequest
+        val requestedUserId = refreshJWTRequest.userId
+        val deviceId = refreshJWTRequest.deviceId
         val plainRefresh = currentRefreshToken ?: return locale.respondInvalidRefreshTokenError()
 
         val dbData = runCatching {
             dbExecutor.tx {
                 val validationInfo = refreshTokenRepository.getValidationInfo(deviceId) ?: return@tx null
-                val userRole = userRepository.getUserById(userId)?.userRole ?: UserRole.PLAYER
+                val userRole = userRepository.getUserById(validationInfo.userId)?.userRole ?: UserRole.PLAYER
                 RefreshDbData(validationInfo, userRole)
             }
         }.getOrElse { error ->
-            logger.error("🔥 refreshJwtToken DB read error userId=$userId deviceId=$deviceId", error)
+            logger.error("🔥 refreshJwtToken DB read error requestedUserId=$requestedUserId deviceId=$deviceId", error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -61,7 +62,13 @@ class AuthTokenManagementService(
         } ?: return locale.respondInvalidRefreshTokenError()
 
         val validationInfo = dbData.validationInfo
+        val tokenUserId = validationInfo.userId
         val userRole = dbData.userRole
+
+        if (requestedUserId != tokenUserId) {
+            logger.warn("⚠️ refreshJwtToken user mismatch requestedUserId=$requestedUserId tokenUserId=$tokenUserId deviceId=$deviceId")
+            return locale.respondInvalidRefreshTokenError()
+        }
 
         val payload = RefreshTokenPayload(
             plainToken = plainRefresh,
@@ -73,7 +80,7 @@ class AuthTokenManagementService(
             return locale.respondInvalidRefreshTokenError()
         }
 
-        val claimConfig = ClaimConfig(userId, userRole)
+        val claimConfig = ClaimConfig(tokenUserId, userRole)
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
 
         val now = System.currentTimeMillis()
@@ -87,10 +94,10 @@ class AuthTokenManagementService(
             val newPayload = refreshTokenService.generateRefreshToken(jwtConfig.refreshTokenLifetime)
 
             val rotated = runCatching {
-                dbExecutor.tx { authRepository.rotateRefreshToken(userId, deviceId, newPayload) }
+                dbExecutor.tx { authRepository.rotateRefreshToken(tokenUserId, deviceId, newPayload) }
                 true
             }.getOrElse { error ->
-                logger.error("🔥 refreshJwtToken rotateRefreshToken failed userId=$userId deviceId=$deviceId", error)
+                logger.error("🔥 refreshJwtToken rotateRefreshToken failed tokenUserId=$tokenUserId deviceId=$deviceId", error)
                 false
             }
 
