@@ -178,12 +178,12 @@ class SignInService(
     }
 
     private suspend fun handleFailedLoginAttemptTx(email: String, locale: Locale): AppResult.Failure {
-        val result = runCatching {
+        val lockUntil = runCatching {
             dbExecutor.tx {
-                val attempt = loginAttemptRepository.findByEmail(email)
-                val newAttemptCount = (attempt?.attempts ?: 0) + 1
-
                 val now = System.currentTimeMillis()
+                val attempt = loginAttemptRepository.incrementAttempt(email, now)
+                val newAttemptCount = attempt.attempts
+
                 val newLockedUntil: Long? = when {
                     newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_3 ->
                         now + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_3_HOURS.hours.inWholeMilliseconds
@@ -197,13 +197,11 @@ class SignInService(
                     else -> null
                 }
 
-                if (attempt == null) {
-                    loginAttemptRepository.create(email)
-                } else {
-                    loginAttemptRepository.update(email, newAttemptCount, now, newLockedUntil)
+                if (newLockedUntil != null) {
+                    loginAttemptRepository.updateLockoutIfLater(email, newLockedUntil)
                 }
 
-                newLockedUntil
+                loginAttemptRepository.findByEmail(email)?.lockedUntil
             }
         }.getOrElse { error ->
             logger.error("🔥 signIn - Failed to update login attempts for email=$email", error)
@@ -213,8 +211,8 @@ class SignInService(
             )
         }
 
-        if (result != null) {
-            val remainingMinutes = ((result - System.currentTimeMillis()) / 60000).coerceAtLeast(1)
+        if (lockUntil != null && lockUntil > System.currentTimeMillis()) {
+            val remainingMinutes = ((lockUntil - System.currentTimeMillis()) / 60000).coerceAtLeast(1)
             return locale.createError(
                 StringResourcesKey.AUTH_ACCOUNT_LOCKED_TITLE,
                 StringResourcesKey.AUTH_ACCOUNT_LOCKED_DESCRIPTION,

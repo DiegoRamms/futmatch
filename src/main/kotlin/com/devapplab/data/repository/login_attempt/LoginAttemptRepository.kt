@@ -13,6 +13,8 @@ interface LoginAttemptRepository {
     fun findByEmail(email: String): LoginAttempt?
     fun create(email: String): LoginAttempt
     fun update(email: String, attempts: Int, lastAttemptAt: Long, lockedUntil: Long?): LoginAttempt?
+    fun incrementAttempt(email: String, now: Long): LoginAttempt
+    fun updateLockoutIfLater(email: String, lockUntil: Long): Boolean
     fun delete(email: String): Boolean
 }
 
@@ -60,6 +62,62 @@ class LoginAttemptRepositoryImpl : LoginAttemptRepository {
         } else {
             null
         }
+    }
+
+    override fun incrementAttempt(email: String, now: Long): LoginAttempt {
+        val lockedRow = LoginAttemptTable
+            .selectAll()
+            .where { LoginAttemptTable.email eq email }
+            .forUpdate()
+            .firstOrNull()
+
+        if (lockedRow != null) {
+            val newAttempts = lockedRow[LoginAttemptTable.attempts] + 1
+            LoginAttemptTable.update({ LoginAttemptTable.email eq email }) {
+                it[this.attempts] = newAttempts
+                it[this.lastAttemptAt] = now
+                it[updatedAt] = now
+            }
+        } else {
+            runCatching { create(email) }.getOrElse {
+                // Concurrent insert won the race. Retry with row lock and explicit increment.
+                val existing = LoginAttemptTable
+                    .selectAll()
+                    .where { LoginAttemptTable.email eq email }
+                    .forUpdate()
+                    .firstOrNull()
+                    ?: throw IllegalStateException("LoginAttempt row missing after concurrent create for email=$email")
+
+                val newAttempts = existing[LoginAttemptTable.attempts] + 1
+                LoginAttemptTable.update({ LoginAttemptTable.email eq email }) {
+                    it[this.attempts] = newAttempts
+                    it[this.lastAttemptAt] = now
+                    it[updatedAt] = now
+                }
+            }
+        }
+
+        return findByEmail(email)
+            ?: throw IllegalStateException("LoginAttempt row missing after increment for email=$email")
+    }
+
+    override fun updateLockoutIfLater(email: String, lockUntil: Long): Boolean {
+        val existing = LoginAttemptTable
+            .selectAll()
+            .where { LoginAttemptTable.email eq email }
+            .forUpdate()
+            .firstOrNull()
+            ?: return false
+
+        val currentLockUntil = existing[LoginAttemptTable.lockedUntil]
+        if (currentLockUntil != null && currentLockUntil >= lockUntil) {
+            return false
+        }
+
+        return LoginAttemptTable.update({ LoginAttemptTable.email eq email }) {
+            it[this.lockedUntil] = lockUntil
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
     }
 
     override fun delete(email: String): Boolean {

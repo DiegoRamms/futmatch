@@ -6,7 +6,7 @@ import org.jetbrains.exposed.v1.core.java.javaUUID
 
 object LoginAttemptTable : Table("login_attempts") {
     val id = javaUUID("id").autoGenerate().uniqueIndex()
-    val email = varchar("email", USER_EMAIL_MAX_LENGTH).index()
+    val email = varchar("email", USER_EMAIL_MAX_LENGTH).uniqueIndex()
 
     val attempts = integer("attempts").default(0)
     val lastAttemptAt = long("last_attempt_at")
