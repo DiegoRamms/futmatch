@@ -9,7 +9,6 @@ import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.response.HomeLastMatchSection
-import com.devapplab.model.user.response.HomeNextMatchSection
 import com.devapplab.model.user.response.HomeProfileSection
 import com.devapplab.model.user.response.HomeSuggestedMatchSection
 import com.devapplab.model.user.mapper.toUserResponse
@@ -183,7 +182,6 @@ class UserService(
         val user = dbExecutor.tx { userRepository.getHomeProfileById(userId) }
             ?: return locale.createError(status = HttpStatusCode.NotFound)
 
-        val nextMatch = matchRepository.getHomeNextMatch(userId)
         val suggestedMatches = matchRepository.getHomeSuggestedMatches(userId = userId, limit = HOME_SUGGESTED_MATCHES_LIMIT)
         val lastMatch = matchRepository.getHomeLastMatch(userId)
         val winStats = matchRepository.getHomeWinStats(userId)
@@ -196,20 +194,6 @@ class UserService(
 
         val profileImageUrl = user.profilePic?.let { fileName ->
             imageService.getImageUrl("${Constants.BASE_USER_STORAGE_PATH}/${user.id}/$fileName")
-        }
-
-        val nextMatchResponse = nextMatch?.let {
-            val imageUrl = it.fieldImageKey?.let { imageKey ->
-                imageService.getImageUrl("${Constants.BASE_FIELD_STORAGE_PATH}/${it.fieldId}/$imageKey")
-            }
-            HomeNextMatchSection(
-                matchId = it.matchId,
-                fieldId = it.fieldId,
-                fieldName = it.fieldName,
-                startTime = it.startTime,
-                address = it.address,
-                imageUrl = imageUrl
-            )
         }
 
         val suggestedResponse = suggestedMatches.map { item ->
@@ -247,7 +231,6 @@ class UserService(
                     averageScore = averageScore,
                     profileImageUrl = profileImageUrl
                 ),
-                nextMatch = nextMatchResponse,
                 suggestedMatches = suggestedResponse,
                 lastMatch = lastMatchResponse
             ),

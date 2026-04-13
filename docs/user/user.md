@@ -58,7 +58,6 @@ Authorization: Bearer <access_token>
 
 Obtiene la información del Home del usuario autenticado en una sola respuesta:
 - perfil resumido (`greetingName`, `level`, `averageScore`, `profileImageUrl`)
-- próximo partido (`nextMatch`)
 - partidos sugeridos (máximo 4)
 - último partido jugado (`lastMatch`)
 
@@ -83,14 +82,6 @@ curl --request GET '{{base_url}}/user/home' \
       "level": "ADVANCED",
       "averageScore": 67,
       "profileImageUrl": "https://res.cloudinary.com/.../futmatch/users/.../avatar.jpg"
-    },
-    "nextMatch": {
-      "matchId": "d9bcf2dd-e8f0-4f75-9f90-5bd239676b53",
-      "fieldId": "6fd4ec1a-2665-4f5d-8308-08a9dbd794af",
-      "fieldName": "Roma Norte 28",
-      "startTime": 1776048600000,
-      "address": "CDMX Roma Norte",
-      "imageUrl": "https://res.cloudinary.com/.../futmatch/fields/.../cover.jpg"
     },
     "suggestedMatches": [
       {

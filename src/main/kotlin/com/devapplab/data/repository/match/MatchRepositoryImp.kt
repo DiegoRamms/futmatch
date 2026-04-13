@@ -884,48 +884,6 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
-    override suspend fun getHomeNextMatch(userId: UUID): HomeNextMatch? {
-        return dbQuery {
-            val now = System.currentTimeMillis()
-
-            val row = ((MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
-                .leftJoin(LocationsTable))
-                .select(
-                    MatchTable.id,
-                    MatchTable.fieldId,
-                    MatchTable.dateTime,
-                    FieldTable.name,
-                    LocationsTable.address
-                )
-                .where {
-                    (MatchPlayersTable.userId eq userId) and
-                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
-                        (MatchTable.status eq MatchStatus.SCHEDULED) and
-                        (MatchTable.dateTime greaterEq now)
-                }
-                .orderBy(MatchTable.dateTime to SortOrder.ASC)
-                .limit(1)
-                .singleOrNull() ?: return@dbQuery null
-
-            val fieldId = row[MatchTable.fieldId]
-            val imageKey = FieldImagesTable
-                .select(FieldImagesTable.key)
-                .where { (FieldImagesTable.fieldId eq fieldId) and (FieldImagesTable.position eq 0) }
-                .limit(1)
-                .singleOrNull()
-                ?.get(FieldImagesTable.key)
-
-            HomeNextMatch(
-                matchId = row[MatchTable.id],
-                fieldId = fieldId,
-                fieldName = row[FieldTable.name],
-                startTime = row[MatchTable.dateTime],
-                address = row.getOrNull(LocationsTable.address),
-                fieldImageKey = imageKey
-            )
-        }
-    }
-
     override suspend fun getHomeLastMatch(userId: UUID): HomeLastMatch? {
         return dbQuery {
             val row = ((MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)

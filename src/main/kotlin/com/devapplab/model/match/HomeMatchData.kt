@@ -14,15 +14,6 @@ data class HomeSuggestedMatch(
     val fieldImageKey: String?
 )
 
-data class HomeNextMatch(
-    val matchId: UUID,
-    val fieldId: UUID,
-    val fieldName: String,
-    val startTime: Long,
-    val address: String?,
-    val fieldImageKey: String?
-)
-
 data class HomeLastMatch(
     val matchId: UUID,
     val fieldId: UUID,

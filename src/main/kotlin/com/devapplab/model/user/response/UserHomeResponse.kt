@@ -9,7 +9,6 @@ import java.util.UUID
 @Serializable
 data class UserHomeResponse(
     val profile: HomeProfileSection,
-    val nextMatch: HomeNextMatchSection?,
     val suggestedMatches: List<HomeSuggestedMatchSection>,
     val lastMatch: HomeLastMatchSection?
 )
@@ -20,18 +19,6 @@ data class HomeProfileSection(
     val level: PlayerLevel,
     val averageScore: Int,
     val profileImageUrl: String?
-)
-
-@Serializable
-data class HomeNextMatchSection(
-    @Serializable(with = UUIDSerializer::class)
-    val matchId: UUID,
-    @Serializable(with = UUIDSerializer::class)
-    val fieldId: UUID,
-    val fieldName: String,
-    val startTime: Long,
-    val address: String?,
-    val imageUrl: String?
 )
 
 @Serializable
