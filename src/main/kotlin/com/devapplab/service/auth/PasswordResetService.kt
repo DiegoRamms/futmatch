@@ -4,9 +4,9 @@ import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
+import com.devapplab.data.repository.password_reset.PasswordResetVerifyAttemptRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
-import com.devapplab.model.ErrorCode
 import com.devapplab.model.auth.request.ForgotPasswordRequest
 import com.devapplab.model.auth.response.ForgotPasswordResponse
 import com.devapplab.model.auth.response.VerifyResetMfaResponse
@@ -30,6 +30,8 @@ import com.devapplab.utils.getString
 import io.ktor.http.*
 import org.slf4j.LoggerFactory
 import java.util.*
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 class PasswordResetService(
     private val dbExecutor: DbExecutor,
@@ -41,10 +43,19 @@ class PasswordResetService(
     private val emailService: EmailService,
     private val authRepository: AuthRepository,
     private val loginAttemptRepository: LoginAttemptRepository,
+    private val passwordResetVerifyAttemptRepository: PasswordResetVerifyAttemptRepository,
     private val mfaRateLimitConfig: MfaRateLimitConfig
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
+    private object VerifyResetAttemptPolicy {
+        const val MAX_ATTEMPTS_TIER_1 = 5
+        const val LOCKOUT_DURATION_TIER_1_MINUTES = 15L
+        const val MAX_ATTEMPTS_TIER_2 = 6
+        const val LOCKOUT_DURATION_TIER_2_HOURS = 1L
+        const val MAX_ATTEMPTS_TIER_3 = 7
+        const val LOCKOUT_DURATION_TIER_3_HOURS = 24L
+    }
 
     suspend fun forgotPassword(
         locale: Locale,
@@ -196,17 +207,23 @@ class PasswordResetService(
 
         val result = runCatching {
             dbExecutor.tx {
+                val now = System.currentTimeMillis()
+                val attempt = passwordResetVerifyAttemptRepository.findByEmail(email)
+                if (attempt?.lockedUntil != null && attempt.lockedUntil > now) {
+                    return@tx ResetMfaResult.Locked
+                }
+
                 val user = userRepository.findByEmail(email)
-                    ?: return@tx ResetMfaResult.InvalidCode
+                    ?: return@tx registerInvalidResetMfaAttempt(email, now)
 
                 val latestCode = mfaCodeService.getLatestValidMfaCode(
                     userId = user.id,
                     deviceId = null,
                     purpose = MfaPurpose.PASSWORD_RESET
-                ) ?: return@tx ResetMfaResult.InvalidCode
+                ) ?: return@tx registerInvalidResetMfaAttempt(email, now)
 
                 if (hashedInput != latestCode.hashedCode) {
-                    return@tx ResetMfaResult.InvalidCode
+                    return@tx registerInvalidResetMfaAttempt(email, now)
                 }
 
                 // DB: marcar MFA como verificado
@@ -219,6 +236,7 @@ class PasswordResetService(
                     user.id,
                     tokenData.expiresAt
                 )
+                passwordResetVerifyAttemptRepository.delete(email)
 
                 ResetMfaResult.Success(tokenData.plainToken)
             }
@@ -233,6 +251,7 @@ class PasswordResetService(
         return when (result) {
             ResetMfaResult.UserNotFound -> locale.respondInvalidMfaCodeError()
             ResetMfaResult.InvalidCode -> locale.respondInvalidMfaCodeError()
+            ResetMfaResult.Locked -> locale.respondInvalidMfaCodeError()
             is ResetMfaResult.Success -> AppResult.Success(VerifyResetMfaResponse(result.resetToken))
         }
     }
@@ -241,7 +260,33 @@ class PasswordResetService(
     private sealed interface ResetMfaResult {
         data object UserNotFound : ResetMfaResult
         data object InvalidCode : ResetMfaResult
+        data object Locked : ResetMfaResult
         data class Success(val resetToken: String) : ResetMfaResult
+    }
+
+    private fun registerInvalidResetMfaAttempt(email: String, now: Long): ResetMfaResult {
+        val attempt = passwordResetVerifyAttemptRepository.incrementAttempt(email, now)
+        val newAttemptCount = attempt.attempts
+
+        val newLockedUntil: Long? = when {
+            newAttemptCount >= VerifyResetAttemptPolicy.MAX_ATTEMPTS_TIER_3 ->
+                now + VerifyResetAttemptPolicy.LOCKOUT_DURATION_TIER_3_HOURS.hours.inWholeMilliseconds
+
+            newAttemptCount >= VerifyResetAttemptPolicy.MAX_ATTEMPTS_TIER_2 ->
+                now + VerifyResetAttemptPolicy.LOCKOUT_DURATION_TIER_2_HOURS.hours.inWholeMilliseconds
+
+            newAttemptCount >= VerifyResetAttemptPolicy.MAX_ATTEMPTS_TIER_1 ->
+                now + VerifyResetAttemptPolicy.LOCKOUT_DURATION_TIER_1_MINUTES.minutes.inWholeMilliseconds
+
+            else -> null
+        }
+
+        if (newLockedUntil != null) {
+            passwordResetVerifyAttemptRepository.updateLockoutIfLater(email, newLockedUntil)
+            return ResetMfaResult.Locked
+        }
+
+        return ResetMfaResult.InvalidCode
     }
 
     private fun Locale.respondUserNotFoundError(): AppResult.Failure =

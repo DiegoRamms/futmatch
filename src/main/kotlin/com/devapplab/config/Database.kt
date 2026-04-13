@@ -16,6 +16,7 @@ import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.mfa.MfaCodeTable
 import com.devapplab.data.database.password_reset.PasswordResetTokensTable
+import com.devapplab.data.database.password_reset.PasswordResetVerifyAttemptTable
 import com.devapplab.data.database.payments.MatchPlayerPaymentsTable
 import com.devapplab.data.database.payments.StripeWebhookEventsTable
 import com.devapplab.data.database.pending_registrations.PendingRegistrationTable
@@ -60,6 +61,7 @@ fun Application.configureDatabase() {
         MatchRefundFailuresTable,
         MatchResultsTable,
         PasswordResetTokensTable,
+        PasswordResetVerifyAttemptTable,
         LoginAttemptTable,
         PendingRegistrationTable,
         MatchPlayerPaymentsTable,

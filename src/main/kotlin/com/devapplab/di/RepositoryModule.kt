@@ -17,6 +17,8 @@ import com.devapplab.data.repository.match.MatchRefundFailureRepository
 import com.devapplab.data.repository.match.MatchRefundFailureRepositoryImpl
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepositoryImpl
+import com.devapplab.data.repository.password_reset.PasswordResetVerifyAttemptRepository
+import com.devapplab.data.repository.password_reset.PasswordResetVerifyAttemptRepositoryImpl
 import com.devapplab.data.repository.payment.PaymentRepository
 import com.devapplab.data.repository.payment.PaymentRepositoryImp
 import com.devapplab.data.repository.payment.StripeWebhookEventRepository
@@ -39,6 +41,7 @@ val repositoryModule = module {
     singleOf(::MatchRepositoryImp) { bind<MatchRepository>() }
     singleOf(::MatchRefundFailureRepositoryImpl) { bind<MatchRefundFailureRepository>() }
     singleOf(::PasswordResetTokenRepositoryImpl) { bind<PasswordResetTokenRepository>() }
+    singleOf(::PasswordResetVerifyAttemptRepositoryImpl) { bind<PasswordResetVerifyAttemptRepository>() }
     singleOf(::LoginAttemptRepositoryImpl) { bind<LoginAttemptRepository>() }
     singleOf(::PendingRegistrationRepositoryImpl) { bind<PendingRegistrationRepository>() }
     singleOf(::LocationRepositoryImp) { bind<LocationRepository>() }
