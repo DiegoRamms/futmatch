@@ -4,6 +4,7 @@ import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
+import com.devapplab.data.repository.mfa.LoginMfaVerifyAttemptRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
@@ -40,6 +41,7 @@ class SignInService(
     private val emailService: EmailService,
     private val authRepository: AuthRepository,
     private val loginAttemptRepository: LoginAttemptRepository,
+    private val loginMfaVerifyAttemptRepository: LoginMfaVerifyAttemptRepository,
     private val mfaRateLimitConfig: MfaRateLimitConfig,
     private val authenticatedResponseGenerator: AuthenticatedResponseGenerator,
 ) {
@@ -47,11 +49,20 @@ class SignInService(
 
     private object LoginAttemptPolicy {
         const val MAX_ATTEMPTS_TIER_1 = 5
-        const val LOCKOUT_DURATION_TIER_1_MINUTES = 15L
+        const val LOCKOUT_DURATION_TIER_1_MINUTES = 10L
         const val MAX_ATTEMPTS_TIER_2 = 6
-        const val LOCKOUT_DURATION_TIER_2_HOURS = 1L
+        const val LOCKOUT_DURATION_TIER_2_MINUTES = 30L
         const val MAX_ATTEMPTS_TIER_3 = 7
-        const val LOCKOUT_DURATION_TIER_3_HOURS = 24L
+        const val LOCKOUT_DURATION_TIER_3_HOURS = 2L
+    }
+
+    private object LoginMfaVerifyAttemptPolicy {
+        const val MAX_ATTEMPTS_TIER_1 = 5
+        const val LOCKOUT_DURATION_TIER_1_MINUTES = 10L
+        const val MAX_ATTEMPTS_TIER_2 = 6
+        const val LOCKOUT_DURATION_TIER_2_MINUTES = 30L
+        const val MAX_ATTEMPTS_TIER_3 = 7
+        const val LOCKOUT_DURATION_TIER_3_HOURS = 2L
     }
 
     suspend fun signIn(
@@ -189,7 +200,7 @@ class SignInService(
                         now + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_3_HOURS.hours.inWholeMilliseconds
 
                     newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_2 ->
-                        now + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_2_HOURS.hours.inWholeMilliseconds
+                        now + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_2_MINUTES.minutes.inWholeMilliseconds
 
                     newAttemptCount >= LoginAttemptPolicy.MAX_ATTEMPTS_TIER_1 ->
                         now + LoginAttemptPolicy.LOCKOUT_DURATION_TIER_1_MINUTES.minutes.inWholeMilliseconds
@@ -294,6 +305,7 @@ class SignInService(
                 }
 
                 logger.info("✅ Sent MFA code to user ${user.id} for purpose SIGN_IN")
+                loginMfaVerifyAttemptRepository.delete(user.id, deviceId)
                 AppResult.Success(
                     MfaSendCodeResponse(
                         newCodeSent = true,
@@ -336,20 +348,24 @@ class SignInService(
 
         val userRole = runCatching {
             dbExecutor.tx {
-                val latestCode = mfaCodeService.getLatestValidMfaCode(
-                    userId,
-                    deviceId,
-                    MfaPurpose.SIGN_IN
-                ) ?: return@tx null
-
-                if (hashedInput != latestCode.hashedCode) {
+                val now = System.currentTimeMillis()
+                val verifyAttempt = loginMfaVerifyAttemptRepository.find(userId, deviceId)
+                if (verifyAttempt?.lockedUntil != null && verifyAttempt.lockedUntil > now) {
                     return@tx null
                 }
 
-                val user = userRepository.getUserById(userId)
-                    ?: return@tx null
+                val validCode = mfaCodeService.getValidMfaCodeWithGrace(
+                    userId,
+                    deviceId,
+                    MfaPurpose.SIGN_IN,
+                    hashedInput = hashedInput
+                ) ?: return@tx registerInvalidLoginMfaAttempt(userId, deviceId, now)
 
-                authRepository.completeMfaVerification(userId, deviceId, latestCode.id)
+                val user = userRepository.getUserById(userId)
+                    ?: return@tx registerInvalidLoginMfaAttempt(userId, deviceId, now)
+
+                authRepository.completeMfaVerification(userId, deviceId, validCode.id)
+                loginMfaVerifyAttemptRepository.delete(userId, deviceId)
 
                 user.userRole
             }
@@ -362,6 +378,30 @@ class SignInService(
         } ?: return locale.respondInvalidMfaCodeError()
 
         return authenticatedResponseGenerator.generate(locale, userId, deviceId, userRole, jwtConfig)
+    }
+
+    private fun registerInvalidLoginMfaAttempt(userId: UUID, deviceId: UUID, now: Long): com.devapplab.model.user.UserRole? {
+        val attempt = loginMfaVerifyAttemptRepository.incrementAttempt(userId, deviceId, now)
+        val newAttemptCount = attempt.attempts
+
+        val newLockedUntil: Long? = when {
+            newAttemptCount >= LoginMfaVerifyAttemptPolicy.MAX_ATTEMPTS_TIER_3 ->
+                now + LoginMfaVerifyAttemptPolicy.LOCKOUT_DURATION_TIER_3_HOURS.hours.inWholeMilliseconds
+
+            newAttemptCount >= LoginMfaVerifyAttemptPolicy.MAX_ATTEMPTS_TIER_2 ->
+                now + LoginMfaVerifyAttemptPolicy.LOCKOUT_DURATION_TIER_2_MINUTES.minutes.inWholeMilliseconds
+
+            newAttemptCount >= LoginMfaVerifyAttemptPolicy.MAX_ATTEMPTS_TIER_1 ->
+                now + LoginMfaVerifyAttemptPolicy.LOCKOUT_DURATION_TIER_1_MINUTES.minutes.inWholeMilliseconds
+
+            else -> null
+        }
+
+        if (newLockedUntil != null) {
+            loginMfaVerifyAttemptRepository.updateLockoutIfLater(userId, deviceId, newLockedUntil)
+        }
+
+        return null
     }
 
     suspend fun signOut(locale: Locale, userId: UUID, deviceId: UUID): AppResult<SignOutResponse> {

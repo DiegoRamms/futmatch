@@ -4,6 +4,7 @@ import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
 import com.devapplab.data.repository.pending_registrations.PendingRegistrationRepository
+import com.devapplab.data.repository.pending_registrations.RegistrationVerifyAttemptRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.auth.JWTConfig
@@ -28,6 +29,7 @@ import io.ktor.http.*
 import org.slf4j.LoggerFactory
 import java.util.*
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 
@@ -38,6 +40,7 @@ class RegistrationService(
     private val pendingRegistrationRepository: PendingRegistrationRepository,
     private val emailService: EmailService,
     private val loginAttemptRepository: LoginAttemptRepository,
+    private val registrationVerifyAttemptRepository: RegistrationVerifyAttemptRepository,
     private val authRepository: AuthRepository,
     private val authenticatedResponseGenerator: AuthenticatedResponseGenerator
 ) {
@@ -46,6 +49,15 @@ class RegistrationService(
     private object RegistrationPolicy {
         val EXPIRATION_DURATION = 1.hours
         val RESEND_COOLDOWN = 60.seconds
+    }
+
+    private object RegistrationVerifyAttemptPolicy {
+        const val MAX_ATTEMPTS_TIER_1 = 5
+        const val LOCKOUT_DURATION_TIER_1_MINUTES = 10L
+        const val MAX_ATTEMPTS_TIER_2 = 6
+        const val LOCKOUT_DURATION_TIER_2_MINUTES = 30L
+        const val MAX_ATTEMPTS_TIER_3 = 7
+        const val LOCKOUT_DURATION_TIER_3_HOURS = 2L
     }
     
     suspend fun startRegistration(
@@ -112,6 +124,7 @@ class RegistrationService(
         locale: Locale,
         deviceInfo: String?
     ): AppResult<AuthResponse> {
+        val email = request.email.trim()
 
         if (deviceInfo.isNullOrBlank()) {
             logger.error("❌ completeRegistration - Missing device info")
@@ -122,13 +135,18 @@ class RegistrationService(
             )
         }
 
-        val now = System.currentTimeMillis()
         val hashedCode = hashingService.hashOpaqueToken(request.verificationCode)
 
         val txResult = runCatching {
             dbExecutor.tx {
-                val pendingRegistration = pendingRegistrationRepository.findByEmail(request.email)
-                    ?: throw CompleteRegistrationAbort(CompleteRegistrationFailure.PendingNotFound)
+                val now = System.currentTimeMillis()
+                val verifyAttempt = registrationVerifyAttemptRepository.findByEmail(email)
+                if (verifyAttempt?.lockedUntil != null && verifyAttempt.lockedUntil > now) {
+                    throw CompleteRegistrationAbort(CompleteRegistrationFailure.InvalidCode)
+                }
+
+                val pendingRegistration = pendingRegistrationRepository.findByEmail(email)
+                    ?: throw CompleteRegistrationAbort(registerInvalidRegistrationAttempt(email, now))
 
                 if (pendingRegistration.expiresAt < now) {
                     pendingRegistrationRepository.delete(pendingRegistration.id)
@@ -136,7 +154,7 @@ class RegistrationService(
                 }
 
                 if (hashedCode != pendingRegistration.verificationCode) {
-                    throw CompleteRegistrationAbort(CompleteRegistrationFailure.InvalidCode)
+                    throw CompleteRegistrationAbort(registerInvalidRegistrationAttempt(email, now))
                 }
 
                 val pendingUserToCreate = PendingUser(
@@ -164,6 +182,7 @@ class RegistrationService(
                     ?: throw CompleteRegistrationAbort(CompleteRegistrationFailure.MissingUserId)
 
                 pendingRegistrationRepository.delete(pendingRegistration.id)
+                registrationVerifyAttemptRepository.delete(email)
                 loginAttemptRepository.delete(savedUser.email)
 
                 val deviceId = authRepository.createDevice(
@@ -294,6 +313,7 @@ class RegistrationService(
             ResendRegistrationCodeDecision.SendEmail -> {
                 return runCatching {
                     emailService.sendRegistrationEmail(email, newVerificationCode, locale)
+                    registrationVerifyAttemptRepository.delete(email)
                     logger.info("✅ Resent registration verification code to $email")
 
                     AppResult.Success(
@@ -312,5 +332,29 @@ class RegistrationService(
                 }
             }
         }
+    }
+
+    private fun registerInvalidRegistrationAttempt(email: String, now: Long): CompleteRegistrationFailure {
+        val attempt = registrationVerifyAttemptRepository.incrementAttempt(email, now)
+        val newAttemptCount = attempt.attempts
+
+        val newLockedUntil: Long? = when {
+            newAttemptCount >= RegistrationVerifyAttemptPolicy.MAX_ATTEMPTS_TIER_3 ->
+                now + RegistrationVerifyAttemptPolicy.LOCKOUT_DURATION_TIER_3_HOURS.hours.inWholeMilliseconds
+
+            newAttemptCount >= RegistrationVerifyAttemptPolicy.MAX_ATTEMPTS_TIER_2 ->
+                now + RegistrationVerifyAttemptPolicy.LOCKOUT_DURATION_TIER_2_MINUTES.minutes.inWholeMilliseconds
+
+            newAttemptCount >= RegistrationVerifyAttemptPolicy.MAX_ATTEMPTS_TIER_1 ->
+                now + RegistrationVerifyAttemptPolicy.LOCKOUT_DURATION_TIER_1_MINUTES.minutes.inWholeMilliseconds
+
+            else -> null
+        }
+
+        if (newLockedUntil != null) {
+            registrationVerifyAttemptRepository.updateLockoutIfLater(email, newLockedUntil)
+        }
+
+        return CompleteRegistrationFailure.InvalidCode
     }
 }

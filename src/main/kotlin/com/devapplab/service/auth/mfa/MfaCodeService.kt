@@ -49,8 +49,6 @@ class MfaCodeService(private val mfaCodeRepository: MfaCodeRepository) {
             }
         }
 
-        mfaCodeRepository.deactivatePreviousCodes(userId, purpose)
-
         val newId = mfaCodeRepository.createMfaCode(
             userId = userId,
             deviceId = deviceId,
@@ -64,12 +62,26 @@ class MfaCodeService(private val mfaCodeRepository: MfaCodeRepository) {
         return MfaCreationResult.Created(newId, expiresInSeconds)
     }
 
-     fun getLatestValidMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
-        val code = mfaCodeRepository.getLatestActiveMfaCode(userId, deviceId, purpose) ?: return null
-        val isExpired = code.expiresAt < System.currentTimeMillis()
-        val isAlreadyUsed = code.verified
+    fun getValidMfaCodeWithGrace(
+        userId: UUID,
+        deviceId: UUID?,
+        purpose: MfaPurpose,
+        hashedInput: String,
+        previousCodeGraceSeconds: Long = 90
+    ): MfaData? {
+        val now = System.currentTimeMillis()
+        val recentCodes = mfaCodeRepository.getRecentActiveMfaCodes(userId, deviceId, purpose, limit = 2)
+            .filter { code -> code.expiresAt >= now && !code.verified }
 
-        return if (isExpired || isAlreadyUsed) null else code
+        if (recentCodes.isEmpty()) return null
+
+        val latest = recentCodes.first()
+        val matched = recentCodes.firstOrNull { it.hashedCode == hashedInput } ?: return null
+        if (matched.id == latest.id) return matched
+
+        val graceMs = previousCodeGraceSeconds * 1000
+        val stillInGraceWindow = now - latest.createdAt <= graceMs
+        return if (stillInGraceWindow) matched else null
     }
 }
 

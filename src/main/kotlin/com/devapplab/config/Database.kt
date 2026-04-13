@@ -15,11 +15,13 @@ import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.mfa.MfaCodeTable
+import com.devapplab.data.database.mfa.LoginMfaVerifyAttemptTable
 import com.devapplab.data.database.password_reset.PasswordResetTokensTable
 import com.devapplab.data.database.password_reset.PasswordResetVerifyAttemptTable
 import com.devapplab.data.database.payments.MatchPlayerPaymentsTable
 import com.devapplab.data.database.payments.StripeWebhookEventsTable
 import com.devapplab.data.database.pending_registrations.PendingRegistrationTable
+import com.devapplab.data.database.pending_registrations.RegistrationVerifyAttemptTable
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserPaymentProfileTable
 import com.devapplab.data.database.user.UserTable
@@ -47,6 +49,7 @@ fun Application.configureDatabase() {
         UserTable,
         DeviceTable,
         MfaCodeTable,
+        LoginMfaVerifyAttemptTable,
         RefreshTokenTable,
         LocationsTable,
         FieldTable,
@@ -64,6 +67,7 @@ fun Application.configureDatabase() {
         PasswordResetVerifyAttemptTable,
         LoginAttemptTable,
         PendingRegistrationTable,
+        RegistrationVerifyAttemptTable,
         MatchPlayerPaymentsTable,
         UserPaymentProfileTable,
         StripeWebhookEventsTable

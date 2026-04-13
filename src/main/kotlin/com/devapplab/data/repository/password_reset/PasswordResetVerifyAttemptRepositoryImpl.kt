@@ -10,6 +10,10 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 
 class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepository {
+    private companion object {
+        const val ATTEMPT_WINDOW_MS = 15 * 60 * 1000L
+    }
+
     override fun findByEmail(email: String): PasswordResetVerifyAttempt? {
         return PasswordResetVerifyAttemptTable
             .selectAll()
@@ -42,10 +46,15 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
             .firstOrNull()
 
         if (lockedRow != null) {
-            val newAttempts = lockedRow[PasswordResetVerifyAttemptTable.attempts] + 1
+            val windowExpired = now - lockedRow[PasswordResetVerifyAttemptTable.lastAttemptAt] > ATTEMPT_WINDOW_MS
+            val baseAttempts = if (windowExpired) 0 else lockedRow[PasswordResetVerifyAttemptTable.attempts]
+            val newAttempts = baseAttempts + 1
             PasswordResetVerifyAttemptTable.update({ PasswordResetVerifyAttemptTable.email eq email }) {
                 it[this.attempts] = newAttempts
                 it[this.lastAttemptAt] = now
+                if (windowExpired) {
+                    it[this.lockedUntil] = null
+                }
                 it[updatedAt] = now
             }
         } else {
@@ -57,10 +66,15 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
                     .firstOrNull()
                     ?: throw IllegalStateException("Verify attempt row missing after concurrent create for email=$email")
 
-                val newAttempts = existing[PasswordResetVerifyAttemptTable.attempts] + 1
+                val windowExpired = now - existing[PasswordResetVerifyAttemptTable.lastAttemptAt] > ATTEMPT_WINDOW_MS
+                val baseAttempts = if (windowExpired) 0 else existing[PasswordResetVerifyAttemptTable.attempts]
+                val newAttempts = baseAttempts + 1
                 PasswordResetVerifyAttemptTable.update({ PasswordResetVerifyAttemptTable.email eq email }) {
                     it[this.attempts] = newAttempts
                     it[this.lastAttemptAt] = now
+                    if (windowExpired) {
+                        it[this.lockedUntil] = null
+                    }
                     it[updatedAt] = now
                 }
             }
@@ -103,4 +117,3 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
         )
     }
 }
-

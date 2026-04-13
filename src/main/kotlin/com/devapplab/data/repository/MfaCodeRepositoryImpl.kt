@@ -42,7 +42,12 @@ class MfaCodeRepositoryImpl : MfaCodeRepository {
         }[MfaCodeTable.id]
     }
 
-    override fun getLatestActiveMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData? {
+    override fun getRecentActiveMfaCodes(
+        userId: UUID,
+        deviceId: UUID?,
+        purpose: MfaPurpose,
+        limit: Int
+    ): List<MfaData> {
         val query = MfaCodeTable
             .selectAll()
             .where {
@@ -56,9 +61,9 @@ class MfaCodeRepositoryImpl : MfaCodeRepository {
                 }
             }
             .orderBy(MfaCodeTable.createdAt, SortOrder.DESC)
-            .limit(1)
+            .limit(limit)
 
-        return query.map { it.toMfaData() }.singleOrNull()
+        return query.map { it.toMfaData() }
     }
 
     override fun findLatestMfaCode(userId: UUID, purpose: MfaPurpose): MfaData? {
@@ -101,16 +106,6 @@ class MfaCodeRepositoryImpl : MfaCodeRepository {
                         (MfaCodeTable.createdAt greaterEq since)
             }
             .count()
-    }
-
-    override fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int {
-        return MfaCodeTable.update({
-            (MfaCodeTable.userId eq userId) and
-                    (MfaCodeTable.purpose eq purpose) and
-                    (MfaCodeTable.isActive eq true)
-        }) {
-            it[isActive] = false
-        }
     }
 
     override suspend fun deleteExpiredMfaCodes(): Boolean {

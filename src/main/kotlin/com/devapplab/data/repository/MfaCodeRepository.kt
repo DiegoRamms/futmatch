@@ -15,13 +15,11 @@ interface MfaCodeRepository {
         expiresAt: Long
     ): UUID
 
-    fun getLatestActiveMfaCode(userId: UUID, deviceId: UUID?, purpose: MfaPurpose): MfaData?
+    fun getRecentActiveMfaCodes(userId: UUID, deviceId: UUID?, purpose: MfaPurpose, limit: Int = 2): List<MfaData>
     fun findLatestMfaCode(userId: UUID, purpose: MfaPurpose): MfaData?
     fun findLatestMfaCodeSince(userId: UUID, purpose: MfaPurpose, since: Long): MfaData?
     fun markAsVerified(codeId: UUID): Boolean
     fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long
-    fun deactivatePreviousCodes(userId: UUID, purpose: MfaPurpose): Int
     suspend fun deleteExpiredMfaCodes(): Boolean
     suspend fun deleteById(codeId: UUID): Boolean
 }
-

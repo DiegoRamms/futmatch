@@ -50,11 +50,11 @@ class PasswordResetService(
     private val logger = LoggerFactory.getLogger(this::class.java)
     private object VerifyResetAttemptPolicy {
         const val MAX_ATTEMPTS_TIER_1 = 5
-        const val LOCKOUT_DURATION_TIER_1_MINUTES = 15L
+        const val LOCKOUT_DURATION_TIER_1_MINUTES = 10L
         const val MAX_ATTEMPTS_TIER_2 = 6
-        const val LOCKOUT_DURATION_TIER_2_HOURS = 1L
+        const val LOCKOUT_DURATION_TIER_2_MINUTES = 30L
         const val MAX_ATTEMPTS_TIER_3 = 7
-        const val LOCKOUT_DURATION_TIER_3_HOURS = 24L
+        const val LOCKOUT_DURATION_TIER_3_HOURS = 2L
     }
 
     suspend fun forgotPassword(
@@ -111,6 +111,7 @@ class PasswordResetService(
                 runCatching {
                     emailService.sendMfaPasswordResetEmail(user.email, code, locale)
                     logger.info("✅ Sent password reset code to user ${user.id}")
+                    passwordResetVerifyAttemptRepository.delete(email)
                 }.getOrElse { error ->
                     logger.error("📧 Failed to send password reset email to userId=${user.id}", error)
                 }
@@ -216,18 +217,15 @@ class PasswordResetService(
                 val user = userRepository.findByEmail(email)
                     ?: return@tx registerInvalidResetMfaAttempt(email, now)
 
-                val latestCode = mfaCodeService.getLatestValidMfaCode(
+                val validCode = mfaCodeService.getValidMfaCodeWithGrace(
                     userId = user.id,
                     deviceId = null,
-                    purpose = MfaPurpose.PASSWORD_RESET
+                    purpose = MfaPurpose.PASSWORD_RESET,
+                    hashedInput = hashedInput
                 ) ?: return@tx registerInvalidResetMfaAttempt(email, now)
 
-                if (hashedInput != latestCode.hashedCode) {
-                    return@tx registerInvalidResetMfaAttempt(email, now)
-                }
-
                 // DB: marcar MFA como verificado
-                authRepository.completeForgotPasswordMfaVerification(latestCode.id)
+                authRepository.completeForgotPasswordMfaVerification(validCode.id)
 
                 // DB: invalidar tokens anteriores y guardar el nuevo
                 passwordResetTokenRepository.deleteByUserId(user.id)
@@ -273,7 +271,7 @@ class PasswordResetService(
                 now + VerifyResetAttemptPolicy.LOCKOUT_DURATION_TIER_3_HOURS.hours.inWholeMilliseconds
 
             newAttemptCount >= VerifyResetAttemptPolicy.MAX_ATTEMPTS_TIER_2 ->
-                now + VerifyResetAttemptPolicy.LOCKOUT_DURATION_TIER_2_HOURS.hours.inWholeMilliseconds
+                now + VerifyResetAttemptPolicy.LOCKOUT_DURATION_TIER_2_MINUTES.minutes.inWholeMilliseconds
 
             newAttemptCount >= VerifyResetAttemptPolicy.MAX_ATTEMPTS_TIER_1 ->
                 now + VerifyResetAttemptPolicy.LOCKOUT_DURATION_TIER_1_MINUTES.minutes.inWholeMilliseconds
