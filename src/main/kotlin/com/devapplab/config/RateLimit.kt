@@ -6,6 +6,7 @@ import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.plugins.ratelimit.*
 import java.security.MessageDigest
+import java.net.InetAddress
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -123,8 +124,22 @@ fun Application.configureRateLimit() {
 }
 
 private fun ApplicationCall.clientIp(): String =
-    request.headers["X-Forwarded-For"]?.split(",")?.first()?.trim()
-        ?: request.origin.remoteHost
+    resolveClientIp(request.origin.remoteHost, request.headers["X-Forwarded-For"])
+
+private fun resolveClientIp(remoteHost: String, xForwardedFor: String?): String {
+    val forwardedIp = xForwardedFor
+        ?.split(",")
+        ?.asSequence()
+        ?.map { it.trim() }
+        ?.firstOrNull { isValidIpAddress(it) }
+
+    return forwardedIp ?: remoteHost
+}
+
+private fun isValidIpAddress(value: String): Boolean {
+    if (value.isBlank()) return false
+    return runCatching { InetAddress.getByName(value) }.isSuccess
+}
 
 private fun sha256(text: String): String {
     val bytes = MessageDigest.getInstance("SHA-256").digest(text.toByteArray())
