@@ -127,6 +127,9 @@ private fun ApplicationCall.clientIp(): String =
     resolveClientIp(request.origin.remoteHost, request.headers["X-Forwarded-For"])
 
 private fun resolveClientIp(remoteHost: String, xForwardedFor: String?): String {
+    val trustedProxySource = isTrustedProxySource(remoteHost)
+    if (!trustedProxySource) return remoteHost
+
     val forwardedIp = xForwardedFor
         ?.split(",")
         ?.asSequence()
@@ -136,9 +139,38 @@ private fun resolveClientIp(remoteHost: String, xForwardedFor: String?): String 
     return forwardedIp ?: remoteHost
 }
 
+private fun isTrustedProxySource(host: String): Boolean {
+    val address = runCatching { InetAddress.getByName(host) }.getOrNull() ?: return false
+    return address.isLoopbackAddress ||
+            address.isAnyLocalAddress ||
+            address.isLinkLocalAddress ||
+            address.isSiteLocalAddress
+}
+
 private fun isValidIpAddress(value: String): Boolean {
-    if (value.isBlank()) return false
+    if (value.isBlank() || !looksLikeIpLiteral(value)) return false
     return runCatching { InetAddress.getByName(value) }.isSuccess
+}
+
+private fun looksLikeIpLiteral(value: String): Boolean {
+    return isValidIpv4Literal(value) || isValidIpv6Literal(value)
+}
+
+private fun isValidIpv4Literal(value: String): Boolean {
+    val parts = value.split(".")
+    if (parts.size != 4) return false
+
+    return parts.all { part ->
+        if (part.isEmpty() || part.length > 3 || !part.all { it.isDigit() }) return@all false
+        val n = part.toIntOrNull() ?: return@all false
+        n in 0..255
+    }
+}
+
+private fun isValidIpv6Literal(value: String): Boolean {
+    val withoutZone = value.substringBefore('%')
+    if (!withoutZone.contains(':')) return false
+    return withoutZone.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' || it == ':' }
 }
 
 private fun sha256(text: String): String {
