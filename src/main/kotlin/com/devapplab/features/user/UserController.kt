@@ -13,6 +13,13 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 
 class UserController(private val service: UserService) {
+    suspend fun getHome(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val result = service.getHome(userId, locale)
+        call.respond(result)
+    }
+
     suspend fun getUserById(call: ApplicationCall) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)

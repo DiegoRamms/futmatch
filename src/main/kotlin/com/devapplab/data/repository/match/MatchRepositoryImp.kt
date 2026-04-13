@@ -798,4 +798,220 @@ class MatchRepositoryImp : MatchRepository {
             Pair(teamAScore, teamBScore)
         }
     }
+
+    override suspend fun getHomeSuggestedMatches(userId: UUID, limit: Int): List<HomeSuggestedMatch> {
+        return dbQuery {
+            val now = System.currentTimeMillis()
+            val safeLimit = limit.coerceIn(1, 10)
+
+            val preferredCity = (MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
+                .leftJoin(LocationsTable)
+                .select(LocationsTable.cityCode, MatchTable.dateTime)
+                .where {
+                    (MatchPlayersTable.userId eq userId) and
+                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                        (LocationsTable.cityCode.isNotNull())
+                }
+                .orderBy(MatchTable.dateTime to SortOrder.DESC)
+                .limit(30)
+                .mapNotNull { it.getOrNull(LocationsTable.cityCode) }
+                .groupingBy { it }
+                .eachCount()
+                .maxByOrNull { it.value }
+                ?.key
+
+            val joinedMatchIds = MatchPlayersTable
+                .select(MatchPlayersTable.matchId)
+                .where {
+                    (MatchPlayersTable.userId eq userId) and
+                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED))
+                }
+                .map { it[MatchPlayersTable.matchId] }
+
+            var filter: Op<Boolean> = (MatchTable.dateTime greaterEq now) and (MatchTable.status eq MatchStatus.SCHEDULED)
+            if (joinedMatchIds.isNotEmpty()) {
+                filter = filter and (MatchTable.id notInList joinedMatchIds)
+            }
+
+            val candidateRows = (MatchTable innerJoin FieldTable)
+                .leftJoin(LocationsTable)
+                .select(
+                    MatchTable.id,
+                    MatchTable.fieldId,
+                    MatchTable.dateTime,
+                    MatchTable.dateTimeEnd,
+                    MatchTable.matchPrice,
+                    FieldTable.name,
+                    LocationsTable.cityCode
+                )
+                .where { filter }
+                .orderBy(MatchTable.dateTime to SortOrder.ASC)
+                .limit(safeLimit * 3)
+                .toList()
+
+            if (candidateRows.isEmpty()) return@dbQuery emptyList()
+
+            val fieldIds = candidateRows.map { it[MatchTable.fieldId] }.distinct()
+            val imageKeysByField = FieldImagesTable
+                .select(FieldImagesTable.fieldId, FieldImagesTable.key)
+                .where { (FieldImagesTable.fieldId inList fieldIds) and (FieldImagesTable.position eq 0) }
+                .associate { row -> row[FieldImagesTable.fieldId] to row[FieldImagesTable.key] }
+
+            val candidates = candidateRows.map { row ->
+                val fieldId = row[MatchTable.fieldId]
+                HomeSuggestedMatch(
+                    matchId = row[MatchTable.id],
+                    fieldId = fieldId,
+                    fieldName = row[FieldTable.name],
+                    startTime = row[MatchTable.dateTime],
+                    endTime = row[MatchTable.dateTimeEnd],
+                    price = row[MatchTable.matchPrice],
+                    cityCode = row.getOrNull(LocationsTable.cityCode),
+                    fieldImageKey = imageKeysByField[fieldId]
+                )
+            }
+
+            val sorted = if (preferredCity != null) {
+                candidates.sortedWith(
+                    compareBy<HomeSuggestedMatch> { it.cityCode != preferredCity }
+                        .thenBy { it.startTime }
+                )
+            } else {
+                candidates.sortedBy { it.startTime }
+            }
+
+            sorted.take(safeLimit)
+        }
+    }
+
+    override suspend fun getHomeNextMatch(userId: UUID): HomeNextMatch? {
+        return dbQuery {
+            val now = System.currentTimeMillis()
+
+            val row = ((MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
+                .leftJoin(LocationsTable))
+                .select(
+                    MatchTable.id,
+                    MatchTable.fieldId,
+                    MatchTable.dateTime,
+                    FieldTable.name,
+                    LocationsTable.address
+                )
+                .where {
+                    (MatchPlayersTable.userId eq userId) and
+                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                        (MatchTable.status eq MatchStatus.SCHEDULED) and
+                        (MatchTable.dateTime greaterEq now)
+                }
+                .orderBy(MatchTable.dateTime to SortOrder.ASC)
+                .limit(1)
+                .singleOrNull() ?: return@dbQuery null
+
+            val fieldId = row[MatchTable.fieldId]
+            val imageKey = FieldImagesTable
+                .select(FieldImagesTable.key)
+                .where { (FieldImagesTable.fieldId eq fieldId) and (FieldImagesTable.position eq 0) }
+                .limit(1)
+                .singleOrNull()
+                ?.get(FieldImagesTable.key)
+
+            HomeNextMatch(
+                matchId = row[MatchTable.id],
+                fieldId = fieldId,
+                fieldName = row[FieldTable.name],
+                startTime = row[MatchTable.dateTime],
+                address = row.getOrNull(LocationsTable.address),
+                fieldImageKey = imageKey
+            )
+        }
+    }
+
+    override suspend fun getHomeLastMatch(userId: UUID): HomeLastMatch? {
+        return dbQuery {
+            val row = ((MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
+                .leftJoin(MatchResultsTable, { MatchTable.id }, { MatchResultsTable.matchId }))
+                .select(
+                    MatchTable.id,
+                    MatchTable.fieldId,
+                    MatchTable.dateTimeEnd,
+                    FieldTable.name,
+                    MatchPlayersTable.team,
+                    MatchResultsTable.teamAScore,
+                    MatchResultsTable.teamBScore
+                )
+                .where {
+                    (MatchPlayersTable.userId eq userId) and
+                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                        (MatchTable.status eq MatchStatus.COMPLETED)
+                }
+                .orderBy(MatchTable.dateTimeEnd to SortOrder.DESC)
+                .limit(1)
+                .singleOrNull() ?: return@dbQuery null
+
+            val teamAScore = row.getOrNull(MatchResultsTable.teamAScore) ?: 0
+            val teamBScore = row.getOrNull(MatchResultsTable.teamBScore) ?: 0
+            val userTeam = row[MatchPlayersTable.team]
+
+            val outcome = when (userTeam) {
+                TeamType.A -> when {
+                    teamAScore > teamBScore -> HomeMatchOutcome.WIN
+                    teamAScore < teamBScore -> HomeMatchOutcome.LOSS
+                    else -> HomeMatchOutcome.DRAW
+                }
+
+                TeamType.B -> when {
+                    teamBScore > teamAScore -> HomeMatchOutcome.WIN
+                    teamBScore < teamAScore -> HomeMatchOutcome.LOSS
+                    else -> HomeMatchOutcome.DRAW
+                }
+            }
+
+            HomeLastMatch(
+                matchId = row[MatchTable.id],
+                fieldId = row[MatchTable.fieldId],
+                fieldName = row[FieldTable.name],
+                playedAt = row[MatchTable.dateTimeEnd],
+                teamAScore = teamAScore,
+                teamBScore = teamBScore,
+                outcome = outcome
+            )
+        }
+    }
+
+    override suspend fun getHomeWinStats(userId: UUID): HomeWinStats {
+        return dbQuery {
+            val rows = ((MatchPlayersTable innerJoin MatchTable)
+                .leftJoin(MatchResultsTable, { MatchTable.id }, { MatchResultsTable.matchId }))
+                .select(
+                    MatchPlayersTable.team,
+                    MatchResultsTable.teamAScore,
+                    MatchResultsTable.teamBScore
+                )
+                .where {
+                    (MatchPlayersTable.userId eq userId) and
+                        (MatchPlayersTable.status eq MatchPlayerStatus.JOINED) and
+                        (MatchTable.status eq MatchStatus.COMPLETED)
+                }
+                .toList()
+
+            if (rows.isEmpty()) {
+                return@dbQuery HomeWinStats(playedMatches = 0, wonMatches = 0)
+            }
+
+            var wonMatches = 0
+            rows.forEach { row ->
+                val teamAScore = row.getOrNull(MatchResultsTable.teamAScore) ?: return@forEach
+                val teamBScore = row.getOrNull(MatchResultsTable.teamBScore) ?: return@forEach
+                val team = row[MatchPlayersTable.team]
+                val isWin = (team == TeamType.A && teamAScore > teamBScore) ||
+                    (team == TeamType.B && teamBScore > teamAScore)
+                if (isWin) wonMatches++
+            }
+
+            HomeWinStats(
+                playedMatches = rows.size,
+                wonMatches = wonMatches
+            )
+        }
+    }
 }

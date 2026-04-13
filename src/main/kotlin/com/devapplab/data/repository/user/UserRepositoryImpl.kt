@@ -10,6 +10,7 @@ import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.user.UserHomeProfile
 import com.devapplab.model.user.UserRole
 import com.devapplab.model.user.UserStatus
 import com.devapplab.model.user.response.OrganizerListItem
@@ -63,6 +64,21 @@ class UserRepositoryImpl : UserRepository {
         return UserTable.selectAll().where { UserTable.id eq userId }
             .singleOrNull()
             ?.toUserBaseInfo()
+    }
+
+    override fun getHomeProfileById(userId: UUID): UserHomeProfile? {
+        return UserTable
+            .select(UserTable.id, UserTable.name, UserTable.level, UserTable.profilePic)
+            .where { UserTable.id eq userId }
+            .singleOrNull()
+            ?.let { row ->
+                UserHomeProfile(
+                    id = row[UserTable.id],
+                    name = row[UserTable.name],
+                    level = row[UserTable.level],
+                    profilePic = row[UserTable.profilePic]
+                )
+            }
     }
 
     override fun findByEmail(email: String): UserBaseInfo? {

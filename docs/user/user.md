@@ -54,7 +54,74 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 1.2 Subir Foto de Perfil
+### 1.2 Obtener Home del Usuario
+
+Obtiene la información del Home del usuario autenticado en una sola respuesta:
+- perfil resumido (`greetingName`, `level`, `averageScore`, `profileImageUrl`)
+- próximo partido (`nextMatch`)
+- partidos sugeridos (máximo 4)
+- último partido jugado (`lastMatch`)
+
+*   **Método:** `GET`
+*   **Path:** `/user/home`
+*   **Descripción:** Endpoint agregado para pantalla Home. El ID del usuario se extrae del token.
+
+#### cURL para probar:
+```bash
+curl --request GET '{{base_url}}/user/home' \
+  --header 'Authorization: Bearer {{token}}' \
+  --header 'Accept: application/json'
+```
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+  "status": "success",
+  "data": {
+    "profile": {
+      "greetingName": "Carlos",
+      "level": "ADVANCED",
+      "averageScore": 67,
+      "profileImageUrl": "https://res.cloudinary.com/.../futmatch/users/.../avatar.jpg"
+    },
+    "nextMatch": {
+      "matchId": "d9bcf2dd-e8f0-4f75-9f90-5bd239676b53",
+      "fieldId": "6fd4ec1a-2665-4f5d-8308-08a9dbd794af",
+      "fieldName": "Roma Norte 28",
+      "startTime": 1776048600000,
+      "address": "CDMX Roma Norte",
+      "imageUrl": "https://res.cloudinary.com/.../futmatch/fields/.../cover.jpg"
+    },
+    "suggestedMatches": [
+      {
+        "matchId": "b272e463-bf1d-4234-b8ee-c93f6ba18b68",
+        "fieldId": "6fd4ec1a-2665-4f5d-8308-08a9dbd794af",
+        "fieldName": "Roma Norte 28",
+        "startTime": 1776052200000,
+        "endTime": 1776057600000,
+        "priceInCents": 15000,
+        "imageUrl": "https://res.cloudinary.com/.../futmatch/fields/.../cover.jpg"
+      }
+    ],
+    "lastMatch": {
+      "matchId": "2f627b8e-5996-48ca-bf1f-2f3e8728181a",
+      "fieldId": "6fd4ec1a-2665-4f5d-8308-08a9dbd794af",
+      "fieldName": "Roma Norte 28",
+      "playedAt": 1775962200000,
+      "outcome": "WIN",
+      "teamAScore": 10,
+      "teamBScore": 8
+    }
+  }
+}
+```
+
+#### Notas:
+- `averageScore` es un entero redondeado (`0..100`) calculado como: `(partidos ganados / partidos jugados) * 100`.
+- Para `averageScore`, se consideran partidos `COMPLETED` donde el jugador participó con estado `JOINED`.
+- `suggestedMatches` trae como máximo 4 elementos.
+
+### 1.3 Subir Foto de Perfil
 
 Sube o actualiza la foto de perfil del usuario.
 

@@ -2,12 +2,18 @@ package com.devapplab.service
 
 import com.devapplab.utils.Constants
 import com.devapplab.data.database.executor.DbExecutor
+import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.user.response.HomeLastMatchSection
+import com.devapplab.model.user.response.HomeNextMatchSection
+import com.devapplab.model.user.response.HomeProfileSection
+import com.devapplab.model.user.response.HomeSuggestedMatchSection
 import com.devapplab.model.user.mapper.toUserResponse
+import com.devapplab.model.user.response.UserHomeResponse
 import com.devapplab.model.user.response.OrganizerListItem
 import com.devapplab.model.user.response.UserResponse
 import com.devapplab.model.payment.PaymentHistoryItem
@@ -19,11 +25,14 @@ import com.devapplab.utils.getString
 import io.ktor.http.*
 import io.ktor.http.content.*
 import org.slf4j.LoggerFactory
+import java.math.BigDecimal
 import java.util.*
+import kotlin.math.roundToInt
 
 class UserService(
     private val dbExecutor: DbExecutor,
     private val userRepository: UserRepository,
+    private val matchRepository: MatchRepository,
     private val imageService: ImageService,
     private val paymentServiceFactory: PaymentServiceFactory
 ) {
@@ -166,5 +175,87 @@ class UserService(
         } else {
             locale.createError(status = HttpStatusCode.NotFound)
         }
+    }
+
+    suspend fun getHome(userId: UUID?, locale: Locale): AppResult<UserHomeResponse> {
+        userId ?: return locale.createError(status = HttpStatusCode.NotFound)
+
+        val user = dbExecutor.tx { userRepository.getHomeProfileById(userId) }
+            ?: return locale.createError(status = HttpStatusCode.NotFound)
+
+        val nextMatch = matchRepository.getHomeNextMatch(userId)
+        val suggestedMatches = matchRepository.getHomeSuggestedMatches(userId = userId, limit = HOME_SUGGESTED_MATCHES_LIMIT)
+        val lastMatch = matchRepository.getHomeLastMatch(userId)
+        val winStats = matchRepository.getHomeWinStats(userId)
+
+        val averageScore = if (winStats.playedMatches == 0) {
+            0
+        } else {
+            ((winStats.wonMatches.toDouble() / winStats.playedMatches.toDouble()) * 100.0).roundToInt()
+        }
+
+        val profileImageUrl = user.profilePic?.let { fileName ->
+            imageService.getImageUrl("${Constants.BASE_USER_STORAGE_PATH}/${user.id}/$fileName")
+        }
+
+        val nextMatchResponse = nextMatch?.let {
+            val imageUrl = it.fieldImageKey?.let { imageKey ->
+                imageService.getImageUrl("${Constants.BASE_FIELD_STORAGE_PATH}/${it.fieldId}/$imageKey")
+            }
+            HomeNextMatchSection(
+                matchId = it.matchId,
+                fieldId = it.fieldId,
+                fieldName = it.fieldName,
+                startTime = it.startTime,
+                address = it.address,
+                imageUrl = imageUrl
+            )
+        }
+
+        val suggestedResponse = suggestedMatches.map { item ->
+            val imageUrl = item.fieldImageKey?.let { imageKey ->
+                imageService.getImageUrl("${Constants.BASE_FIELD_STORAGE_PATH}/${item.fieldId}/$imageKey")
+            }
+            HomeSuggestedMatchSection(
+                matchId = item.matchId,
+                fieldId = item.fieldId,
+                fieldName = item.fieldName,
+                startTime = item.startTime,
+                endTime = item.endTime,
+                priceInCents = item.price.multiply(BigDecimal(100)).longValueExact(),
+                imageUrl = imageUrl
+            )
+        }
+
+        val lastMatchResponse = lastMatch?.let {
+            HomeLastMatchSection(
+                matchId = it.matchId,
+                fieldId = it.fieldId,
+                fieldName = it.fieldName,
+                playedAt = it.playedAt,
+                outcome = it.outcome,
+                teamAScore = it.teamAScore,
+                teamBScore = it.teamBScore
+            )
+        }
+
+        return AppResult.Success(
+            data = UserHomeResponse(
+                profile = HomeProfileSection(
+                    greetingName = user.name,
+                    level = user.level,
+                    averageScore = averageScore,
+                    profileImageUrl = profileImageUrl
+                ),
+                nextMatch = nextMatchResponse,
+                suggestedMatches = suggestedResponse,
+                lastMatch = lastMatchResponse
+            ),
+            appStatus = HttpStatusCode.OK
+        )
+    }
+
+    private companion object {
+        const val HOME_SUGGESTED_MATCHES_LIMIT = 4
     }
 }

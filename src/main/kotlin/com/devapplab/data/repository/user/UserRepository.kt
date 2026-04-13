@@ -7,12 +7,14 @@ import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.user.UserHomeProfile
 import com.devapplab.model.user.response.OrganizerListItem
 import java.util.*
 
 interface UserRepository {
     fun create(pendingUser: PendingUser): User
     fun getUserById(userId: UUID): UserBaseInfo?
+    fun getHomeProfileById(userId: UUID): UserHomeProfile?
     fun findByEmail(email: String): UserBaseInfo?
     fun isEmailAlreadyRegistered(email: String): Boolean
     suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean

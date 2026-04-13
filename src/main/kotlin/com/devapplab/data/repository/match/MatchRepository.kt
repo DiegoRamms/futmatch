@@ -25,4 +25,8 @@ interface MatchRepository {
     suspend fun setBestPlayer(matchId: UUID, bestPlayerId: UUID): Boolean
     suspend fun getMatchPlayerGoals(matchId: UUID): List<MatchPlayerGoal>
     suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int>
+    suspend fun getHomeSuggestedMatches(userId: UUID, limit: Int): List<HomeSuggestedMatch>
+    suspend fun getHomeNextMatch(userId: UUID): HomeNextMatch?
+    suspend fun getHomeLastMatch(userId: UUID): HomeLastMatch?
+    suspend fun getHomeWinStats(userId: UUID): HomeWinStats
 }

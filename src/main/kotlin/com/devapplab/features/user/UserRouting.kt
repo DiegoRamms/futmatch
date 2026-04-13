@@ -8,6 +8,11 @@ import org.koin.ktor.plugin.scope
 
 fun Route.userRouting() {
     route("/user") {
+        get("/home") {
+            val userController = call.scope.get<UserController>()
+            userController.getHome(call)
+        }
+
         get {
             val userController = call.scope.get<UserController>()
             userController.getUserById(call)
