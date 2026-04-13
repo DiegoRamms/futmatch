@@ -313,7 +313,11 @@ class RegistrationService(
             ResendRegistrationCodeDecision.SendEmail -> {
                 return runCatching {
                     emailService.sendRegistrationEmail(email, newVerificationCode, locale)
-                    registrationVerifyAttemptRepository.delete(email)
+                    runCatching {
+                        registrationVerifyAttemptRepository.deleteSafe(email)
+                    }.onFailure { error ->
+                        logger.warn("⚠️ Failed to clear registration verify attempts after resend | email=$email", error)
+                    }
                     logger.info("✅ Resent registration verification code to $email")
 
                     AppResult.Success(

@@ -9,5 +9,5 @@ interface LoginMfaVerifyAttemptRepository {
     fun incrementAttempt(userId: UUID, deviceId: UUID, now: Long): LoginMfaVerifyAttempt
     fun updateLockoutIfLater(userId: UUID, deviceId: UUID, lockUntil: Long): Boolean
     fun delete(userId: UUID, deviceId: UUID): Boolean
+    suspend fun deleteSafe(userId: UUID, deviceId: UUID): Boolean
 }
-

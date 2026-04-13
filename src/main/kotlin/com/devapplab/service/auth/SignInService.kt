@@ -305,7 +305,11 @@ class SignInService(
                 }
 
                 logger.info("✅ Sent MFA code to user ${user.id} for purpose SIGN_IN")
-                loginMfaVerifyAttemptRepository.delete(user.id, deviceId)
+                runCatching {
+                    loginMfaVerifyAttemptRepository.deleteSafe(user.id, deviceId)
+                }.onFailure { error ->
+                    logger.warn("⚠️ Failed to clear login MFA verify attempts after sending code | userId=${user.id} deviceId=$deviceId", error)
+                }
                 AppResult.Success(
                     MfaSendCodeResponse(
                         newCodeSent = true,

@@ -111,7 +111,11 @@ class PasswordResetService(
                 runCatching {
                     emailService.sendMfaPasswordResetEmail(user.email, code, locale)
                     logger.info("✅ Sent password reset code to user ${user.id}")
-                    passwordResetVerifyAttemptRepository.delete(email)
+                    runCatching {
+                        passwordResetVerifyAttemptRepository.deleteSafe(email)
+                    }.onFailure { error ->
+                        logger.warn("⚠️ Failed to clear password reset verify attempts after resend | email=$email", error)
+                    }
                 }.getOrElse { error ->
                     logger.error("📧 Failed to send password reset email to userId=${user.id}", error)
                 }

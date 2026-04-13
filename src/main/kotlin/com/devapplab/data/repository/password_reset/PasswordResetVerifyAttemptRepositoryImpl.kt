@@ -1,5 +1,6 @@
 package com.devapplab.data.repository.password_reset
 
+import com.devapplab.config.dbQuery
 import com.devapplab.data.database.password_reset.PasswordResetVerifyAttemptTable
 import com.devapplab.model.password_reset.PasswordResetVerifyAttempt
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -103,6 +104,10 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
 
     override fun delete(email: String): Boolean {
         return PasswordResetVerifyAttemptTable.deleteWhere { PasswordResetVerifyAttemptTable.email eq email } > 0
+    }
+
+    override suspend fun deleteSafe(email: String): Boolean = dbQuery {
+        delete(email)
     }
 
     private fun ResultRow.toDomain(): PasswordResetVerifyAttempt {

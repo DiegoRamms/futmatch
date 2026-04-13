@@ -1,5 +1,6 @@
 package com.devapplab.data.repository.mfa
 
+import com.devapplab.config.dbQuery
 import com.devapplab.data.database.mfa.LoginMfaVerifyAttemptTable
 import com.devapplab.model.mfa.LoginMfaVerifyAttempt
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -108,6 +109,10 @@ class LoginMfaVerifyAttemptRepositoryImpl : LoginMfaVerifyAttemptRepository {
         return LoginMfaVerifyAttemptTable.deleteWhere {
             LoginMfaVerifyAttemptTable.lookupKey eq key(userId, deviceId)
         } > 0
+    }
+
+    override suspend fun deleteSafe(userId: UUID, deviceId: UUID): Boolean = dbQuery {
+        delete(userId, deviceId)
     }
 
     private fun key(userId: UUID, deviceId: UUID): String = "$userId:$deviceId"

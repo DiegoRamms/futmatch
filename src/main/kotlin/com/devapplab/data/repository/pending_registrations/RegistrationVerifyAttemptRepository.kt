@@ -8,5 +8,5 @@ interface RegistrationVerifyAttemptRepository {
     fun incrementAttempt(email: String, now: Long): RegistrationVerifyAttempt
     fun updateLockoutIfLater(email: String, lockUntil: Long): Boolean
     fun delete(email: String): Boolean
+    suspend fun deleteSafe(email: String): Boolean
 }
-

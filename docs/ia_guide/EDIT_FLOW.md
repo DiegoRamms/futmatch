@@ -47,6 +47,7 @@ For atomic multi-step operations:
 - Use `DbExecutor.tx { ... }` in service.
 - Call repository `Tx` methods inside transaction.
 - Do not wrap `Tx` methods with `dbQuery`.
+- If the service only needs one repository DB action (no atomic multi-step flow), prefer a `suspend` repository method that already wraps its work with `dbQuery`.
 
 ## Final Validation Gate
 

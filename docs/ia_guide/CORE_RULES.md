@@ -28,6 +28,8 @@ For any new message/error/success:
 ## 4. Repository/DB Contract
 
 - Wrap suspend DB operations in `dbQuery { ... }`.
+- If a repository call is a standalone DB action (single query/command), expose it as `suspend` and execute with `dbQuery`.
+- Keep non-suspend repository methods only for operations that must run inside an existing `DbExecutor.tx { ... }` workflow.
 - Use explicit row-to-model mappers.
 - For joins in Exposed, pass join columns directly:
 

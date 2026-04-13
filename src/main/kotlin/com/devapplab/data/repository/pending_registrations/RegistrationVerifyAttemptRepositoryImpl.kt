@@ -1,5 +1,6 @@
 package com.devapplab.data.repository.pending_registrations
 
+import com.devapplab.config.dbQuery
 import com.devapplab.data.database.pending_registrations.RegistrationVerifyAttemptTable
 import com.devapplab.model.auth.RegistrationVerifyAttempt
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -101,6 +102,10 @@ class RegistrationVerifyAttemptRepositoryImpl : RegistrationVerifyAttemptReposit
 
     override fun delete(email: String): Boolean {
         return RegistrationVerifyAttemptTable.deleteWhere { RegistrationVerifyAttemptTable.email eq email } > 0
+    }
+
+    override suspend fun deleteSafe(email: String): Boolean = dbQuery {
+        delete(email)
     }
 
     private fun ResultRow.toDomain(): RegistrationVerifyAttempt {
