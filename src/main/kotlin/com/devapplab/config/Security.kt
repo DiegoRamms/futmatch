@@ -29,6 +29,7 @@ fun Application.configureSecurity() {
                 JWT
                     .require(Algorithm.ECDSA256(jwtConfig.loadECPublicKey()))
                     .withIssuer(jwtConfig.issuer)
+                    .withAudience(jwtConfig.audience)
                     .build()
             )
             validate { credential ->
