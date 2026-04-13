@@ -309,10 +309,7 @@ class StripeWebhookService(
                 MatchPlayerList.Player(
                     playerId = player.userId.toString(),
                     name = player.name,
-                    avatarUrl = player.avatarUrl?.let { fileName ->
-                        val publicId = "${Constants.BASE_USER_STORAGE_PATH}/${player.userId}/$fileName"
-                        imageService.getImageUrl(publicId)
-                    },
+                    avatarUrl = resolvePlayerAvatarUrl(player.userId, player.avatarUrl),
                     gender = player.gender,
                     team = player.team,
                     status = player.status,
@@ -322,5 +319,12 @@ class StripeWebhookService(
             }
             matchPlayerRealtimeService.updateMatchPlayers(matchId.toString(), MatchPlayerList(firestorePlayers))
         }
+    }
+
+    private fun resolvePlayerAvatarUrl(userId: UUID, avatarValue: String?): String? {
+        if (avatarValue.isNullOrBlank()) return null
+        if (avatarValue.startsWith("http://") || avatarValue.startsWith("https://")) return avatarValue
+        val publicId = "${Constants.BASE_USER_STORAGE_PATH}/$userId/$avatarValue"
+        return imageService.getImageUrl(publicId)
     }
 }

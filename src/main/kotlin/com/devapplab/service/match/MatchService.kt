@@ -21,7 +21,6 @@ import com.devapplab.model.match.response.*
 import com.devapplab.model.payment.*
 import com.devapplab.service.billing.BillingService
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
-import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.notification.NotificationService
 import com.devapplab.service.payment.PaymentServiceFactory
@@ -46,7 +45,6 @@ import kotlin.time.Duration.Companion.minutes
 class MatchService(
     private val matchRepository: MatchRepository,
     private val discountRepository: DiscountRepository,
-    private val matchSignalsService: MatchSignalsService,
     private val matchPlayerRealtimeService: MatchPlayerRealtimeService,
     private val matchUpdateBus: MatchUpdateBus,
     private val imageService: ImageService,
@@ -166,15 +164,18 @@ class MatchService(
             } else null
 
             val summary = match.toMatchSummaryResponse()
+            val summaryWithResolvedAvatars = summary.copy(
+                teams = resolveAvatarUrls(summary.teams)
+            )
             
-            val resolvedImages = summary.fieldImages
+            val resolvedImages = summaryWithResolvedAvatars.fieldImages
                 .filter { it.position == 0 }
                 .map { image ->
                     val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
                     image.copy(imagePath = imageService.getImageUrl(publicId))
                 }
 
-            val summaryWithImages = summary.copy(
+            val summaryWithImages = summaryWithResolvedAvatars.copy(
                 fieldImages = resolvedImages
             )
 
@@ -202,15 +203,18 @@ class MatchService(
             } else null
 
             val summary = match.toMatchSummaryResponse()
+            val summaryWithResolvedAvatars = summary.copy(
+                teams = resolveAvatarUrls(summary.teams)
+            )
             
-            val resolvedImages = summary.fieldImages
+            val resolvedImages = summaryWithResolvedAvatars.fieldImages
                 .filter { it.position == 0 }
                 .map { image ->
                     val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
                     image.copy(imagePath = imageService.getImageUrl(publicId))
                 }
 
-            val summaryWithImages = summary.copy(fieldImages = resolvedImages)
+            val summaryWithImages = summaryWithResolvedAvatars.copy(fieldImages = resolvedImages)
 
             summaryWithImages to distance
         }
@@ -860,10 +864,7 @@ class MatchService(
                 MatchPlayerList.Player(
                     playerId = player.userId.toString(),
                     name = player.name,
-                    avatarUrl = player.avatarUrl?.let { fileName ->
-                        val publicId = "${Constants.BASE_USER_STORAGE_PATH}/${player.userId}/$fileName"
-                        imageService.getImageUrl(publicId)
-                    },
+                    avatarUrl = resolvePlayerAvatarUrl(player.userId, player.avatarUrl),
                     gender = player.gender,
                     team = player.team,
                     status = player.status,
@@ -925,10 +926,7 @@ class MatchService(
     private fun resolveAvatarUrls(teams: TeamSummaryResponse): TeamSummaryResponse {
         val transformPlayer: (PlayerSummary) -> PlayerSummary = { player ->
             player.copy(
-                avatarUrl = player.avatarUrl?.let { fileName ->
-                    val publicId = "${Constants.BASE_USER_STORAGE_PATH}/${player.id}/$fileName"
-                    imageService.getImageUrl(publicId)
-                }
+                avatarUrl = resolvePlayerAvatarUrl(player.id, player.avatarUrl)
             )
         }
 
@@ -936,6 +934,13 @@ class MatchService(
             teamA = teams.teamA.copy(players = teams.teamA.players.map(transformPlayer)),
             teamB = teams.teamB.copy(players = teams.teamB.players.map(transformPlayer))
         )
+    }
+
+    private fun resolvePlayerAvatarUrl(userId: UUID, avatarValue: String?): String? {
+        if (avatarValue.isNullOrBlank()) return null
+        if (avatarValue.startsWith("http://") || avatarValue.startsWith("https://")) return avatarValue
+        val publicId = "${Constants.BASE_USER_STORAGE_PATH}/$userId/$avatarValue"
+        return imageService.getImageUrl(publicId)
     }
 
     suspend fun getFailedRefunds(): AppResult<List<FailedRefundResponse>> {
