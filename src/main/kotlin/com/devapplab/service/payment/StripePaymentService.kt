@@ -389,10 +389,12 @@ class StripePaymentService(
         if (stripeStatus != activePayment.status) {
             paymentRepository.updatePaymentStatus(providerPaymentId, stripeStatus)
 
-            if (stripeStatus == PaymentAttemptStatus.SUCCEEDED || stripeStatus == PaymentAttemptStatus.AUTHORIZED) {
-                val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(providerPaymentId)
-                if (matchPlayerId != null) {
+            val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(providerPaymentId)
+            if (matchPlayerId != null) {
+                if (stripeStatus == PaymentAttemptStatus.SUCCEEDED || stripeStatus == PaymentAttemptStatus.AUTHORIZED) {
                     matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
+                } else if (stripeStatus == PaymentAttemptStatus.FAILED || stripeStatus == PaymentAttemptStatus.CANCELED) {
+                    matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
                 }
             }
         }
@@ -434,10 +436,12 @@ class StripePaymentService(
         if (stripeStatus != paymentInfo.status) {
             paymentRepository.updatePaymentStatus(providerPaymentId, stripeStatus)
 
-            if (stripeStatus == PaymentAttemptStatus.SUCCEEDED || stripeStatus == PaymentAttemptStatus.AUTHORIZED) {
-                val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(providerPaymentId)
-                if (matchPlayerId != null) {
+            val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(providerPaymentId)
+            if (matchPlayerId != null) {
+                if (stripeStatus == PaymentAttemptStatus.SUCCEEDED || stripeStatus == PaymentAttemptStatus.AUTHORIZED) {
                     matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
+                } else if (stripeStatus == PaymentAttemptStatus.FAILED || stripeStatus == PaymentAttemptStatus.CANCELED) {
+                    matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
                 }
             }
         }
@@ -468,6 +472,7 @@ class StripePaymentService(
                 )
                 .setLimit(100)
                 .addExpand("data.latest_charge")
+                .addExpand("data.latest_charge.refunds")
                 .build()
 
             val paymentIntents = PaymentIntent.list(params)
@@ -482,7 +487,9 @@ class StripePaymentService(
                     )
                 } else null
 
-                val refund = charge?.refunds?.data?.firstOrNull()?.let { refundObj ->
+                val refund = charge?.refunds?.data
+                    ?.maxByOrNull { refundObj -> refundObj.created }
+                    ?.let { refundObj ->
                     RefundInfo(
                         id = refundObj.id,
                         amount = refundObj.amount,

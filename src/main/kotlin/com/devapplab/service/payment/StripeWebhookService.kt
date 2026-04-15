@@ -11,6 +11,8 @@ import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
 import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.image.ImageService
+import com.devapplab.service.notification.NotificationService
+import com.devapplab.utils.LocaleTag
 import com.devapplab.utils.Constants
 import com.stripe.exception.SignatureVerificationException
 import com.stripe.model.Event
@@ -22,6 +24,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
+import java.util.Locale
 import java.util.UUID
 import kotlin.time.Duration.Companion.minutes
 
@@ -32,6 +35,7 @@ class StripeWebhookService(
     private val matchSignalsService: MatchSignalsService,
     private val matchPlayerRealtimeService: MatchPlayerRealtimeService,
     private val imageService: ImageService,
+    private val notificationService: NotificationService,
     private val stripeWebhookEventRepository: StripeWebhookEventRepository,
     private val webhookConfig: WebhookConfig,
 ) {
@@ -199,15 +203,44 @@ class StripeWebhookService(
         val paymentIntentId = paymentIntent.id ?: return
         logger.warn("⚠️ payment_intent.payment_failed. paymentIntentId={}", paymentIntentId)
 
-        paymentRepository.updatePaymentStatus(
+        val paymentUpdated = paymentRepository.updatePaymentStatus(
             providerPaymentId = paymentIntentId,
             status = PaymentAttemptStatus.FAILED,
             failureCode = paymentIntent.lastPaymentError?.code,
             failureMessage = paymentIntent.lastPaymentError?.message
         )
+        if (!paymentUpdated) {
+            logger.warn("⚠️ Failed to update payment status to FAILED. paymentIntentId={}", paymentIntentId)
+        }
+
+        val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(paymentIntentId)
+        if (matchPlayerId != null) {
+            val playerUpdated = matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
+            if (playerUpdated) {
+                logger.info("🚫 Player marked as CANCELED after payment failure. matchPlayerId={}", matchPlayerId)
+            } else {
+                logger.error("❌ Failed to mark player as CANCELED after payment failure. matchPlayerId={}", matchPlayerId)
+            }
+        } else {
+            logger.warn("⚠️ MatchPlayerId not found for failed payment. paymentIntentId={}", paymentIntentId)
+        }
 
         paymentIntent.metadata["matchId"]?.let { matchIdStr ->
-            val matchId = UUID.fromString(matchIdStr)
+            val matchId = runCatching { UUID.fromString(matchIdStr) }.getOrNull()
+            if (matchId == null) {
+                logger.warn("⚠️ Invalid matchId in payment metadata for failed payment. paymentIntentId={}", paymentIntentId)
+                return@let
+            }
+
+            val userId = paymentIntent.metadata["userId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            if (userId != null) {
+                val locale = Locale.forLanguageTag(LocaleTag.LAN_TAG_MX.value)
+                notificationService.sendPaymentFailedNotification(userId, matchId, locale)
+                logger.info("🔔 Payment failed notification sent. userId={}, matchId={}", userId, matchId)
+            } else {
+                logger.warn("⚠️ userId missing/invalid in payment metadata for failed payment. paymentIntentId={}", paymentIntentId)
+            }
+
             notifyMatchUpdate(matchId)
             logger.info("📡 Match update sent after failure. matchId={}", matchId)
         }
