@@ -1,6 +1,6 @@
-# Documentación de Endpoints de Pago (Payment)
+# Documentación de Pago (Endpoints + Validaciones)
 
-Este documento proporciona una descripción detallada de los endpoints relacionados con pagos y métodos de pago.
+Este documento proporciona una descripción detallada de los endpoints de pago y sus validaciones asociadas.
 
 ## Conceptos Comunes
 
@@ -26,6 +26,10 @@ Inicializa una sesión de cliente para ser utilizada con el `CustomerSheet` de S
 
 - **Método:** `POST`
 - **Path:** `/payment/customer-sheet/init`
+- **Validaciones:**
+  - Requiere autenticación con token válido.
+  - Roles permitidos: `PLAYER`, `ADMIN`, `ORGANIZER`.
+  - No requiere body.
 
 #### Ejemplo de Respuesta Exitosa:
 ```json
@@ -48,6 +52,10 @@ Crea un `SetupIntent` de Stripe para guardar una tarjeta o método de pago de fo
 
 - **Método:** `POST`
 - **Path:** `/payment/setup-intent`
+- **Validaciones:**
+  - Requiere autenticación con token válido.
+  - Roles permitidos: `PLAYER`, `ADMIN`, `ORGANIZER`.
+  - No requiere body.
 
 #### Ejemplo de Respuesta Exitosa:
 ```json
@@ -70,6 +78,10 @@ Obtiene la lista de tarjetas guardadas por el usuario actual.
 
 - **Método:** `GET`
 - **Path:** `/payment/methods`
+- **Validaciones:**
+  - Requiere autenticación con token válido.
+  - Roles permitidos: `PLAYER`, `ADMIN`, `ORGANIZER`.
+  - No requiere parámetros adicionales.
 
 #### Ejemplo de Respuesta Exitosa:
 ```json
@@ -95,6 +107,8 @@ Desvincula (elimina) un método de pago previamente guardado.
 
 #### Parámetros de Ruta:
 - `paymentMethodId` (String): El ID del método de pago de Stripe (ej. `pm_123456789`).
+- **Validaciones:**
+  - `paymentMethodId` es obligatorio y no debe ser vacío.
 
 #### Respuestas:
 - **Éxito (204 No Content):** Se eliminó correctamente. No retorna cuerpo JSON.
@@ -112,6 +126,9 @@ Recupera la información del pago activo asociado al usuario para un partido esp
 
 #### Parámetros de Ruta:
 - `matchId` (String): El ID del partido (UUID).
+- **Validaciones:**
+  - `matchId` es obligatorio.
+  - Si llega nulo o vacío, retorna `400 Bad Request`.
 
 #### Ejemplo de Respuesta Exitosa:
 ```json
@@ -136,6 +153,9 @@ Valida el estado actual de un pago específico directamente con el proveedor y a
 
 #### Parámetros de Ruta:
 - `providerPaymentId` (String): El ID del pago en el proveedor (ej. el PaymentIntent ID `pi_123456789`).
+- **Validaciones:**
+  - `providerPaymentId` es obligatorio.
+  - Si llega nulo o vacío, retorna `400 Bad Request`.
 
 #### Ejemplo de Respuesta Exitosa:
 ```json
@@ -161,6 +181,9 @@ Obtiene el historial de pagos del usuario actual desde Stripe.
 - **Método:** `GET`
 - **Path:** `/user/payments`
 - **Roles Permitidos:** `PLAYER`, `ADMIN`, `ORGANIZER`
+- **Validaciones:**
+  - Requiere autenticación con token válido.
+  - No requiere body.
 
 #### Ejemplo de Respuesta Exitosa:
 ```json

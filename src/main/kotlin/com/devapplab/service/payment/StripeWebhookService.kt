@@ -301,10 +301,37 @@ class StripeWebhookService(
             logger.warn("⚠️ Failed to mark payment as CANCELED (maybe not found?). paymentIntentId={}", paymentIntentId)
         }
 
-        // Note: We don't necessarily need to update player status here because usually
-        // the cancellation is triggered by 'leaveMatch' which already removes the player.
-        // But if cancellation happens from Stripe Dashboard, we might want to ensure player is removed.
-        // For now, we just update payment status to keep DB consistent.
+        val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(paymentIntentId)
+        if (matchPlayerId != null) {
+            val playerUpdated = matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
+            if (playerUpdated) {
+                logger.info("🚫 Player marked as CANCELED after payment cancellation. matchPlayerId={}", matchPlayerId)
+            } else {
+                logger.error("❌ Failed to mark player as CANCELED after payment cancellation. matchPlayerId={}", matchPlayerId)
+            }
+        } else {
+            logger.warn("⚠️ MatchPlayerId not found for canceled payment. paymentIntentId={}", paymentIntentId)
+        }
+
+        paymentIntent.metadata["matchId"]?.let { matchIdStr ->
+            val matchId = runCatching { UUID.fromString(matchIdStr) }.getOrNull()
+            if (matchId == null) {
+                logger.warn("⚠️ Invalid matchId in payment metadata for canceled payment. paymentIntentId={}", paymentIntentId)
+                return@let
+            }
+
+            val userId = paymentIntent.metadata["userId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            if (userId != null) {
+                val locale = Locale.forLanguageTag(LocaleTag.LAN_TAG_MX.value)
+                notificationService.sendPaymentFailedNotification(userId, matchId, locale)
+                logger.info("🔔 Payment canceled notification sent as payment failed. userId={}, matchId={}", userId, matchId)
+            } else {
+                logger.warn("⚠️ userId missing/invalid in payment metadata for canceled payment. paymentIntentId={}", paymentIntentId)
+            }
+
+            notifyMatchUpdate(matchId)
+            logger.info("📡 Match update sent after cancellation. matchId={}", matchId)
+        }
     }
 
     /**
