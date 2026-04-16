@@ -24,6 +24,7 @@ import com.stripe.model.CustomerSession
 import com.stripe.model.PaymentIntent
 import com.stripe.model.Refund
 import com.stripe.param.CustomerSessionCreateParams
+import com.stripe.param.PaymentIntentCancelParams
 import com.stripe.param.PaymentIntentCaptureParams
 import com.stripe.param.PaymentIntentCreateParams
 import com.stripe.param.PaymentIntentListParams
@@ -275,7 +276,11 @@ class StripePaymentService(
                 return true
             }
 
-            val canceledIntent = intent.cancel()
+            val canceledIntent = intent.cancel(
+                PaymentIntentCancelParams.builder()
+                    .setCancellationReason(PaymentIntentCancelParams.CancellationReason.REQUESTED_BY_CUSTOMER)
+                    .build()
+            )
 
             if (canceledIntent.status == "canceled") {
                 logger.info("✅ Stripe PaymentIntent canceled successfully. paymentId={}", paymentId)
@@ -393,8 +398,6 @@ class StripePaymentService(
             if (matchPlayerId != null) {
                 if (stripeStatus == PaymentAttemptStatus.SUCCEEDED || stripeStatus == PaymentAttemptStatus.AUTHORIZED) {
                     matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
-                } else if (stripeStatus == PaymentAttemptStatus.FAILED || stripeStatus == PaymentAttemptStatus.CANCELED) {
-                    matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
                 }
             }
         }
@@ -440,8 +443,6 @@ class StripePaymentService(
             if (matchPlayerId != null) {
                 if (stripeStatus == PaymentAttemptStatus.SUCCEEDED || stripeStatus == PaymentAttemptStatus.AUTHORIZED) {
                     matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
-                } else if (stripeStatus == PaymentAttemptStatus.FAILED || stripeStatus == PaymentAttemptStatus.CANCELED) {
-                    matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.CANCELED)
                 }
             }
         }
