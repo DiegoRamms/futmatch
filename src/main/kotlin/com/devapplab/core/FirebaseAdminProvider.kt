@@ -9,6 +9,8 @@ import com.google.firebase.cloud.FirestoreClient
 import io.ktor.server.config.ApplicationConfig
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 class FirebaseAdminProvider(private val config: ApplicationConfig) {
 
@@ -39,6 +41,11 @@ class FirebaseAdminProvider(private val config: ApplicationConfig) {
             } else {
                 logger.info("ℹ️ Firebase Admin SDK already initialized")
             }
+
+            // Non-blocking warmup to avoid first-user Firestore cold-start latency.
+            thread(start = true, isDaemon = true, name = "firebase-firestore-warmup") {
+                warmupFirestore()
+            }
         } catch (e: Exception) {
             logger.error("🔥 Failed to initialize Firebase Admin SDK", e)
         }
@@ -47,4 +54,19 @@ class FirebaseAdminProvider(private val config: ApplicationConfig) {
     fun auth(): FirebaseAuth = FirebaseAuth.getInstance()
 
     fun firestore(): Firestore = FirestoreClient.getFirestore()
+
+    fun warmupFirestore() {
+        val startAt = System.currentTimeMillis()
+        try {
+            // Trigger first Firestore network call so user-facing requests don't pay cold-start latency.
+            firestore()
+                .collection("_system")
+                .document("warmup")
+                .get()
+                .get(10, TimeUnit.SECONDS)
+            logger.info("🔥 Firestore warmup completed in {} ms", System.currentTimeMillis() - startAt)
+        } catch (e: Exception) {
+            logger.warn("⚠️ Firestore warmup failed after {} ms", System.currentTimeMillis() - startAt, e)
+        }
+    }
 }
