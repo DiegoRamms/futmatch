@@ -138,7 +138,7 @@ Recupera la información del pago activo asociado al usuario para un partido esp
         "paymentId": "internal-db-uuid",
         "providerPaymentId": "pi_123456789",
         "clientSecret": "pi_123456789_secret_abcdef12345",
-        "status": "CREATED", // CREATED, REQUIRES_ACTION, SUCCEEDED, CANCELED, FAILED
+        "status": "CREATED",
         "provider": "STRIPE"
     }
 }
@@ -170,6 +170,16 @@ Valida el estado actual de un pago específico directamente con el proveedor y a
     }
 }
 ```
+
+### 4.3 Estados de `PaymentStatusResponse` (backend)
+El campo `status` de `/payment/status/{matchId}` y `/payment/validate/{providerPaymentId}` retorna estados internos del backend:
+
+- `CREATED`: Intento iniciado o en flujo de checkout/reintento.
+- `AUTHORIZED`: Fondos autorizados (`requires_capture` en Stripe), pendiente de captura.
+- `SUCCEEDED`: Cobro capturado exitosamente.
+- `CANCELED`: Intento cancelado.
+- `FAILED`: Fallo definitivo de cobro/captura.
+- `REFUNDED`: Pago reembolsado (según flujo interno).
 
 ---
 
@@ -243,4 +253,39 @@ Obtiene el historial de pagos del usuario actual desde Stripe.
   - `createdAt` (Long): Timestamp de creación del reembolso.
   - `refundedAt` (Long): Timestamp cuando el reembolso fue procesado.
 
+#### Semántica de `status` en historial (`/user/payments`)
+El campo `status` del historial viene directo de Stripe (`PaymentIntent.status`) en minúsculas.
+
+Estados más comunes:
+- `succeeded`: Pago capturado.
+- `requires_capture`: Pago autorizado/retenido (NO es fallo).
+- `processing`: En procesamiento (NO es fallo definitivo).
+- `requires_action`: Requiere acción del usuario (NO es fallo definitivo).
+- `requires_payment_method`: Intento fallido, requiere otro método.
+- `canceled`: Intento cancelado.
+
+Recomendación para frontend:
+- No mapear `requires_capture`, `processing` o `requires_action` como `Failed`.
+- Tratar `requires_capture` como `Authorized` o `Pending`.
+- Tratar `processing` y `requires_action` como `Pending`.
+- Tratar `requires_payment_method` como `Failed`.
+- Tratar `canceled` como `Canceled`.
+
 *Nota: El historial retorna los pagos de los últimos 30 días ordenados del más reciente al más antiguo.*
+
+---
+
+## 6. Reglas de Negocio (Webhooks y Notificaciones)
+
+### 6.1 Salida voluntaria del partido (`leaveMatch`)
+- El backend cancela el `PaymentIntent` en Stripe con razón `requested_by_customer`.
+- Esta cancelación NO debe generar notificación push de "pago fallido".
+
+### 6.2 Fallo durante checkout (tarjeta inválida, etc.)
+- Eventos de webhook como `payment_intent.payment_failed` durante checkout se consideran recuperables.
+- El usuario puede reintentar con otro método de pago dentro de la ventana de reservación.
+- No se expulsa automáticamente del partido por ese evento recuperable.
+
+### 6.3 Fallo de cobro automático (captura)
+- Si falla la captura automática de un pago autorizado, el backend marca el pago como fallido,
+  cancela la participación del usuario en el partido y envía notificación push de pago fallido.

@@ -11,7 +11,9 @@ import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
 import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.image.ImageService
+import com.devapplab.service.notification.NotificationService
 import com.devapplab.utils.Constants
+import com.devapplab.utils.LocaleTag
 import com.stripe.exception.SignatureVerificationException
 import com.stripe.model.Event
 import com.stripe.model.PaymentIntent
@@ -22,6 +24,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
+import java.util.Locale
 import java.util.UUID
 import kotlin.time.Duration.Companion.minutes
 
@@ -32,6 +35,7 @@ class StripeWebhookService(
     private val matchSignalsService: MatchSignalsService,
     private val matchPlayerRealtimeService: MatchPlayerRealtimeService,
     private val imageService: ImageService,
+    private val notificationService: NotificationService,
     private val stripeWebhookEventRepository: StripeWebhookEventRepository,
     private val webhookConfig: WebhookConfig,
 ) {
@@ -267,6 +271,7 @@ class StripeWebhookService(
         val paymentIntentId = paymentIntent.id ?: return
         logger.info("🚫 payment_intent.canceled. paymentIntentId={}", paymentIntentId)
         val cancellationReason = paymentIntent.cancellationReason?.lowercase()
+        val isRequestedByCustomer = cancellationReason == "requested_by_customer"
 
         val updated = paymentRepository.updatePaymentStatus(
             providerPaymentId = paymentIntentId,
@@ -280,7 +285,7 @@ class StripeWebhookService(
         }
 
         // If user explicitly canceled at checkout, keep reservation flow recoverable.
-        if (cancellationReason == "requested_by_customer") {
+        if (isRequestedByCustomer) {
             logger.info("ℹ️ Skipping player cancellation for requested_by_customer. paymentIntentId={}", paymentIntentId)
         } else {
             val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(paymentIntentId)
@@ -301,6 +306,17 @@ class StripeWebhookService(
             if (matchId == null) {
                 logger.warn("⚠️ Invalid matchId in payment metadata for canceled payment. paymentIntentId={}", paymentIntentId)
                 return@let
+            }
+
+            if (!isRequestedByCustomer) {
+                val userId = paymentIntent.metadata["userId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                if (userId != null) {
+                    val locale = Locale.forLanguageTag(LocaleTag.LAN_TAG_MX.value)
+                    notificationService.sendPaymentFailedNotification(userId, matchId, locale)
+                    logger.info("🔔 Payment failed notification sent for non-voluntary cancellation. userId={}, matchId={}", userId, matchId)
+                } else {
+                    logger.warn("⚠️ userId missing/invalid in payment metadata for non-voluntary cancellation. paymentIntentId={}", paymentIntentId)
+                }
             }
 
             notifyMatchUpdate(matchId)
