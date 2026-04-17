@@ -12,6 +12,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -110,6 +111,19 @@ class FieldRepositoryImp : FieldRepository {
             fields.map { field ->
                 FieldWithImagesBaseInfo(field = field, images = images[field.id] ?: emptyList())
             }
+        }
+    }
+
+    override suspend fun getAllFieldBasics(): List<FieldBasicInfo> {
+        return dbQuery {
+            FieldTable
+                .select(FieldTable.id, FieldTable.name)
+                .map {
+                    FieldBasicInfo(
+                        id = it[FieldTable.id],
+                        name = it[FieldTable.name]
+                    )
+                }
         }
     }
 

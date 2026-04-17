@@ -96,4 +96,9 @@ class FieldController(
         val fields = fieldService.getFieldsByAdminId(adminId)
         call.respond(fields)
     }
+
+    suspend fun getAllFieldBasics(call: ApplicationCall) {
+        val fields = fieldService.getAllFieldBasics()
+        call.respond(fields)
+    }
 }

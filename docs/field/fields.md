@@ -21,6 +21,15 @@ Todos los endpoints retornan un objeto `AppResult` estandarizado.
 
 Para recibir respuestas localizadas, incluye el header `Accept-Language` (ej. `en-US`, `es-MX`).
 
+### Base URL de Ejemplos
+
+En los ejemplos de `curl` se usan estas variables:
+
+```bash
+BASE_URL="http://localhost:8080"
+ACCESS_TOKEN="<access_token>"
+```
+
 ---
 
 ## 1. Gestión de Canchas
@@ -32,6 +41,16 @@ Crea una nueva cancha.
 -   **Método:** `POST`
 -   **Path:** `/fields/create`
 -   **Rol Requerido:** `ADMIN` o `ORGANIZER`
+
+#### Validaciones (`CreateFieldRequest`):
+
+| Campo          | Tipo   | Requerido | Reglas de Validación                                      |
+| :------------- | :----- | :-------- | :-------------------------------------------------------- |
+| `name`         | String | Sí        | • No debe estar vacío o en blanco.<br>• Longitud máxima: 30 caracteres. |
+| `priceInCents` | Long   | Sí        | • Debe ser un valor mayor que 0.<br>• **Nota:** El valor representa centavos (ej. 1000 = 10.00). |
+| `capacity`     | Int    | Sí        | • Debe ser un valor mayor que 0.                          |
+| `description`  | String | Sí        | • No debe estar vacío o en blanco.                        |
+| `rules`        | String | Sí        | • No debe estar vacío o en blanco.                        |
 
 #### Ejemplo de Solicitud:
 ```json
@@ -69,6 +88,25 @@ Crea una nueva cancha.
 }
 ```
 
+#### cURL:
+```bash
+curl --location "$BASE_URL/fields/create" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "name": "Cancha Central",
+    "priceInCents": 1550,
+    "capacity": 10,
+    "description": "Nuestra mejor cancha con césped artificial.",
+    "rules": "No se permiten tacos de metal.",
+    "footwearType": "TURF",
+    "fieldType": "ARTIFICIAL_TURF",
+    "hasParking": true,
+    "extraInfo": "Acceso por la puerta norte."
+  }'
+```
+
 ### 1.2 Actualizar Cancha
 
 Actualiza la información de una cancha existente.
@@ -76,6 +114,18 @@ Actualiza la información de una cancha existente.
 -   **Método:** `POST`
 -   **Path:** `/fields/update`
 -   **Rol Requerido:** `ADMIN` o `ORGANIZER`
+
+#### Validaciones (`UpdateFieldRequest`):
+
+| Campo          | Tipo   | Requerido | Reglas de Validación                                      |
+| :------------- | :----- | :-------- | :-------------------------------------------------------- |
+| `fieldId`      | UUID   | Sí        | • Debe ser el UUID de la cancha a actualizar.             |
+| `name`         | String | Sí        | • No debe estar vacío o en blanco.<br>• Longitud máxima: 30 caracteres. |
+| `locationId`   | UUID   | No        | • **(Opcional)** El UUID de una ubicación existente.      |
+| `priceInCents` | Long   | Sí        | • Debe ser un valor mayor que 0.<br>• **Nota:** El valor representa centavos (ej. 1000 = 10.00). |
+| `capacity`     | Int    | Sí        | • Debe ser un valor mayor que 0.                          |
+| `description`  | String | Sí        | • No debe estar vacío o en blanco.                        |
+| `rules`        | String | Sí        | • No debe estar vacío o en blanco.                        |
 
 #### Ejemplo de Solicitud:
 ```json
@@ -102,6 +152,27 @@ Actualiza la información de una cancha existente.
 }
 ```
 
+#### cURL:
+```bash
+curl --location "$BASE_URL/fields/update" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "name": "Cancha Principal (Renovada)",
+    "locationId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+    "priceInCents": 2000,
+    "capacity": 12,
+    "description": "Césped recién renovado.",
+    "rules": "No se permiten tacos de metal. Respetar horarios.",
+    "footwearType": "TURF",
+    "fieldType": "ARTIFICIAL_TURF",
+    "hasParking": true,
+    "extraInfo": "Estacionamiento gratuito."
+  }'
+```
+
 ### 1.3 Vincular Ubicación a Cancha
 
 Vincula una ubicación existente a una cancha.
@@ -122,6 +193,13 @@ Vincula una ubicación existente a una cancha.
 }
 ```
 
+#### cURL:
+```bash
+curl --location --request PUT "$BASE_URL/fields/a1b2c3d4-e5f6-7890-1234-567890abcdef/location/b2c3d4e5-f6a7-8901-2345-67890abcdef1" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX"
+```
+
 ### 1.4 Eliminar Cancha
 
 Elimina una cancha y todos sus datos asociados (imágenes, etc.).
@@ -139,6 +217,13 @@ Elimina una cancha y todos sus datos asociados (imágenes, etc.).
     "status": "success",
     "data": "La cancha se ha eliminado correctamente."
 }
+```
+
+#### cURL:
+```bash
+curl --location --request DELETE "$BASE_URL/fields/delete/a1b2c3d4-e5f6-7890-1234-567890abcdef" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX"
 ```
 
 ### 1.5 Obtener Canchas por Administrador
@@ -189,6 +274,46 @@ Obtiene una lista de todas las canchas asociadas a la cuenta del administrador q
 }
 ```
 
+#### cURL:
+```bash
+curl --location "$BASE_URL/fields/by-admin" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX"
+```
+
+### 1.6 Obtener Todos los Campos (ID + Nombre)
+
+Obtiene todos los campos registrados retornando únicamente `id` y `name`.
+Este endpoint está pensado para catálogos de selección en formularios (por ejemplo, asignar campo a un partido).
+
+-   **Método:** `GET`
+-   **Path:** `/fields/id-name`
+-   **Rol Requerido:** `ADMIN` o `ORGANIZER`
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+            "name": "Cancha Central"
+        },
+        {
+            "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+            "name": "Cancha Norte"
+        }
+    ]
+}
+```
+
+#### cURL:
+```bash
+curl --location "$BASE_URL/fields/id-name" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX"
+```
+
 ---
 
 ## 2. Gestión de Imágenes de Cancha
@@ -218,6 +343,14 @@ Debe ser `form-data` con una parte (`part`) que contenga el archivo de la imagen
 ```
 *La data es el UUID de la nueva imagen creada.*
 
+#### cURL:
+```bash
+curl --location --request POST "$BASE_URL/fields/a1b2c3d4-e5f6-7890-1234-567890abcdef/0/images" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX" \
+  --form "file=@/absolute/path/to/field-image.jpg"
+```
+
 ### 2.2 Actualizar Imagen
 
 Reemplaza una imagen existente.
@@ -243,6 +376,14 @@ Debe ser `form-data` con una parte (`part`) que contenga el nuevo archivo de la 
 ```
 *La data es el UUID de la imagen actualizada.*
 
+#### cURL:
+```bash
+curl --location --request POST "$BASE_URL/fields/image/a1b2c3d4-e5f6-7890-1234-567890abcdef/c3d4e5f6-a7b8-9012-3456-7890abcdef12" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX" \
+  --form "file=@/absolute/path/to/new-field-image.jpg"
+```
+
 
 ### 2.3 Eliminar Imagen
 
@@ -264,6 +405,13 @@ Elimina una imagen de una cancha.
 }
 ```
 
+#### cURL:
+```bash
+curl --location --request DELETE "$BASE_URL/fields/delete/image/a1b2c3d4-e5f6-7890-1234-567890abcdef/c3d4e5f6-a7b8-9012-3456-7890abcdef12" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX"
+```
+
 ### 2.4 Obtener Imagen
 
 Obtiene la URL de acceso para una imagen de cancha.
@@ -281,4 +429,10 @@ El servidor responderá con una redirección (`302 Found`) a la URL firmada de C
 ```
 Status: 302 Found
 Location: https://res.cloudinary.com/.../image/upload/s--.../v1/futmatch/fields/...
+```
+
+#### cURL:
+```bash
+curl --location --include "$BASE_URL/fields/image/zwc9qnwzy6jqkclqfnfm" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
 ```

@@ -6,6 +6,7 @@ import com.devapplab.model.ErrorCode
 import com.devapplab.model.field.Field
 import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.mapper.toResponse
+import com.devapplab.model.field.response.FieldBasicResponse
 import com.devapplab.model.field.response.FieldResponse
 import com.devapplab.model.field.response.FieldWithImagesResponse
 import com.devapplab.service.image.ImageService
@@ -223,6 +224,12 @@ class FieldService(
 
     suspend fun getFieldsByAdminId(adminId: UUID): AppResult<List<FieldWithImagesResponse>> {
         val fields = fieldRepository.getFieldsByAdminId(adminId).map { it.toResponse() }
+        return AppResult.Success(fields)
+    }
+
+    suspend fun getAllFieldBasics(): AppResult<List<FieldBasicResponse>> {
+        val fields = fieldRepository.getAllFieldBasics()
+            .map { FieldBasicResponse(id = it.id, name = it.name) }
         return AppResult.Success(fields)
     }
 }

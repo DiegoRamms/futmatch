@@ -1,6 +1,7 @@
 package com.devapplab.data.repository
 
 import com.devapplab.model.field.Field
+import com.devapplab.model.field.FieldBasicInfo
 import com.devapplab.model.field.FieldBaseInfo
 import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.FieldWithImagesBaseInfo
@@ -20,6 +21,7 @@ interface FieldRepository {
     suspend fun updateFieldLocation(fieldId: UUID, locationId: UUID): Boolean
     suspend fun deleteField(fieldId: UUID): Boolean
     suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo>
+    suspend fun getAllFieldBasics(): List<FieldBasicInfo>
     suspend fun getFields(): List<FieldWithImagesBaseInfo>
     suspend fun getFieldById(fieldId: UUID): Field?
 }
