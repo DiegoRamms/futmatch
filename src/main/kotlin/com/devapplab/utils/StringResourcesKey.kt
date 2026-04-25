@@ -194,6 +194,10 @@ enum class StringResourcesKey(val value: String) {
     USER_PROFILE_GENDER_INVALID("user_profile_gender_invalid"),
     USER_PROFILE_POSITION_INVALID("user_profile_position_invalid"),
 
+    // Demo Matches
+    DEMO_MATCH_TITLE("demo_match_title"),
+    DEMO_MATCH_DESCRIPTION("demo_match_description"),
+
     // Email Templates
     EMAIL_MFA_TITLE("email_mfa_title"),
     EMAIL_MFA_MESSAGE("email_mfa_message"),

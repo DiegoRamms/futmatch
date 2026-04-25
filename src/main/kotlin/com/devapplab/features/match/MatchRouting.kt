@@ -60,10 +60,23 @@ fun Route.matchRouting() {
             matchController.getPlayerMatches(call)
         }
 
+        // TODO_REMOVE_DEMO: Remove after production testing
+        get("matches/demo") {
+            val matchController = call.scope.get<MatchController>()
+            matchController.getDemoMatches(call)
+        }
+
         get("my-matches") {
             call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
             val matchController = call.scope.get<MatchController>()
             matchController.getUserMatches(call)
+        }
+
+        // TODO_REMOVE_DEMO: Remove after production testing
+        get("my-matches/demo") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val matchController = call.scope.get<MatchController>()
+            matchController.getDemoMyMatches(call)
         }
 
         get("/{matchId}") {

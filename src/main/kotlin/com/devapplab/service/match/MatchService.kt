@@ -10,6 +10,7 @@ import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.features.match.MatchUpdateBus
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
+import com.devapplab.model.ErrorResponse
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
 import com.devapplab.model.firestore.MatchPlayerList
@@ -19,6 +20,7 @@ import com.devapplab.model.match.mapper.toMatchSummaryResponse
 import com.devapplab.model.match.mapper.toResponse
 import com.devapplab.model.match.response.*
 import com.devapplab.model.payment.*
+import com.devapplab.model.user.Gender
 import com.devapplab.service.billing.BillingService
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
 import com.devapplab.service.image.ImageService
@@ -249,6 +251,158 @@ class MatchService(
 
         logger.info("🏁 [MATCH_TRACE] getMatchDetail END | matchId=$matchId")
         return AppResult.Success(responseWithImages)
+    }
+
+    // TODO_REMOVE_DEMO: Remove after production testing
+    fun isDemoMatch(matchId: UUID): Boolean = matchId.toString().startsWith("demo-")
+
+    private fun createDemoTeams(teamACount: Int, teamBCount: Int): TeamSummaryResponse {
+        return TeamSummaryResponse(
+            teamA = TeamPlayersSummary(
+                playerCount = teamACount,
+                players = (1..teamACount).map { i ->
+                    PlayerSummary(
+                        id = UUID.fromString("00000000-0000-0000-0000-00000000000$i"),
+                        avatarUrl = null,
+                        gender = Gender.MALE,
+                        name = "Jugador $i",
+                        country = "MX"
+                    )
+                }
+            ),
+            teamB = TeamPlayersSummary(
+                playerCount = teamBCount,
+                players = (1..teamBCount).map { i ->
+                    PlayerSummary(
+                        id = UUID.fromString("00000000-0000-0000-0000-0000000001$i"),
+                        avatarUrl = null,
+                        gender = Gender.MALE,
+                        name = "Jugador ${i + 10}",
+                        country = "MX"
+                    )
+                }
+            )
+        )
+    }
+
+    fun getDemoMatches(): List<MatchSummaryResponse> {
+        val now = System.currentTimeMillis()
+        val oneHour = 3600000L
+        val twoHours = 7200000L
+
+        return listOf(
+            MatchSummaryResponse(
+                id = UUID.fromString("demo-0001-0001-0001-000000000001"),
+                fieldName = "Cancha Demo - Con Espacios",
+                startTime = now + oneHour,
+                endTime = now + twoHours,
+                originalPriceInCents = 25000,
+                totalDiscountInCents = 5000,
+                priceInCents = 20000,
+                genderType = GenderType.MALE_ONLY,
+                status = MatchStatus.SCHEDULED,
+                availableSpots = 2,
+                teams = createDemoTeams(4, 4),
+                location = null,
+                fieldImages = emptyList()
+            ),
+            MatchSummaryResponse(
+                id = UUID.fromString("demo-0002-0002-0002-000000000002"),
+                fieldName = "Cancha Demo - Llena",
+                startTime = now + oneHour,
+                endTime = now + twoHours,
+                originalPriceInCents = 30000,
+                totalDiscountInCents = 5000,
+                priceInCents = 25000,
+                genderType = GenderType.MALE_ONLY,
+                status = MatchStatus.SCHEDULED,
+                availableSpots = 0,
+                teams = createDemoTeams(5, 5),
+                location = null,
+                fieldImages = emptyList()
+            ),
+            MatchSummaryResponse(
+                id = UUID.fromString("demo-0003-0003-0003-000000000003"),
+                fieldName = "Cancha Demo - Completado",
+                startTime = now - twoHours,
+                endTime = now - oneHour,
+                originalPriceInCents = 35000,
+                totalDiscountInCents = 10000,
+                priceInCents = 25000,
+                genderType = GenderType.MALE_ONLY,
+                status = MatchStatus.COMPLETED,
+                availableSpots = 10,
+                teams = createDemoTeams(5, 5),
+                location = null,
+                fieldImages = emptyList()
+            ),
+            MatchSummaryResponse(
+                id = UUID.fromString("demo-0004-0004-0004-000000000004"),
+                fieldName = "Cancha Demo - Cancelado",
+                startTime = now - twoHours,
+                endTime = now - oneHour,
+                originalPriceInCents = 25000,
+                totalDiscountInCents = 0,
+                priceInCents = 25000,
+                genderType = GenderType.MALE_ONLY,
+                status = MatchStatus.CANCELED,
+                availableSpots = 10,
+                teams = createDemoTeams(3, 3),
+                location = null,
+                fieldImages = emptyList()
+            )
+        )
+    }
+
+    fun getDemoMyMatches(): List<MatchSummaryResponse> {
+        return getDemoMatches()
+    }
+
+    fun getDemoMatchDetail(matchId: UUID): AppResult<MatchDetailResponse> {
+        val demoMatches = getDemoMatches()
+        val match = demoMatches.find { it.id == matchId }
+
+        if (match == null) {
+            return AppResult.Failure(
+                errorResponse = ErrorResponse(
+                    title = "Not found",
+                    message = "Demo match not found"
+                ),
+                appStatus = HttpStatusCode.NotFound
+            )
+        }
+
+        return AppResult.Success(
+            MatchDetailResponse(
+                id = match.id,
+                fieldName = match.fieldName,
+                startTime = match.startTime,
+                endTime = match.endTime,
+                originalPriceInCents = match.originalPriceInCents,
+                totalDiscountInCents = match.totalDiscountInCents,
+                priceInCents = match.priceInCents,
+                genderType = match.genderType,
+                status = match.status,
+                availableSpots = match.availableSpots,
+                teams = match.teams,
+                location = match.location,
+                footwearType = null,
+                fieldType = null,
+                hasParking = true,
+                extraInfo = null,
+                description = "Partido de demostracion",
+                rules = "1. Fair play",
+                fieldImages = emptyList()
+            )
+        )
+    }
+
+    fun createDemoMatchError(locale: Locale): AppResult<Unit> {
+        return locale.createError(
+            titleKey = StringResourcesKey.DEMO_MATCH_TITLE,
+            descriptionKey = StringResourcesKey.DEMO_MATCH_DESCRIPTION,
+            status = HttpStatusCode.Forbidden
+        )
     }
 
     private suspend fun getMatchDetailJson(locale: Locale, matchId: UUID): String {

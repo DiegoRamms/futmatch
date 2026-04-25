@@ -56,6 +56,14 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
     suspend fun getMatchDetail(call: ApplicationCall) {
         val matchId = UUID.fromString(call.parameters["matchId"])
         val locale = call.retrieveLocale()
+
+        // TODO_REMOVE_DEMO: Remove after production testing
+        if (matchService.isDemoMatch(matchId)) {
+            val result = matchService.getDemoMatchDetail(matchId)
+            call.respond(result)
+            return
+        }
+
         val result = matchService.getMatchDetail(locale, matchId)
         call.respond(result)
     }
@@ -111,6 +119,15 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
 
     suspend fun joinMatch(call: ApplicationCall) {
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't join match")
+
+        // TODO_REMOVE_DEMO: Remove after production testing
+        if (matchService.isDemoMatch(matchId)) {
+            val locale = call.retrieveLocale()
+            val result = matchService.createDemoMatchError(locale)
+            call.respond(result)
+            return
+        }
+
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<JoinMatchRequest>()
         val locale = call.retrieveLocale()
@@ -151,6 +168,17 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val failureId = call.parameters["failureId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't find failure id")
         val locale = call.retrieveLocale()
         val result = matchService.resolveFailedRefundManually(failureId, locale)
+        call.respond(result)
+    }
+
+    // TODO_REMOVE_DEMO: Remove after production testing
+    suspend fun getDemoMatches(call: ApplicationCall) {
+        val result = matchService.getDemoMatches()
+        call.respond(result)
+    }
+
+    suspend fun getDemoMyMatches(call: ApplicationCall) {
+        val result = matchService.getDemoMyMatches()
         call.respond(result)
     }
 }

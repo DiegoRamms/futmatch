@@ -992,3 +992,187 @@ Marks a failed refund as resolved (used when resolved outside the app, e.g., man
 curl --location --request POST '{{base_url}}/match/admin/failed-refunds/{failureId}/resolve' \
 --header 'Authorization: Bearer {{token}}'
 ```
+
+---
+
+## 16. Demo Matches (Testing)
+
+This endpoint returns sample matches with different statuses for UI testing purposes.
+
+> **⚠️ TODO_REMOVE_DEMO**: Remove these endpoints after production testing.
+
+### 16.1 Get Demo Matches
+
+Returns a list of demo matches with different states (available, full, completed, canceled).
+
+-   **Method:** `GET`
+-   **Path:** `/match/matches/demo`
+
+### Success Response
+
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "id": "demo-0001-0001-0001-000000000001",
+            "fieldName": "Cancha Demo - Con Espacios",
+            "startTime": 1775364000000,
+            "endTime": 1775374800000,
+            "originalPriceInCents": 25000,
+            "totalDiscountInCents": 5000,
+            "priceInCents": 20000,
+            "genderType": "MALE_ONLY",
+            "status": "SCHEDULED",
+            "availableSpots": 2,
+            "teams": {
+                "teamA": { "playerCount": 4, "players": [...] },
+                "teamB": { "playerCount": 4, "players": [...] }
+            }
+        },
+        {
+            "id": "demo-0002-0002-0002-000000000002",
+            "fieldName": "Cancha Demo - Llena",
+            "status": "SCHEDULED",
+            "availableSpots": 0
+        },
+        {
+            "id": "demo-0003-0003-0003-000000000003",
+            "fieldName": "Cancha Demo - Completado",
+            "status": "COMPLETED",
+            "availableSpots": 10
+        },
+        {
+            "id": "demo-0004-0004-0004-000000000004",
+            "fieldName": "Cancha Demo - Cancelado",
+            "status": "CANCELED",
+            "availableSpots": 10
+        }
+    ]
+}
+```
+
+### Demo Match IDs
+
+| ID | Status | Description |
+|:---|:-------|:------------|
+| `demo-0001-0001-0001-000000000001` | SCHEDULED | Match with available spots |
+| `demo-0002-0002-0002-000000000002` | SCHEDULED | Full match (0 spots) |
+| `demo-0003-0003-0003-000000000003` | COMPLETED | Finished match |
+| `demo-0004-0004-0004-000000000004` | CANCELED | Canceled match |
+
+### cURL
+
+```bash
+curl --location '{{base_url}}/match/matches/demo' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+---
+
+### 16.2 Get Demo My Matches
+
+Returns a list of demo matches as if the user was enrolled in them.
+
+-   **Method:** `GET`
+-   **Path:** `/match/my-matches/demo`
+-   **Required Role:** `PLAYER`, `ADMIN`, `ORGANIZER`
+
+### Success Response
+
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "id": "demo-0001-0001-0001-000000000001",
+            "fieldName": "Tu Partido Demo - Próximo",
+            "status": "SCHEDULED",
+            "availableSpots": 2
+        },
+        {
+            "id": "demo-0002-0002-0002-000000000002",
+            "fieldName": "Partido Demo - Lleno",
+            "status": "SCHEDULED",
+            "availableSpots": 0
+        },
+        {
+            "id": "demo-0003-0003-0003-000000000003",
+            "fieldName": "Partido Demo - Completado (Ganado)",
+            "status": "COMPLETED",
+            "availableSpots": 10
+        },
+        {
+            "id": "demo-0004-0004-0004-000000000004",
+            "fieldName": "Partido Demo - Cancelado",
+            "status": "CANCELED",
+            "availableSpots": 10
+        }
+    ]
+}
+```
+
+### cURL
+
+```bash
+curl --location '{{base_url}}/match/my-matches/demo' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+---
+
+### 16.3 Get Match Detail (Demo Support)
+
+The `/match/{matchId}` endpoint also supports demo matches. If the matchId starts with `demo-`, it returns the demo data.
+
+-   **Method:** `GET`
+-   **Path:** `/match/{matchId}`
+
+### Demo Match Detail Response
+
+```json
+{
+    "status": "success",
+    "data": {
+        "id": "demo-0001-0001-0001-000000000001",
+        "fieldName": "Cancha Demo - Con Espacios",
+        "startTime": 1775364000000,
+        "endTime": 1775374800000,
+        "originalPriceInCents": 25000,
+        "totalDiscountInCents": 5000,
+        "priceInCents": 20000,
+        "genderType": "MALE_ONLY",
+        "status": "SCHEDULED",
+        "availableSpots": 2,
+        "teams": { ... },
+        "footwearType": null,
+        "fieldType": null,
+        "hasParking": true,
+        "extraInfo": null,
+        "description": "Partido de demostración",
+        "rules": "1. Fair play",
+        "fieldImages": []
+    }
+}
+```
+
+---
+
+### 16.4 Join Demo Match (Error)
+
+When attempting to join a demo match, the endpoint returns an error.
+
+-   **Method:** `POST`
+-   **Path:** `/match/{matchId}/join`
+
+### Error Response
+
+```json
+{
+    "status": "error",
+    "error": {
+        "title": "Demo Match",
+        "description": "This is a demo match. You cannot join."
+    }
+}
+```
