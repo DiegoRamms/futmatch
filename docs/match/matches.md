@@ -1015,7 +1015,7 @@ Returns a list of demo matches with different states (available, full, completed
     "status": "success",
     "data": [
         {
-            "id": "demo-0001-0001-0001-000000000001",
+            "id": "550e8400-e29b-41d4-a716-446655440001",
             "fieldName": "Cancha Demo - Con Espacios",
             "startTime": 1775364000000,
             "endTime": 1775374800000,
@@ -1031,19 +1031,19 @@ Returns a list of demo matches with different states (available, full, completed
             }
         },
         {
-            "id": "demo-0002-0002-0002-000000000002",
+            "id": "550e8400-e29b-41d4-a716-446655440002",
             "fieldName": "Cancha Demo - Llena",
             "status": "SCHEDULED",
             "availableSpots": 0
         },
         {
-            "id": "demo-0003-0003-0003-000000000003",
+            "id": "550e8400-e29b-41d4-a716-446655440003",
             "fieldName": "Cancha Demo - Completado",
             "status": "COMPLETED",
             "availableSpots": 10
         },
         {
-            "id": "demo-0004-0004-0004-000000000004",
+            "id": "550e8400-e29b-41d4-a716-446655440004",
             "fieldName": "Cancha Demo - Cancelado",
             "status": "CANCELED",
             "availableSpots": 10
@@ -1056,10 +1056,10 @@ Returns a list of demo matches with different states (available, full, completed
 
 | ID | Status | Description |
 |:---|:-------|:------------|
-| `demo-0001-0001-0001-000000000001` | SCHEDULED | Match with available spots |
-| `demo-0002-0002-0002-000000000002` | SCHEDULED | Full match (0 spots) |
-| `demo-0003-0003-0003-000000000003` | COMPLETED | Finished match |
-| `demo-0004-0004-0004-000000000004` | CANCELED | Canceled match |
+| `550e8400-e29b-41d4-a716-446655440001` | SCHEDULED | Match with available spots |
+| `550e8400-e29b-41d4-a716-446655440002` | SCHEDULED | Full match (0 spots) |
+| `550e8400-e29b-41d4-a716-446655440003` | COMPLETED | Finished match |
+| `550e8400-e29b-41d4-a716-446655440004` | CANCELED | Canceled match |
 
 ### cURL
 
@@ -1085,25 +1085,25 @@ Returns a list of demo matches as if the user was enrolled in them.
     "status": "success",
     "data": [
         {
-            "id": "demo-0001-0001-0001-000000000001",
+            "id": "550e8400-e29b-41d4-a716-446655440001",
             "fieldName": "Tu Partido Demo - Próximo",
             "status": "SCHEDULED",
             "availableSpots": 2
         },
         {
-            "id": "demo-0002-0002-0002-000000000002",
+            "id": "550e8400-e29b-41d4-a716-446655440002",
             "fieldName": "Partido Demo - Lleno",
             "status": "SCHEDULED",
             "availableSpots": 0
         },
         {
-            "id": "demo-0003-0003-0003-000000000003",
+            "id": "550e8400-e29b-41d4-a716-446655440003",
             "fieldName": "Partido Demo - Completado (Ganado)",
             "status": "COMPLETED",
             "availableSpots": 10
         },
         {
-            "id": "demo-0004-0004-0004-000000000004",
+            "id": "550e8400-e29b-41d4-a716-446655440004",
             "fieldName": "Partido Demo - Cancelado",
             "status": "CANCELED",
             "availableSpots": 10
@@ -1121,12 +1121,12 @@ curl --location '{{base_url}}/match/my-matches/demo' \
 
 ---
 
-### 16.3 Get Match Detail (Demo Support)
+### 16.3 Get Match Detail (Demo)
 
-The `/match/{matchId}` endpoint also supports demo matches. If the matchId starts with `demo-`, it returns the demo data.
+Uses the dedicated demo endpoint to get match details for demo matches.
 
 -   **Method:** `GET`
--   **Path:** `/match/{matchId}`
+-   **Path:** `/match/demo/{matchId}`
 
 ### Demo Match Detail Response
 
@@ -1134,7 +1134,7 @@ The `/match/{matchId}` endpoint also supports demo matches. If the matchId start
 {
     "status": "success",
     "data": {
-        "id": "demo-0001-0001-0001-000000000001",
+        "id": "550e8400-e29b-41d4-a716-446655440001",
         "fieldName": "Cancha Demo - Con Espacios",
         "startTime": 1775364000000,
         "endTime": 1775374800000,
@@ -1154,6 +1154,13 @@ The `/match/{matchId}` endpoint also supports demo matches. If the matchId start
         "fieldImages": []
     }
 }
+```
+
+### cURL
+
+```bash
+curl --location '{{base_url}}/match/demo/550e8400-e29b-41d4-a716-446655440001' \
+--header 'Authorization: Bearer {{token}}'
 ```
 
 ---

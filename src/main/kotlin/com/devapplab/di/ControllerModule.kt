@@ -5,6 +5,7 @@ import com.devapplab.features.cron.CronController
 import com.devapplab.features.device.DeviceController
 import com.devapplab.features.field.FieldController
 import com.devapplab.features.location.LocationController
+import com.devapplab.features.match.DemoMatchController
 import com.devapplab.features.match.MatchController
 import com.devapplab.features.payment.PaymentController
 import com.devapplab.features.user.UserController
@@ -18,6 +19,7 @@ val controllerModule = module {
         scopedOf(::UserController)
         scopedOf(::FieldController)
         scopedOf(::MatchController)
+        scopedOf(::DemoMatchController)
         scopedOf(::LocationController)
         scopedOf(::PaymentController)
         scopedOf(::CronController)

@@ -62,8 +62,8 @@ fun Route.matchRouting() {
 
         // TODO_REMOVE_DEMO: Remove after production testing
         get("matches/demo") {
-            val matchController = call.scope.get<MatchController>()
-            matchController.getDemoMatches(call)
+            val demoMatchController = call.scope.get<DemoMatchController>()
+            demoMatchController.getDemoMatches(call)
         }
 
         get("my-matches") {
@@ -75,8 +75,14 @@ fun Route.matchRouting() {
         // TODO_REMOVE_DEMO: Remove after production testing
         get("my-matches/demo") {
             call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
-            val matchController = call.scope.get<MatchController>()
-            matchController.getDemoMyMatches(call)
+            val demoMatchController = call.scope.get<DemoMatchController>()
+            demoMatchController.getDemoMyMatches(call)
+        }
+
+        // TODO_REMOVE_DEMO: Remove after production testing
+        get("demo/{matchId}") {
+            val demoMatchController = call.scope.get<DemoMatchController>()
+            demoMatchController.getDemoMatchDetailById(call)
         }
 
         get("/{matchId}") {
