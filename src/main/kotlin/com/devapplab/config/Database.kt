@@ -16,6 +16,7 @@ import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.mfa.MfaCodeTable
 import com.devapplab.data.database.mfa.LoginMfaVerifyAttemptTable
+import com.devapplab.data.database.notification.NotificationTable
 import com.devapplab.data.database.password_reset.PasswordResetTokensTable
 import com.devapplab.data.database.password_reset.PasswordResetVerifyAttemptTable
 import com.devapplab.data.database.payments.MatchPlayerPaymentsTable
@@ -70,7 +71,8 @@ fun Application.configureDatabase() {
         RegistrationVerifyAttemptTable,
         MatchPlayerPaymentsTable,
         UserPaymentProfileTable,
-        StripeWebhookEventsTable
+        StripeWebhookEventsTable,
+        NotificationTable
     )
 
     transaction(database) {
