@@ -1,70 +1,101 @@
 package com.devapplab.service.notification
 
 import com.devapplab.data.repository.device.DeviceRepository
+import com.devapplab.data.repository.notification.NotificationRepository
+import com.devapplab.model.AppResult
 import com.devapplab.model.match.RefundStatus
+import com.devapplab.model.notification.NotificationResponse
+import com.devapplab.model.notification.NotificationType
+import com.devapplab.model.notification.mapper.toResponseList
 import com.devapplab.utils.StringResourcesKey
+import com.devapplab.utils.createError
 import com.devapplab.utils.getString
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MulticastMessage
 import com.google.firebase.messaging.Notification
+import io.ktor.http.*
 import org.slf4j.LoggerFactory
-import java.util.Locale
-import java.util.UUID
+import java.util.*
 
 class NotificationServiceImp(
-    private val deviceRepository: DeviceRepository
+    private val deviceRepository: DeviceRepository,
+    private val notificationRepository: NotificationRepository,
 ) : NotificationService {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
+
+
     override suspend fun sendPaymentFailedNotification(userId: UUID, matchId: UUID, locale: Locale) {
-        val title = locale.getString(StringResourcesKey.NOTIFICATION_PAYMENT_FAILED_TITLE)
-        val body = locale.getString(StringResourcesKey.NOTIFICATION_PAYMENT_FAILED_BODY)
-        
-        notifyUser(
+        sendAndPersistNotification(
             userId = userId,
-            title = title,
-            body = body,
-            data = mapOf("matchId" to matchId.toString(), "type" to "PAYMENT_FAILED")
+            locale = locale,
+            notificationType = NotificationType.PAYMENT_FAILED,
+            titleKey = StringResourcesKey.NOTIFICATION_PAYMENT_FAILED_TITLE,
+            bodyKey = StringResourcesKey.NOTIFICATION_PAYMENT_FAILED_BODY,
+            metadata = mapOf("matchId" to matchId.toString(), "type" to "PAYMENT_FAILED")
         )
     }
 
-    override suspend fun sendReservationExpiredNotification(userId: UUID, matchId: UUID, locale: Locale) {
-        val title = locale.getString(StringResourcesKey.NOTIFICATION_RESERVATION_EXPIRED_TITLE)
-        val body = locale.getString(StringResourcesKey.NOTIFICATION_RESERVATION_EXPIRED_BODY)
-
-        notifyUser(
+    override suspend fun sendReservationExpiredNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale) {
+        sendAndPersistNotification(
             userId = userId,
-            title = title,
-            body = body,
-            data = mapOf("matchId" to matchId.toString(), "type" to "RESERVATION_EXPIRED")
+            locale = locale,
+            notificationType = NotificationType.RESERVATION_EXPIRED,
+            titleKey = StringResourcesKey.NOTIFICATION_RESERVATION_EXPIRED_TITLE,
+            bodyKey = StringResourcesKey.NOTIFICATION_RESERVATION_EXPIRED_BODY,
+            metadata = mapOf("matchId" to matchId.toString(), "fieldName" to fieldName, "type" to "RESERVATION_EXPIRED"),
+            placeholders = mapOf("fieldName" to fieldName)
         )
     }
 
     override suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus) {
-        val title = when (refundStatus) {
-            RefundStatus.REFUNDED -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_TITLE)
-            RefundStatus.FAILED -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_TITLE)
-            RefundStatus.NO_CHARGE -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_TITLE)
-        }
-        
-        val body = when (refundStatus) {
-            RefundStatus.REFUNDED -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_BODY)
-            RefundStatus.FAILED -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_BODY)
-            RefundStatus.NO_CHARGE -> locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_BODY)
-        }
+        try {
+            val title = locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_TITLE)
+            val placeholders = mapOf("fieldName" to fieldName)
 
-        notifyUser(
-            userId = userId,
-            title = title,
-            body = body,
-            data = mapOf(
-                "matchId" to matchId.toString(),
-                "fieldName" to fieldName,
-                "type" to "MATCH_CANCELED",
-                "refundStatus" to refundStatus.name
+            val body = when (refundStatus) {
+                RefundStatus.REFUNDED -> locale.getString(
+                    StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_BODY,
+                    placeholders
+                )
+                RefundStatus.FAILED -> locale.getString(
+                    StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_BODY,
+                    placeholders
+                )
+                RefundStatus.NO_CHARGE -> locale.getString(
+                    StringResourcesKey.NOTIFICATION_MATCH_CANCELED_BODY,
+                    placeholders
+                )
+            }
+
+            val metadataJson = convertMapToJson(
+                mapOf(
+                    "matchId" to matchId.toString(),
+                    "fieldName" to fieldName,
+                    "type" to "MATCH_CANCELED",
+                    "refundStatus" to refundStatus.name
+                )
             )
-        )
+
+            val notificationId = notificationRepository.createNotification(
+                userId = userId,
+                notificationType = NotificationType.MATCH_CANCELED,
+                title = title,
+                body = body,
+                metadata = metadataJson
+            )
+
+            notifyUser(userId, title, body, emptyMap())
+            AppResult.Success(notificationId)
+        } catch (e: Exception) {
+            logger.error("Failed to send match canceled notification to user $userId", e)
+            locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                HttpStatusCode.InternalServerError
+            )
+        }
     }
 
     override suspend fun sendToToken(
@@ -143,6 +174,83 @@ class NotificationServiceImp(
             } catch (e: Exception) {
                 logger.error("Failed to send multicast notification to user $userId", e)
             }
+        }
+    }
+
+    suspend fun sendAndPersistNotification(
+        userId: UUID,
+        locale: Locale,
+        notificationType: NotificationType,
+        titleKey: StringResourcesKey,
+        bodyKey: StringResourcesKey,
+        metadata: Map<String, String>? = null,
+        placeholders: Map<String, String> = emptyMap(),
+    ): AppResult<UUID> {
+        return try {
+            val title = locale.getString(titleKey)
+            val body = locale.getString(bodyKey, placeholders)
+            val metadataJson = metadata?.let { convertMapToJson(it) }
+
+            val notificationId = notificationRepository.createNotification(
+                userId = userId,
+                notificationType = notificationType,
+                title = title,
+                body = body,
+                metadata = metadataJson,
+            )
+
+            notifyUser(userId, title, body, metadata ?: emptyMap())
+
+            AppResult.Success(notificationId)
+        } catch (_: Exception) {
+            locale.createError(
+                StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                HttpStatusCode.InternalServerError
+            )
+        }
+    }
+
+    override suspend fun getUserNotifications(userId: UUID, limit: Int, offset: Int, locale: Locale): AppResult<List<NotificationResponse>> {
+        return try {
+            val notifications = notificationRepository.getUserNotifications(userId, limit, offset)
+            AppResult.Success(notifications.toResponseList())
+        } catch (e: Exception) {
+            logger.error("Failed to retrieve notifications for user $userId", e)
+            locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError
+            )
+        }
+    }
+
+    override suspend fun deleteNotification(notificationId: UUID, userId: UUID, locale: Locale): AppResult<Boolean> {
+        return try {
+            val notification = notificationRepository.getNotificationById(notificationId)
+            if (notification == null || notification.userId != userId) {
+                return locale.createError(
+                    titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                    descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                    status = HttpStatusCode.NotFound
+                )
+            }
+
+            val deleted = notificationRepository.deleteNotification(notificationId)
+            AppResult.Success(deleted)
+        } catch (e: Exception) {
+            logger.error("Failed to delete notification $notificationId for user $userId", e)
+            locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError
+            )
+        }
+    }
+
+    private fun convertMapToJson(map: Map<String, String>): String {
+        return map.entries.joinToString(",", "{", "}") { (k, v) ->
+            "\"$k\":\"${v.replace("\"", "\\\"")}\""
         }
     }
 }

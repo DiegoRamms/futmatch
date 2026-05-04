@@ -17,6 +17,8 @@ import com.devapplab.data.repository.match.MatchRefundFailureRepository
 import com.devapplab.data.repository.match.MatchRefundFailureRepositoryImpl
 import com.devapplab.data.repository.mfa.LoginMfaVerifyAttemptRepository
 import com.devapplab.data.repository.mfa.LoginMfaVerifyAttemptRepositoryImpl
+import com.devapplab.data.repository.notification.NotificationRepository
+import com.devapplab.data.repository.notification.NotificationRepositoryImpl
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepositoryImpl
 import com.devapplab.data.repository.password_reset.PasswordResetVerifyAttemptRepository
@@ -54,4 +56,5 @@ val repositoryModule = module {
     singleOf(::DiscountRepositoryImp) { bind<DiscountRepository>() }
     singleOf(::PaymentRepositoryImp) { bind<PaymentRepository>() }
     singleOf(::StripeWebhookEventRepositoryImp){ bind<StripeWebhookEventRepository>() }
+    singleOf(::NotificationRepositoryImpl) { bind<NotificationRepository>() }
 }

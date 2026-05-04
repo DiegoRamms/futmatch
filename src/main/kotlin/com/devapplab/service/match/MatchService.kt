@@ -750,6 +750,10 @@ class MatchService(
             if (updated) {
                 logger.info("🚫 [MATCH_TRACE] processExpiredReservations | Reservation cancelled | matchPlayerId=$matchPlayerId")
 
+                // Get match for fieldName
+                val match = matchRepository.getMatchById(matchId)
+                val fieldName = match?.fieldName ?: "Unknown Field"
+
                 launch {
                     try {
                         notifyMatchUpdate(matchId)
@@ -760,7 +764,7 @@ class MatchService(
 
                 launch {
                     try {
-                        notificationService.sendReservationExpiredNotification(userId, matchId, locale)
+                        notificationService.sendReservationExpiredNotification(userId, matchId, fieldName, locale)
                     } catch (e: Exception) {
                         logger.error("📲 [MATCH_TRACE] Failed to send push notification", e)
                     }

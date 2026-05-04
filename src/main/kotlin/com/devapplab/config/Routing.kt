@@ -6,6 +6,7 @@ import com.devapplab.features.device.deviceRouting
 import com.devapplab.features.field.fieldRouting
 import com.devapplab.features.location.locationRouting
 import com.devapplab.features.match.matchRouting
+import com.devapplab.features.notification.notificationRouting
 import com.devapplab.features.payment.paymentsRouting
 import com.devapplab.features.payment.stripeRouting
 import com.devapplab.features.user.userRouting
@@ -118,6 +119,7 @@ fun Application.configureRouting() {
                 locationRouting()
                 paymentsRouting()
                 deviceRouting()
+                notificationRouting()
             }
         }
     }
