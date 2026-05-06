@@ -97,6 +97,11 @@ class FieldController(
         call.respond(fields)
     }
 
+    suspend fun getAllFields(call: ApplicationCall) {
+        val fields = fieldService.getAllFields()
+        call.respond(fields)
+    }
+
     suspend fun getAllFieldBasics(call: ApplicationCall) {
         val fields = fieldService.getAllFieldBasics()
         call.respond(fields)

@@ -314,6 +314,62 @@ curl --location "$BASE_URL/fields/id-name" \
   --header "Accept-Language: es-MX"
 ```
 
+### 1.7 Obtener Todas las Canchas (Global)
+
+Obtiene una lista de todas las canchas del sistema, sin filtrar por administrador.
+La estructura de respuesta es similar a `/fields/by-admin`.
+
+-   **Método:** `GET`
+-   **Path:** `/fields/all`
+-   **Rol Requerido:** `ADMIN`
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "field": {
+                "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                "name": "Cancha Principal",
+                "locationId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+                "priceInCents": 2000,
+                "capacity": 12,
+                "description": "Césped recién renovado.",
+                "rules": "No se permiten tacos de metal.",
+                "footwearType": "TURF",
+                "fieldType": "ARTIFICIAL_TURF",
+                "hasParking": true,
+                "extraInfo": "Estacionamiento gratuito.",
+                "location": {
+                    "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+                    "address": "123 Calle Falsa",
+                    "cityCode": "MX_CDMX",
+                    "countryCode": "MX",
+                    "latitude": 40.7128,
+                    "longitude": -74.0060
+                }
+            },
+            "images": [
+                {
+                    "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+                    "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "imagePath": "some_image_key.jpg",
+                    "position": 0
+                }
+            ]
+        }
+    ]
+}
+```
+
+#### cURL:
+```bash
+curl --location "$BASE_URL/fields/all" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --header "Accept-Language: es-MX"
+```
+
 ---
 
 ## 2. Gestión de Imágenes de Cancha

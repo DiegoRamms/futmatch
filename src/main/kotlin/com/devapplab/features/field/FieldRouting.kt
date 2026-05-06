@@ -42,6 +42,12 @@ fun Route.fieldRouting() {
             fieldController.getFieldsByAdmin(call)
         }
 
+        get("all") {
+            call.requireRole(UserRole.ADMIN)
+            val fieldController = call.scope.get<FieldController>()
+            fieldController.getAllFields(call)
+        }
+
         get("id-name") {
             call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
             val fieldController = call.scope.get<FieldController>()

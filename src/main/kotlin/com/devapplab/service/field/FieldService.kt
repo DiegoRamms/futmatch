@@ -227,6 +227,11 @@ class FieldService(
         return AppResult.Success(fields)
     }
 
+    suspend fun getAllFields(): AppResult<List<FieldWithImagesResponse>> {
+        val fields = fieldRepository.getFields().map { it.toResponse() }
+        return AppResult.Success(fields)
+    }
+
     suspend fun getAllFieldBasics(): AppResult<List<FieldBasicResponse>> {
         val fields = fieldRepository.getAllFieldBasics()
             .map { FieldBasicResponse(id = it.id, name = it.name) }
