@@ -13,12 +13,14 @@ import com.devapplab.service.image.ImageService
 import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.http.content.*
+import org.slf4j.LoggerFactory
 import java.util.*
 
 class FieldService(
     private val fieldRepository: FieldRepository,
     private val imageService: ImageService,
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
     private val maxImagesPerField = 4
     private val baseStoragePath = "futmatch/fields"
@@ -54,7 +56,13 @@ class FieldService(
 
         // Storage folder structure
         val path = "$baseStoragePath/$fieldId"
-        val imageSaved = imageService.saveImages(multiPartData, path).first()
+        val imageSaved = imageService.saveImages(multiPartData, path).firstOrNull()
+            ?: return locale.createError(
+                titleKey = StringResourcesKey.FIELD_IMAGE_FILE_MISSING_TITLE,
+                descriptionKey = StringResourcesKey.FIELD_IMAGE_FILE_MISSING_DESCRIPTION,
+                errorCode = ErrorCode.GENERAL_ERROR,
+                status = HttpStatusCode.BadRequest
+            )
 
         // We only store the filename (last part of public_id) in the DB
         val filename = imageSaved.imageName.substringAfterLast('/')
@@ -69,7 +77,24 @@ class FieldService(
             height = imageSaved.imageMeta.height,
         )
 
-        val imageId = fieldRepository.createImageField(fieldImage)
+        val imageId = try {
+            fieldRepository.createImageField(fieldImage)
+        } catch (e: Exception) {
+            logger.error(
+                "Failed to persist field image metadata. Rolling back uploaded image in Cloudinary. fieldId={}, position={}, publicId={}",
+                fieldId,
+                position,
+                imageSaved.imageName,
+                e
+            )
+            imageService.deleteImages(imageSaved.imageName)
+            return locale.createError(
+                titleKey = StringResourcesKey.FIELD_UPDATE_FAILED_TITLE,
+                descriptionKey = StringResourcesKey.FIELD_UPDATE_FAILED_DESCRIPTION,
+                errorCode = ErrorCode.GENERAL_ERROR,
+                status = HttpStatusCode.BadRequest
+            )
+        }
 
         return AppResult.Success(imageId, appStatus = HttpStatusCode.Created)
     }
@@ -101,7 +126,13 @@ class FieldService(
         val currentFieldImage = fieldRepository.getImageById(imageId) ?: return locale.createError()
         
         val path = "$baseStoragePath/${currentFieldImage.fieldId}"
-        val imageSaved = imageService.saveImages(multiPartData, path).first()
+        val imageSaved = imageService.saveImages(multiPartData, path).firstOrNull()
+            ?: return locale.createError(
+                titleKey = StringResourcesKey.FIELD_IMAGE_FILE_MISSING_TITLE,
+                descriptionKey = StringResourcesKey.FIELD_IMAGE_FILE_MISSING_DESCRIPTION,
+                errorCode = ErrorCode.GENERAL_ERROR,
+                status = HttpStatusCode.BadRequest
+            )
         
         val filename = imageSaved.imageName.substringAfterLast('/')
 
@@ -116,11 +147,42 @@ class FieldService(
             height = imageSaved.imageMeta.height,
         )
 
-        val updated = fieldRepository.updateImageField(fieldImage, imageId)
+        val updated = try {
+            fieldRepository.updateImageField(fieldImage, imageId)
+        } catch (e: Exception) {
+            logger.error(
+                "Failed to update field image metadata. Rolling back uploaded replacement image in Cloudinary. imageId={}, fieldId={}, newPublicId={}",
+                imageId,
+                currentFieldImage.fieldId,
+                imageSaved.imageName,
+                e
+            )
+            imageService.deleteImages(imageSaved.imageName)
+            return locale.createError(
+                titleKey = StringResourcesKey.FIELD_UPDATE_FAILED_TITLE,
+                descriptionKey = StringResourcesKey.FIELD_UPDATE_FAILED_DESCRIPTION,
+                errorCode = ErrorCode.GENERAL_ERROR,
+                status = HttpStatusCode.BadRequest
+            )
+        }
 
         if (updated) {
             val oldPublicId = "$baseStoragePath/${currentFieldImage.fieldId}/${currentFieldImage.key}"
             imageService.deleteImages(oldPublicId)
+        } else {
+            logger.warn(
+                "Field image update affected 0 rows. Rolling back uploaded replacement image in Cloudinary. imageId={}, fieldId={}, newPublicId={}",
+                imageId,
+                currentFieldImage.fieldId,
+                imageSaved.imageName
+            )
+            imageService.deleteImages(imageSaved.imageName)
+            return locale.createError(
+                titleKey = StringResourcesKey.FIELD_UPDATE_FAILED_TITLE,
+                descriptionKey = StringResourcesKey.FIELD_UPDATE_FAILED_DESCRIPTION,
+                errorCode = ErrorCode.GENERAL_ERROR,
+                status = HttpStatusCode.BadRequest
+            )
         }
 
         return AppResult.Success(imageId, appStatus = HttpStatusCode.Created)
@@ -223,12 +285,28 @@ class FieldService(
     }
 
     suspend fun getFieldsByAdminId(adminId: UUID): AppResult<List<FieldWithImagesResponse>> {
-        val fields = fieldRepository.getFieldsByAdminId(adminId).map { it.toResponse() }
+        val fields = fieldRepository.getFieldsByAdminId(adminId)
+            .map { it.toResponse() }
+            .map { response ->
+                val resolvedImages = response.images.map { image ->
+                    val publicId = "$baseStoragePath/${response.field.id}/${image.imagePath}"
+                    image.copy(imagePath = imageService.getImageUrl(publicId))
+                }
+                response.copy(images = resolvedImages)
+            }
         return AppResult.Success(fields)
     }
 
     suspend fun getAllFields(): AppResult<List<FieldWithImagesResponse>> {
-        val fields = fieldRepository.getFields().map { it.toResponse() }
+        val fields = fieldRepository.getFields()
+            .map { it.toResponse() }
+            .map { response ->
+                val resolvedImages = response.images.map { image ->
+                    val publicId = "$baseStoragePath/${response.field.id}/${image.imagePath}"
+                    image.copy(imagePath = imageService.getImageUrl(publicId))
+                }
+                response.copy(images = resolvedImages)
+            }
         return AppResult.Success(fields)
     }
 

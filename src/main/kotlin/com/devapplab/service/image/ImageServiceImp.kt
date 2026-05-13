@@ -26,6 +26,7 @@ class ImageServiceImp(config: ApplicationConfig) : ImageService {
         "image/webp",
         "image/gif"
     )
+    private val acceptedPartNames = setOf("image")
 
     init {
         val cloudName = config.property("cloudinary.cloud_name").getString()
@@ -50,13 +51,21 @@ class ImageServiceImp(config: ApplicationConfig) : ImageService {
         val folder = path.trim('/')
 
         try {
+            logger.debug("Starting multipart image parse for folder={}", folder)
             multiPartData.forEachPart { part ->
-                if (part is PartData.FileItem && part.name == "image") {
+                if (part is PartData.FileItem) {
+                    val partName = part.name?.trim()?.lowercase(Locale.getDefault()).orEmpty()
+                    logger.debug("Multipart file part found: name={}", partName.ifBlank { "<empty>" })
+                    if (partName !in acceptedPartNames) {
+                        logger.info("Discarding multipart file part due to invalid name: name={}", partName.ifBlank { "<empty>" })
+                        part.dispose()
+                        return@forEachPart
+                    }
                     
                     // 1. Basic Security Check: ContentType
                     val contentType = part.contentType?.toString()?.lowercase(Locale.getDefault())
                     if (contentType == null || contentType !in allowedMimeTypes) {
-                        logger.warn("⚠️ Blocked upload attempt with invalid content type: $contentType")
+                        logger.info("Discarding multipart file part due to invalid content type: name={}, contentType={}", partName, contentType)
                         part.dispose()
                         return@forEachPart
                     }
@@ -103,6 +112,7 @@ class ImageServiceImp(config: ApplicationConfig) : ImageService {
 
                     part.dispose()
                 } else {
+                    logger.debug("Discarding non-file multipart part")
                     part.dispose()
                 }
             }
