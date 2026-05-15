@@ -6,6 +6,7 @@ import java.util.*
 
 interface NotificationService {
     // Send notifications
+    suspend fun sendPaymentSucceededNotification(userId: UUID, matchId: UUID, locale: Locale)
     suspend fun sendPaymentFailedNotification(userId: UUID, matchId: UUID, locale: Locale)
     suspend fun sendReservationExpiredNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale)
     suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus)

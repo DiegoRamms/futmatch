@@ -814,11 +814,14 @@ class MatchService(
             try {
                 val paymentService =
                     paymentServiceFactory.getService(PaymentProvider.STRIPE)
-                val captured = paymentService.capturePayment(paymentInfo.providerPaymentId, paymentInfo.amount.toLong())
+                val amountInCents = paymentInfo.amount.multiply(BigDecimal(100)).toLong()
+                val captured = paymentService.capturePayment(paymentInfo.providerPaymentId, amountInCents)
 
                 if (captured) {
                     paymentRepository.updatePaymentStatus(paymentInfo.providerPaymentId, PaymentAttemptStatus.SUCCEEDED)
                     // Player status is already JOINED, so no need to update match player status unless we want a specific CAPTURED status
+                    val locale = Locale.forLanguageTag(LocaleTag.LAN_TAG_MX.value)
+                    notificationService.sendPaymentSucceededNotification(paymentInfo.userId, paymentInfo.matchId, locale)
                     logger.info("✅ Payment captured successfully: paymentId=${paymentInfo.paymentId}")
                 } else {
                     logger.error("❌ Failed to capture payment: paymentId=${paymentInfo.paymentId}")

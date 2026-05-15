@@ -25,6 +25,17 @@ class NotificationServiceImp(
     private val logger = LoggerFactory.getLogger(this::class.java)
 
 
+    override suspend fun sendPaymentSucceededNotification(userId: UUID, matchId: UUID, locale: Locale) {
+        sendAndPersistNotification(
+            userId = userId,
+            locale = locale,
+            notificationType = NotificationType.PAYMENT_SUCCEEDED,
+            titleKey = StringResourcesKey.NOTIFICATION_PAYMENT_SUCCEEDED_TITLE,
+            bodyKey = StringResourcesKey.NOTIFICATION_PAYMENT_SUCCEEDED_BODY,
+            metadata = mapOf("matchId" to matchId.toString(), "type" to "PAYMENT_SUCCEEDED")
+        )
+    }
+
 
     override suspend fun sendPaymentFailedNotification(userId: UUID, matchId: UUID, locale: Locale) {
         sendAndPersistNotification(
