@@ -81,6 +81,8 @@ class StripePaymentService(
                 .setCustomer(customer.id)
                 .setComponents(
                     CustomerSessionCreateParams.Components.builder()
+                        // iOS CustomerSheet requires components.customer_sheet.enabled=true.
+                        .putExtraParam("customer_sheet", mapOf("enabled" to true))
                         .setPaymentElement(
                             CustomerSessionCreateParams.Components.PaymentElement.builder()
                                 .setEnabled(true)
