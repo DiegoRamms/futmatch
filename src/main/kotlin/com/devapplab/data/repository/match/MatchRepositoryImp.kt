@@ -782,10 +782,18 @@ class MatchRepositoryImp : MatchRepository {
     override suspend fun setPlayerGoals(matchId: UUID, goals: List<PlayerGoalInput>): Boolean {
         return dbQuery {
             goals.forEach { goalInput ->
-                MatchPlayerGoalsTable.insert {
-                    it[this.matchId] = matchId
-                    it[this.userId] = goalInput.userId
+                val updatedRows = MatchPlayerGoalsTable.update({
+                    (MatchPlayerGoalsTable.matchId eq matchId) and (MatchPlayerGoalsTable.userId eq goalInput.userId)
+                }) {
                     it[this.goalsCount] = goalInput.goals
+                }
+
+                if (updatedRows == 0) {
+                    MatchPlayerGoalsTable.insert {
+                        it[this.matchId] = matchId
+                        it[this.userId] = goalInput.userId
+                        it[this.goalsCount] = goalInput.goals
+                    }
                 }
             }
             true
@@ -807,6 +815,64 @@ class MatchRepositoryImp : MatchRepository {
                 }
             }
             true
+        }
+    }
+
+    override suspend fun completeMatchAtomic(matchId: UUID, bestPlayerId: UUID, goals: List<PlayerGoalInput>): Pair<Int, Int>? {
+        return dbQuery {
+            // Lock match row to avoid concurrent complete/cancel writes
+            val matchRow = MatchTable
+                .select(MatchTable.id, MatchTable.status)
+                .where { MatchTable.id eq matchId }
+                .forUpdate()
+                .singleOrNull()
+                ?: return@dbQuery null
+
+            if (matchRow[MatchTable.status] == MatchStatus.COMPLETED) {
+                return@dbQuery null
+            }
+
+            val uniqueGoals = goals
+                .groupBy { it.userId }
+                .map { (_, entries) -> entries.last() }
+
+            // Keep exact payload snapshot (remove stale rows, then insert current rows)
+            MatchPlayerGoalsTable.deleteWhere { MatchPlayerGoalsTable.matchId eq matchId }
+            uniqueGoals.forEach { goalInput ->
+                MatchPlayerGoalsTable.insert {
+                    it[this.matchId] = matchId
+                    it[this.userId] = goalInput.userId
+                    it[this.goalsCount] = goalInput.goals
+                }
+            }
+
+            val existing = MatchResultsTable.select(MatchResultsTable.matchId eq matchId).singleOrNull()
+            if (existing != null) {
+                MatchResultsTable.update({ MatchResultsTable.matchId eq matchId }) {
+                    it[this.bestPlayerId] = bestPlayerId
+                    it[updatedAt] = System.currentTimeMillis()
+                }
+            } else {
+                MatchResultsTable.insert {
+                    it[this.matchId] = matchId
+                    it[this.bestPlayerId] = bestPlayerId
+                }
+            }
+
+            val goalsByTeam: List<Pair<TeamType, Int>> = (MatchPlayerGoalsTable innerJoin MatchPlayersTable)
+                .select(MatchPlayersTable.team, MatchPlayerGoalsTable.goalsCount)
+                .where { MatchPlayerGoalsTable.matchId eq matchId }
+                .map { row -> row[MatchPlayersTable.team] to row[MatchPlayerGoalsTable.goalsCount] }
+
+            val teamAScore = goalsByTeam.filter { (team, _) -> team == TeamType.A }.sumOf { it.second }
+            val teamBScore = goalsByTeam.filter { (team, _) -> team == TeamType.B }.sumOf { it.second }
+
+            MatchTable.update({ MatchTable.id eq matchId }) {
+                it[status] = MatchStatus.COMPLETED
+                it[updatedAt] = System.currentTimeMillis()
+            }
+
+            teamAScore to teamBScore
         }
     }
 

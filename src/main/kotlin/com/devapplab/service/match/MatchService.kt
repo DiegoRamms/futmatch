@@ -1086,15 +1086,6 @@ class MatchService(
                 errorCode = ErrorCode.NOT_FOUND
             )
 
-        if (matchWithField.status == MatchStatus.COMPLETED) {
-            return locale.createError(
-                titleKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_TITLE,
-                descriptionKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_DESCRIPTION,
-                status = HttpStatusCode.Conflict,
-                errorCode = ErrorCode.MATCH_ALREADY_COMPLETED
-            )
-        }
-
         val enrolledPlayers = matchWithField.players.filter {
             it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED
         }
@@ -1108,25 +1099,17 @@ class MatchService(
             )
         }
 
-        matchRepository.setBestPlayer(matchId, request.bestPlayerId)
-        matchRepository.setPlayerGoals(matchId, request.goals)
-        val (teamAScore, teamBScore) = matchRepository.calculateTeamScores(matchId)
-
-        val matchToUpdate = Match(
-            id = matchId,
-            fieldId = matchWithField.fieldId,
-            adminId = matchWithField.adminId,
-            dateTime = matchWithField.dateTime,
-            dateTimeEnd = matchWithField.dateTimeEnd,
-            maxPlayers = matchWithField.maxPlayers,
-            minPlayersRequired = matchWithField.minPlayersRequired,
-            matchPrice = matchWithField.matchPrice,
-            status = MatchStatus.COMPLETED,
-            genderType = matchWithField.genderType,
-            playerLevel = matchWithField.playerLevel
+        val scores = matchRepository.completeMatchAtomic(
+            matchId = matchId,
+            bestPlayerId = request.bestPlayerId,
+            goals = request.goals
+        ) ?: return locale.createError(
+            titleKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_TITLE,
+            descriptionKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_DESCRIPTION,
+            status = HttpStatusCode.Conflict,
+            errorCode = ErrorCode.MATCH_ALREADY_COMPLETED
         )
-
-        matchRepository.updateMatch(matchId, matchToUpdate)
+        val (teamAScore, teamBScore) = scores
         sendMatchCompletedNotifications(
             players = enrolledPlayers,
             matchId = matchId,
