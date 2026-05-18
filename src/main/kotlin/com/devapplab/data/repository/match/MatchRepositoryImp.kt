@@ -859,7 +859,14 @@ class MatchRepositoryImp : MatchRepository {
                 }
             }
 
-            val goalsByTeam: List<Pair<TeamType, Int>> = (MatchPlayerGoalsTable innerJoin MatchPlayersTable)
+            val goalsByTeam: List<Pair<TeamType, Int>> = MatchPlayerGoalsTable.join(
+                MatchPlayersTable,
+                JoinType.INNER,
+                additionalConstraint = {
+                    (MatchPlayerGoalsTable.matchId eq MatchPlayersTable.matchId) and
+                        (MatchPlayerGoalsTable.userId eq MatchPlayersTable.userId)
+                }
+            )
                 .select(MatchPlayersTable.team, MatchPlayerGoalsTable.goalsCount)
                 .where { MatchPlayerGoalsTable.matchId eq matchId }
                 .map { row -> row[MatchPlayersTable.team] to row[MatchPlayerGoalsTable.goalsCount] }
@@ -893,7 +900,14 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int> {
         return dbQuery {
-            val goals: List<Pair<TeamType, Int>> = (MatchPlayerGoalsTable innerJoin MatchPlayersTable)
+            val goals: List<Pair<TeamType, Int>> = MatchPlayerGoalsTable.join(
+                MatchPlayersTable,
+                JoinType.INNER,
+                additionalConstraint = {
+                    (MatchPlayerGoalsTable.matchId eq MatchPlayersTable.matchId) and
+                        (MatchPlayerGoalsTable.userId eq MatchPlayersTable.userId)
+                }
+            )
                 .select(MatchPlayerGoalsTable.matchId eq matchId)
                 .map { row: ResultRow ->
                     Pair(row[MatchPlayersTable.team], row[MatchPlayerGoalsTable.goalsCount])
