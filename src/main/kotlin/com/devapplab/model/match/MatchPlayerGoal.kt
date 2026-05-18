@@ -20,9 +20,11 @@ data class PlayerGoalInput(
     @Serializable(with = UUIDSerializer::class)
     val userId: UUID,
     val goals: Int,
-    val isBestPlayer: Boolean = false,
 )
 
+@Serializable
 data class CompleteMatchRequest(
     val goals: List<PlayerGoalInput>,
+    @Serializable(with = UUIDSerializer::class)
+    val bestPlayerId: UUID,
 )

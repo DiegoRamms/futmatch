@@ -196,6 +196,17 @@ Registers the final result of a match, including player goals and the best playe
 | `goals[].goals` | Int | Yes | Must be >= 0. |
 | `bestPlayerId` | UUID | Yes | Must be a valid UUID of a user enrolled in the match. |
 
+> `goals[].isBestPlayer` is not supported. Use only `bestPlayerId` at the root of the payload.
+
+### Completion Notifications
+
+When a match is completed, all enrolled players receive a push notification with `fieldName` and final score:
+
+- Winner players: congratulation message.
+- Winner + MVP (`bestPlayerId`): combined congratulation + MVP message.
+- Losing players: neutral finished-match message.
+- Draw: neutral draw message for all players.
+
 ### Success Response
 
 ```json

@@ -18,6 +18,7 @@ import com.devapplab.model.match.mapper.toMatchDetailResponse
 import com.devapplab.model.match.mapper.toMatchSummaryResponse
 import com.devapplab.model.match.mapper.toResponse
 import com.devapplab.model.match.response.*
+import com.devapplab.model.notification.NotificationType
 import com.devapplab.model.payment.*
 import com.devapplab.service.billing.BillingService
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
@@ -1094,12 +1095,22 @@ class MatchService(
             )
         }
 
-        val bestPlayerInput = request.goals.find { it.isBestPlayer }
-        if (bestPlayerInput != null) {
-            matchRepository.setBestPlayer(matchId, bestPlayerInput.userId)
+        val enrolledPlayers = matchWithField.players.filter {
+            it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED
+        }
+        val enrolledPlayerIds = enrolledPlayers.map { it.userId }.toSet()
+        if (!enrolledPlayerIds.contains(request.bestPlayerId)) {
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_INVALID_BEST_PLAYER_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_INVALID_BEST_PLAYER_DESCRIPTION,
+                status = HttpStatusCode.BadRequest,
+                errorCode = ErrorCode.INVALID_BEST_PLAYER
+            )
         }
 
+        matchRepository.setBestPlayer(matchId, request.bestPlayerId)
         matchRepository.setPlayerGoals(matchId, request.goals)
+        val (teamAScore, teamBScore) = matchRepository.calculateTeamScores(matchId)
 
         val matchToUpdate = Match(
             id = matchId,
@@ -1116,8 +1127,53 @@ class MatchService(
         )
 
         matchRepository.updateMatch(matchId, matchToUpdate)
+        sendMatchCompletedNotifications(
+            players = enrolledPlayers,
+            matchId = matchId,
+            fieldName = matchWithField.fieldName,
+            bestPlayerId = request.bestPlayerId,
+            teamAScore = teamAScore,
+            teamBScore = teamBScore,
+            locale = locale
+        )
 
         logger.info("🏆 [MATCH_TRACE] completeMatch END | matchId=$matchId")
         return AppResult.Success(true)
+    }
+
+    private suspend fun sendMatchCompletedNotifications(
+        players: List<MatchPlayerInfo>,
+        matchId: UUID,
+        fieldName: String,
+        bestPlayerId: UUID,
+        teamAScore: Int,
+        teamBScore: Int,
+        locale: Locale
+    ) {
+        val winnerTeam = when {
+            teamAScore > teamBScore -> TeamType.A
+            teamBScore > teamAScore -> TeamType.B
+            else -> null
+        }
+
+        players.forEach { player ->
+            val resultType = when {
+                winnerTeam == null -> NotificationType.MATCH_COMPLETED_DRAW
+                player.team == winnerTeam && player.userId == bestPlayerId -> NotificationType.MATCH_COMPLETED_WINNER_MVP
+                player.team == winnerTeam -> NotificationType.MATCH_COMPLETED_WINNER
+                else -> NotificationType.MATCH_COMPLETED_LOSER
+            }
+
+            notificationService.sendMatchCompletedNotification(
+                userId = player.userId,
+                matchId = matchId,
+                fieldName = fieldName,
+                teamAScore = teamAScore,
+                teamBScore = teamBScore,
+                bestPlayerId = bestPlayerId,
+                resultType = resultType,
+                locale = locale
+            )
+        }
     }
 }

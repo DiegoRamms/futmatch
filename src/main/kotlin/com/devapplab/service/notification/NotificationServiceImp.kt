@@ -109,6 +109,61 @@ class NotificationServiceImp(
         }
     }
 
+    override suspend fun sendMatchCompletedNotification(
+        userId: UUID,
+        matchId: UUID,
+        fieldName: String,
+        teamAScore: Int,
+        teamBScore: Int,
+        bestPlayerId: UUID,
+        resultType: NotificationType,
+        locale: Locale
+    ) {
+        val titleKey: StringResourcesKey
+        val bodyKey: StringResourcesKey
+
+        when (resultType) {
+            NotificationType.MATCH_COMPLETED_WINNER -> {
+                titleKey = StringResourcesKey.NOTIFICATION_MATCH_COMPLETED_WINNER_TITLE
+                bodyKey = StringResourcesKey.NOTIFICATION_MATCH_COMPLETED_WINNER_BODY
+            }
+            NotificationType.MATCH_COMPLETED_WINNER_MVP -> {
+                titleKey = StringResourcesKey.NOTIFICATION_MATCH_COMPLETED_WINNER_MVP_TITLE
+                bodyKey = StringResourcesKey.NOTIFICATION_MATCH_COMPLETED_WINNER_MVP_BODY
+            }
+            NotificationType.MATCH_COMPLETED_LOSER -> {
+                titleKey = StringResourcesKey.NOTIFICATION_MATCH_COMPLETED_LOSER_TITLE
+                bodyKey = StringResourcesKey.NOTIFICATION_MATCH_COMPLETED_LOSER_BODY
+            }
+            NotificationType.MATCH_COMPLETED_DRAW -> {
+                titleKey = StringResourcesKey.NOTIFICATION_MATCH_COMPLETED_DRAW_TITLE
+                bodyKey = StringResourcesKey.NOTIFICATION_MATCH_COMPLETED_DRAW_BODY
+            }
+            else -> return
+        }
+
+        sendAndPersistNotification(
+            userId = userId,
+            locale = locale,
+            notificationType = resultType,
+            titleKey = titleKey,
+            bodyKey = bodyKey,
+            metadata = mapOf(
+                "matchId" to matchId.toString(),
+                "fieldName" to fieldName,
+                "teamAScore" to teamAScore.toString(),
+                "teamBScore" to teamBScore.toString(),
+                "bestPlayerId" to bestPlayerId.toString(),
+                "resultVariant" to resultType.name,
+                "type" to resultType.name
+            ),
+            placeholders = mapOf(
+                "fieldName" to fieldName,
+                "score" to "$teamAScore-$teamBScore"
+            )
+        )
+    }
+
     override suspend fun sendToToken(
         token: String,
         title: String,

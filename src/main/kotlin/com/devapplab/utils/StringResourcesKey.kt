@@ -132,6 +132,8 @@ enum class StringResourcesKey(val value: String) {
     MATCH_PENDING_RESERVATION_DESCRIPTION("match_pending_reservation_description"),
     MATCH_ALREADY_COMPLETED_TITLE("match_already_completed_title"),
     MATCH_ALREADY_COMPLETED_DESCRIPTION("match_already_completed_description"),
+    MATCH_INVALID_BEST_PLAYER_TITLE("match_invalid_best_player_title"),
+    MATCH_INVALID_BEST_PLAYER_DESCRIPTION("match_invalid_best_player_description"),
     MATCH_GOALS_EMPTY_ERROR("match_goals_empty_error"),
     MATCH_MULTIPLE_BEST_PLAYER_ERROR("match_multiple_best_player_error"),
     MATCH_INVALID_GOALS_ERROR("match_invalid_goals_error"),
@@ -185,6 +187,14 @@ enum class StringResourcesKey(val value: String) {
     NOTIFICATION_MATCH_CANCELED_REFUND_BODY("notification_match_canceled_refund_body"),
     NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_TITLE("notification_match_canceled_refund_failed_title"),
     NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_BODY("notification_match_canceled_refund_failed_body"),
+    NOTIFICATION_MATCH_COMPLETED_WINNER_TITLE("notification_match_completed_winner_title"),
+    NOTIFICATION_MATCH_COMPLETED_WINNER_BODY("notification_match_completed_winner_body"),
+    NOTIFICATION_MATCH_COMPLETED_WINNER_MVP_TITLE("notification_match_completed_winner_mvp_title"),
+    NOTIFICATION_MATCH_COMPLETED_WINNER_MVP_BODY("notification_match_completed_winner_mvp_body"),
+    NOTIFICATION_MATCH_COMPLETED_LOSER_TITLE("notification_match_completed_loser_title"),
+    NOTIFICATION_MATCH_COMPLETED_LOSER_BODY("notification_match_completed_loser_body"),
+    NOTIFICATION_MATCH_COMPLETED_DRAW_TITLE("notification_match_completed_draw_title"),
+    NOTIFICATION_MATCH_COMPLETED_DRAW_BODY("notification_match_completed_draw_body"),
 
     // User Profile
     USER_PROFILE_NAME_UPDATED("user_profile_name_updated"),
