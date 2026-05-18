@@ -74,7 +74,9 @@ class MatchRepositoryImp : MatchRepository {
 
             if (rows.isEmpty()) return@dbQuery emptyList()
 
+            val matchIds = rows.map { it[MatchTable.id] }.distinct()
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
+            val enrolledPlayersByMatch = getEnrolledPlayersCountByMatchId(matchIds)
             val allFieldImages = FieldImagesTable
                 .selectAll()
                 .where { FieldImagesTable.fieldId inList fieldIds }
@@ -92,7 +94,11 @@ class MatchRepositoryImp : MatchRepository {
 
             rows.map { row ->
                 val id = row[FieldTable.id]
-                row.toMatchWithFieldBaseInfo(allFieldImages[id] ?: emptyList())
+                val matchId = row[MatchTable.id]
+                row.toMatchWithFieldBaseInfo(
+                    fieldImages = allFieldImages[id] ?: emptyList(),
+                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0
+                )
             }
         }
     }
@@ -124,7 +130,9 @@ class MatchRepositoryImp : MatchRepository {
 
             if (rows.isEmpty()) return@dbQuery emptyList()
 
+            val matchIds = rows.map { it[MatchTable.id] }.distinct()
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
+            val enrolledPlayersByMatch = getEnrolledPlayersCountByMatchId(matchIds)
             val allFieldImages = FieldImagesTable
                 .selectAll()
                 .where { FieldImagesTable.fieldId inList fieldIds }
@@ -142,7 +150,11 @@ class MatchRepositoryImp : MatchRepository {
 
             rows.map { row ->
                 val id = row[FieldTable.id]
-                row.toMatchWithFieldBaseInfo(allFieldImages[id] ?: emptyList())
+                val matchId = row[MatchTable.id]
+                row.toMatchWithFieldBaseInfo(
+                    fieldImages = allFieldImages[id] ?: emptyList(),
+                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0
+                )
             }
         }
     }
@@ -158,7 +170,9 @@ class MatchRepositoryImp : MatchRepository {
 
             if (rows.isEmpty()) return@dbQuery emptyList()
 
+            val matchIds = rows.map { it[MatchTable.id] }.distinct()
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
+            val enrolledPlayersByMatch = getEnrolledPlayersCountByMatchId(matchIds)
             val allFieldImages = FieldImagesTable
                 .selectAll()
                 .where { FieldImagesTable.fieldId inList fieldIds }
@@ -176,7 +190,11 @@ class MatchRepositoryImp : MatchRepository {
 
             rows.map { row ->
                 val id = row[FieldTable.id]
-                row.toMatchWithFieldBaseInfo(allFieldImages[id] ?: emptyList())
+                val matchId = row[MatchTable.id]
+                row.toMatchWithFieldBaseInfo(
+                    fieldImages = allFieldImages[id] ?: emptyList(),
+                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0
+                )
             }
         }
     }
@@ -707,7 +725,10 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
-    private fun ResultRow.toMatchWithFieldBaseInfo(fieldImages: List<FieldImageBaseInfo> = emptyList()): MatchWithFieldBaseInfo {
+    private fun ResultRow.toMatchWithFieldBaseInfo(
+        fieldImages: List<FieldImageBaseInfo> = emptyList(),
+        enrolledPlayers: Int = 0
+    ): MatchWithFieldBaseInfo {
         val location = if (this.getOrNull(LocationsTable.id) != null) {
             Location(
                 id = this[LocationsTable.id],
@@ -728,6 +749,7 @@ class MatchRepositoryImp : MatchRepository {
             matchDateTimeEnd = this[MatchTable.dateTimeEnd],
             matchPrice = this[MatchTable.matchPrice],
             maxPlayers = this[MatchTable.maxPlayers],
+            enrolledPlayers = enrolledPlayers,
             minPlayersRequired = this[MatchTable.minPlayersRequired],
             status = this[MatchTable.status],
             footwearType = this[FieldTable.footwearType],
@@ -737,6 +759,24 @@ class MatchRepositoryImp : MatchRepository {
             genderType = this[MatchTable.genderType],
             playerLevel = this[MatchTable.playerLevel]
         )
+    }
+
+    private fun getEnrolledPlayersCountByMatchId(matchIds: List<UUID>): Map<UUID, Int> {
+        if (matchIds.isEmpty()) return emptyMap()
+
+        val enrolledPlayersCount = MatchPlayersTable.userId.count()
+        return MatchPlayersTable
+            .select(MatchPlayersTable.matchId, enrolledPlayersCount)
+            .where {
+                (MatchPlayersTable.matchId inList matchIds) and
+                    (MatchPlayersTable.status neq MatchPlayerStatus.CANCELED) and
+                    (MatchPlayersTable.status neq MatchPlayerStatus.LEFT)
+            }
+            .groupBy(MatchPlayersTable.matchId)
+            .associate { row ->
+                val count = row[enrolledPlayersCount].toInt()
+                row[MatchPlayersTable.matchId] to count
+            }
     }
 
     override suspend fun setPlayerGoals(matchId: UUID, goals: List<PlayerGoalInput>): Boolean {

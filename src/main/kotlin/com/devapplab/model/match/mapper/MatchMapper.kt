@@ -56,6 +56,7 @@ fun MatchWithFieldBaseInfo.toResponse(): MatchWithFieldResponse {
         matchPriceInCents = matchPrice.multiply(BigDecimal(100)).longValueExact(),
         discountInCents = 0L, // Set to 0L as base info doesn't carry this
         maxPlayers = maxPlayers,
+        enrolledPlayers = enrolledPlayers,
         minPlayersRequired = minPlayersRequired,
         status = status,
         footwearType = footwearType,

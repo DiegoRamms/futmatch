@@ -318,6 +318,7 @@ Gets a list of matches associated with a specific field.
             "matchPriceInCents": 500,
             "discountInCents": 0,
             "maxPlayers": 14,
+            "enrolledPlayers": 9,
             "minPlayersRequired": 10,
             "status": "SCHEDULED",
             "footwearType": "TURF",
@@ -343,6 +344,9 @@ Gets a list of matches associated with a specific field.
     ]
 }
 ```
+
+### Notes
+-   `enrolledPlayers` represents the current number of players enrolled in the match (`RESERVED` + `JOINED`).
 
 ---
 
@@ -377,6 +381,7 @@ Gets a list of all available matches.
             "matchPriceInCents": 500,
             "discountInCents": 0,
             "maxPlayers": 14,
+            "enrolledPlayers": 9,
             "minPlayersRequired": 10,
             "status": "SCHEDULED",
             "footwearType": "TURF",

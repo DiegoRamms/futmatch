@@ -24,6 +24,7 @@ data class MatchWithFieldResponse(
     val matchPriceInCents: Long,
     val discountInCents: Long,
     val maxPlayers: Int,
+    val enrolledPlayers: Int,
     val minPlayersRequired: Int,
     val status: MatchStatus,
     val footwearType: FootwearType?,

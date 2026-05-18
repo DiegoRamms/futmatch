@@ -17,6 +17,7 @@ data class MatchWithFieldBaseInfo(
     val matchDateTimeEnd: Long,
     val matchPrice: BigDecimal,
     val maxPlayers: Int,
+    val enrolledPlayers: Int,
     val minPlayersRequired: Int,
     val status: MatchStatus,
     val footwearType: FootwearType?,
