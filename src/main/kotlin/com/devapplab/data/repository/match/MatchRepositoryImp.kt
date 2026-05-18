@@ -1026,8 +1026,28 @@ class MatchRepositoryImp : MatchRepository {
                 .limit(1)
                 .singleOrNull() ?: return@dbQuery null
 
-            val teamAScore = row.getOrNull(MatchResultsTable.teamAScore) ?: 0
-            val teamBScore = row.getOrNull(MatchResultsTable.teamBScore) ?: 0
+            val matchId = row[MatchTable.id]
+            val persistedTeamAScore = row.getOrNull(MatchResultsTable.teamAScore)
+            val persistedTeamBScore = row.getOrNull(MatchResultsTable.teamBScore)
+            val (teamAScore, teamBScore) = if (persistedTeamAScore != null && persistedTeamBScore != null) {
+                persistedTeamAScore to persistedTeamBScore
+            } else {
+                val goalsByTeam: List<Pair<TeamType, Int>> = MatchPlayerGoalsTable.join(
+                    MatchPlayersTable,
+                    JoinType.INNER,
+                    additionalConstraint = {
+                        (MatchPlayerGoalsTable.matchId eq MatchPlayersTable.matchId) and
+                            (MatchPlayerGoalsTable.userId eq MatchPlayersTable.userId)
+                    }
+                )
+                    .select(MatchPlayersTable.team, MatchPlayerGoalsTable.goalsCount)
+                    .where { MatchPlayerGoalsTable.matchId eq matchId }
+                    .map { scoreRow -> scoreRow[MatchPlayersTable.team] to scoreRow[MatchPlayerGoalsTable.goalsCount] }
+
+                val calculatedTeamAScore = goalsByTeam.filter { (team, _) -> team == TeamType.A }.sumOf { it.second }
+                val calculatedTeamBScore = goalsByTeam.filter { (team, _) -> team == TeamType.B }.sumOf { it.second }
+                calculatedTeamAScore to calculatedTeamBScore
+            }
             val userTeam = row[MatchPlayersTable.team]
 
             val outcome = when (userTeam) {
@@ -1045,7 +1065,7 @@ class MatchRepositoryImp : MatchRepository {
             }
 
             HomeLastMatch(
-                matchId = row[MatchTable.id],
+                matchId = matchId,
                 fieldId = row[MatchTable.fieldId],
                 fieldName = row[FieldTable.name],
                 playedAt = row[MatchTable.dateTimeEnd],
