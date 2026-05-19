@@ -2,6 +2,108 @@
 
 Este documento describe los endpoints relacionados con la gestión de usuarios, incluyendo la obtención del perfil y la carga de imágenes de perfil.
 
+## Perfiles de Jugador (Nuevas Integraciones)
+
+### Compatibilidad
+
+- `GET /user` se mantiene por compatibilidad **legacy**.
+- Para nuevas integraciones, usar `profiles`.
+
+### 0.1 `GET /profiles/me`
+
+Perfil del usuario autenticado para pantalla de perfil; **no incluye `lastMatch`** porque el cliente usa la data de `/user/home` y caché local.
+
+- **Método:** `GET`
+- **Path:** `/profiles/me`
+- **Auth:** Bearer token requerido
+
+#### Ejemplo de respuesta
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "uuid",
+    "name": "Carlos",
+    "lastName": "Pérez",
+    "country": "México",
+    "playerPosition": "FORWARD",
+    "profilePic": "https://...",
+    "level": "ADVANCED",
+    "averageScore": 80,
+    "stats": {
+      "matchesPlayed": 12,
+      "matchesWon": 8,
+      "mvpCount": 3,
+      "totalGoals": 21
+    }
+  }
+}
+```
+
+### 0.2 `GET /profiles/{userId}`
+
+Perfil público de otro jugador para vista de visita; **incluye `lastMatch`** para mostrar contexto competitivo.
+
+- **Método:** `GET`
+- **Path:** `/profiles/{userId}`
+- **Auth:** Bearer token requerido
+- **Validación:** `userId` debe ser UUID válido
+
+#### Ejemplo de respuesta
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "uuid",
+    "name": "Carlos",
+    "lastName": "Pérez",
+    "country": "México",
+    "playerPosition": "FORWARD",
+    "profilePic": "https://...",
+    "level": "ADVANCED",
+    "averageScore": 80,
+    "stats": {
+      "matchesPlayed": 12,
+      "matchesWon": 8,
+      "mvpCount": 3,
+      "totalGoals": 21
+    },
+    "lastMatch": {
+      "matchId": "uuid",
+      "fieldId": "uuid",
+      "fieldName": "Roma Norte 28",
+      "playedAt": 1775962200000,
+      "outcome": "WIN",
+      "teamAScore": 10,
+      "teamBScore": 8
+    }
+  }
+}
+```
+
+#### Reglas de datos expuestos
+
+- Este endpoint expone solo perfil público (sin `email` y sin `phone`).
+- `lastMatch` puede ser `null` si el jugador no tiene partidos completados.
+- `averageScore` es entero `0..100`.
+
+### 0.3 Campos de Perfil (`/profiles/me` y `/profiles/{userId}`)
+
+| Campo | Tipo | Descripción |
+|:------|:-----|:------------|
+| `id` | UUID | Id del jugador |
+| `name` | String | Nombre |
+| `lastName` | String | Apellido |
+| `country` | String | País |
+| `playerPosition` | Enum | Posición (`GOALKEEPER`, `DEFENDER`, `MIDFIELDER`, `FORWARD`) |
+| `profilePic` | String? | URL pública de imagen de perfil |
+| `level` | Enum | Nivel del jugador |
+| `averageScore` | Int | Porcentaje de victorias `0..100` |
+| `stats.matchesPlayed` | Int | Partidos jugados |
+| `stats.matchesWon` | Int | Partidos ganados |
+| `stats.mvpCount` | Int | Veces MVP |
+| `stats.totalGoals` | Int | Goles totales en partidos completados |
+
 ## Conceptos Comunes
 
 ### AppResult

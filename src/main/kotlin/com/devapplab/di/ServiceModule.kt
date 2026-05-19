@@ -1,6 +1,7 @@
 package com.devapplab.di
 
 import com.devapplab.service.UserService
+import com.devapplab.service.ProfileService
 import com.devapplab.service.auth.AuthenticatedResponseGenerator
 import com.devapplab.service.auth.AuthTokenManagementService
 import com.devapplab.service.auth.PasswordResetService
@@ -35,6 +36,7 @@ import org.koin.dsl.module
 val serviceModule = module {
 
     singleOf(::UserService)
+    singleOf(::ProfileService)
     singleOf(::RegistrationService)
     singleOf(::AuthenticatedResponseGenerator)
     singleOf(::SignInService)

@@ -9,6 +9,7 @@ import com.devapplab.features.match.matchRouting
 import com.devapplab.features.notification.notificationRouting
 import com.devapplab.features.payment.paymentsRouting
 import com.devapplab.features.payment.stripeRouting
+import com.devapplab.features.profile.profileRouting
 import com.devapplab.features.user.userRouting
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
@@ -120,6 +121,7 @@ fun Application.configureRouting() {
                 paymentsRouting()
                 deviceRouting()
                 notificationRouting()
+                profileRouting()
             }
         }
     }

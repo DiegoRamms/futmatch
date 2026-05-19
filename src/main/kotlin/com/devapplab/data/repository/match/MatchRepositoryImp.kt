@@ -1109,4 +1109,30 @@ class MatchRepositoryImp : MatchRepository {
             )
         }
     }
+
+    override suspend fun getUserMvpCount(userId: UUID): Int {
+        return dbQuery {
+            val mvpCountExpr = MatchResultsTable.matchId.count()
+            MatchResultsTable
+                .select(mvpCountExpr)
+                .where { MatchResultsTable.bestPlayerId eq userId }
+                .singleOrNull()
+                ?.getOrNull(mvpCountExpr)
+                ?.toInt() ?: 0
+        }
+    }
+
+    override suspend fun getUserTotalGoals(userId: UUID): Int {
+        return dbQuery {
+            val totalGoalsExpr = MatchPlayerGoalsTable.goalsCount.sum()
+            (MatchPlayerGoalsTable innerJoin MatchTable)
+                .select(totalGoalsExpr)
+                .where {
+                    (MatchPlayerGoalsTable.userId eq userId) and
+                        (MatchTable.status eq MatchStatus.COMPLETED)
+                }
+                .singleOrNull()
+                ?.getOrNull(totalGoalsExpr) ?: 0
+        }
+    }
 }

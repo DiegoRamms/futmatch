@@ -29,4 +29,6 @@ interface MatchRepository {
     suspend fun getHomeSuggestedMatches(userId: UUID, limit: Int): List<HomeSuggestedMatch>
     suspend fun getHomeLastMatch(userId: UUID): HomeLastMatch?
     suspend fun getHomeWinStats(userId: UUID): HomeWinStats
+    suspend fun getUserMvpCount(userId: UUID): Int
+    suspend fun getUserTotalGoals(userId: UUID): Int
 }
