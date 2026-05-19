@@ -4,11 +4,11 @@ import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.service.ProfileService
 import com.devapplab.utils.createError
+import com.devapplab.utils.respond
 import com.devapplab.utils.retrieveLocale
 import com.devapplab.utils.toUUIDOrNull
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.response.respond
 
 class ProfileController(
     private val service: ProfileService
