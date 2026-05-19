@@ -23,6 +23,8 @@ import com.devapplab.utils.createError
 import com.devapplab.utils.getString
 import io.ktor.http.*
 import io.ktor.http.content.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 import java.util.*
@@ -182,9 +184,18 @@ class UserService(
         val user = dbExecutor.tx { userRepository.getHomeProfileById(userId) }
             ?: return locale.createError(status = HttpStatusCode.NotFound)
 
-        val suggestedMatches = matchRepository.getHomeSuggestedMatches(userId = userId, limit = HOME_SUGGESTED_MATCHES_LIMIT)
-        val lastMatch = matchRepository.getHomeLastMatch(userId)
-        val winStats = matchRepository.getHomeWinStats(userId)
+        val (suggestedMatches, lastMatch, winStats) = coroutineScope {
+            val suggestedDeferred = async {
+                matchRepository.getHomeSuggestedMatches(userId = userId, limit = HOME_SUGGESTED_MATCHES_LIMIT)
+            }
+            val lastMatchDeferred = async { matchRepository.getHomeLastMatch(userId) }
+            val winStatsDeferred = async { matchRepository.getHomeWinStats(userId) }
+            Triple(
+                suggestedDeferred.await(),
+                lastMatchDeferred.await(),
+                winStatsDeferred.await()
+            )
+        }
 
         val averageScore = if (winStats.playedMatches == 0) {
             0

@@ -1078,37 +1078,34 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun getHomeWinStats(userId: UUID): HomeWinStats {
         return dbQuery {
-            val rows = ((MatchPlayersTable innerJoin MatchTable)
+            val isWinExpr = Case()
+                .When(
+                    ((MatchPlayersTable.team eq TeamType.A) and (MatchResultsTable.teamAScore greater MatchResultsTable.teamBScore)) or
+                        ((MatchPlayersTable.team eq TeamType.B) and (MatchResultsTable.teamBScore greater MatchResultsTable.teamAScore)),
+                    intLiteral(1)
+                )
+                .Else(intLiteral(0))
+            val wonMatchesExpr = isWinExpr.sum()
+            val playedMatchesExpr = MatchPlayersTable.userId.count()
+
+            val row = ((MatchPlayersTable innerJoin MatchTable)
                 .leftJoin(MatchResultsTable, { MatchTable.id }, { MatchResultsTable.matchId }))
                 .select(
-                    MatchPlayersTable.team,
-                    MatchResultsTable.teamAScore,
-                    MatchResultsTable.teamBScore
+                    playedMatchesExpr,
+                    wonMatchesExpr
                 )
                 .where {
                     (MatchPlayersTable.userId eq userId) and
                         (MatchPlayersTable.status eq MatchPlayerStatus.JOINED) and
-                        (MatchTable.status eq MatchStatus.COMPLETED)
+                        (MatchTable.status eq MatchStatus.COMPLETED) and
+                        (MatchResultsTable.teamAScore.isNotNull()) and
+                        (MatchResultsTable.teamBScore.isNotNull())
                 }
-                .toList()
-
-            if (rows.isEmpty()) {
-                return@dbQuery HomeWinStats(playedMatches = 0, wonMatches = 0)
-            }
-
-            var wonMatches = 0
-            rows.forEach { row ->
-                val teamAScore = row.getOrNull(MatchResultsTable.teamAScore) ?: return@forEach
-                val teamBScore = row.getOrNull(MatchResultsTable.teamBScore) ?: return@forEach
-                val team = row[MatchPlayersTable.team]
-                val isWin = (team == TeamType.A && teamAScore > teamBScore) ||
-                    (team == TeamType.B && teamBScore > teamAScore)
-                if (isWin) wonMatches++
-            }
+                .singleOrNull() ?: return@dbQuery HomeWinStats(playedMatches = 0, wonMatches = 0)
 
             HomeWinStats(
-                playedMatches = rows.size,
-                wonMatches = wonMatches
+                playedMatches = row[playedMatchesExpr].toInt(),
+                wonMatches = row[wonMatchesExpr] ?: 0
             )
         }
     }
