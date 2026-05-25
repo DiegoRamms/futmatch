@@ -1002,6 +1002,7 @@ class MatchService(
             paymentRepository.updatePaymentStatus(failure.providerPaymentId, PaymentAttemptStatus.REFUNDED)
             logger.info("✅ [MATCH_TRACE] retryFailedRefund | Payment already refunded in Stripe, updating status | failureId=$failureId")
             refundFailureRepository.deleteFailure(failureId)
+            sendRefundRecoveredNotification(failure.userId, failure.matchId)
             return AppResult.Success(RetryResult(
                 failureId = failureId,
                 status = RefundFailureStatus.RESOLVED,
@@ -1018,6 +1019,7 @@ class MatchService(
             paymentRepository.updatePaymentStatus(failure.providerPaymentId, PaymentAttemptStatus.REFUNDED)
             refundFailureRepository.deleteFailure(failureId)
             logger.info("✅ [MATCH_TRACE] retryFailedRefund | Refund successful | failureId=$failureId")
+            sendRefundRecoveredNotification(failure.userId, failure.matchId)
 
             return AppResult.Success(RetryResult(
                 failureId = failureId,
@@ -1041,6 +1043,23 @@ class MatchService(
                 errorMessage = errorMsg
             ))
         }
+    }
+
+    private suspend fun sendRefundRecoveredNotification(userId: UUID, matchId: UUID) {
+        val match = matchRepository.getMatchById(matchId)
+        if (match == null) {
+            logger.warn("⚠️ [MATCH_TRACE] sendRefundRecoveredNotification | Match not found | matchId=$matchId")
+            return
+        }
+
+        val locale = Locale.forLanguageTag(LocaleTag.LAN_TAG_MX.value)
+        notificationService.sendMatchCanceledNotification(
+            userId = userId,
+            matchId = matchId,
+            fieldName = match.fieldName,
+            locale = locale,
+            refundStatus = RefundStatus.REFUNDED
+        )
     }
 
     suspend fun resolveFailedRefundManually(failureId: UUID, locale: Locale): AppResult<RetryResult> {

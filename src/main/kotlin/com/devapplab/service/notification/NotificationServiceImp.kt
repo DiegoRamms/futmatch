@@ -1,6 +1,7 @@
 package com.devapplab.service.notification
 
 import com.devapplab.data.repository.device.DeviceRepository
+import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.notification.NotificationRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.match.RefundStatus
@@ -16,56 +17,67 @@ import com.google.firebase.messaging.MulticastMessage
 import com.google.firebase.messaging.Notification
 import io.ktor.http.*
 import org.slf4j.LoggerFactory
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 class NotificationServiceImp(
     private val deviceRepository: DeviceRepository,
     private val notificationRepository: NotificationRepository,
+    private val matchRepository: MatchRepository,
 ) : NotificationService {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
 
     override suspend fun sendPaymentSucceededNotification(userId: UUID, matchId: UUID, locale: Locale) {
+        val matchContext = getMatchContext(matchId, locale)
         sendAndPersistNotification(
             userId = userId,
             locale = locale,
             notificationType = NotificationType.PAYMENT_SUCCEEDED,
             titleKey = StringResourcesKey.NOTIFICATION_PAYMENT_SUCCEEDED_TITLE,
             bodyKey = StringResourcesKey.NOTIFICATION_PAYMENT_SUCCEEDED_BODY,
-            metadata = mapOf("matchId" to matchId.toString(), "type" to "PAYMENT_SUCCEEDED")
+            metadata = baseMetadata(matchId, "PAYMENT_SUCCEEDED", matchContext),
+            bodySuffix = matchContext?.bodySuffix
         )
     }
 
 
     override suspend fun sendPaymentFailedNotification(userId: UUID, matchId: UUID, locale: Locale) {
+        val matchContext = getMatchContext(matchId, locale)
         sendAndPersistNotification(
             userId = userId,
             locale = locale,
             notificationType = NotificationType.PAYMENT_FAILED,
             titleKey = StringResourcesKey.NOTIFICATION_PAYMENT_FAILED_TITLE,
             bodyKey = StringResourcesKey.NOTIFICATION_PAYMENT_FAILED_BODY,
-            metadata = mapOf("matchId" to matchId.toString(), "type" to "PAYMENT_FAILED")
+            metadata = baseMetadata(matchId, "PAYMENT_FAILED", matchContext),
+            bodySuffix = matchContext?.bodySuffix
         )
     }
 
     override suspend fun sendReservationExpiredNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale) {
+        val matchContext = getMatchContext(matchId, locale)
         sendAndPersistNotification(
             userId = userId,
             locale = locale,
             notificationType = NotificationType.RESERVATION_EXPIRED,
             titleKey = StringResourcesKey.NOTIFICATION_RESERVATION_EXPIRED_TITLE,
             bodyKey = StringResourcesKey.NOTIFICATION_RESERVATION_EXPIRED_BODY,
-            metadata = mapOf("matchId" to matchId.toString(), "fieldName" to fieldName, "type" to "RESERVATION_EXPIRED"),
-            placeholders = mapOf("fieldName" to fieldName)
+            metadata = baseMetadata(matchId, "RESERVATION_EXPIRED", matchContext) + mapOf("fieldName" to fieldName),
+            placeholders = mapOf("fieldName" to fieldName),
+            bodySuffix = matchContext?.bodySuffix
         )
     }
 
     override suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus) {
         try {
+            val matchContext = getMatchContext(matchId, locale)
             val title = locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_TITLE)
             val placeholders = mapOf("fieldName" to fieldName)
 
-            val body = when (refundStatus) {
+            val baseBody = when (refundStatus) {
                 RefundStatus.REFUNDED -> locale.getString(
                     StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REFUND_BODY,
                     placeholders
@@ -79,12 +91,12 @@ class NotificationServiceImp(
                     placeholders
                 )
             }
+            val body = appendContext(baseBody, matchContext?.bodySuffix)
 
             val metadataJson = convertMapToJson(
-                mapOf(
+                baseMetadata(matchId, "MATCH_CANCELED", matchContext) + mapOf(
                     "matchId" to matchId.toString(),
                     "fieldName" to fieldName,
-                    "type" to "MATCH_CANCELED",
                     "refundStatus" to refundStatus.name
                 )
             )
@@ -141,6 +153,7 @@ class NotificationServiceImp(
             }
             else -> return
         }
+        val matchContext = getMatchContext(matchId, locale)
 
         sendAndPersistNotification(
             userId = userId,
@@ -156,11 +169,12 @@ class NotificationServiceImp(
                 "bestPlayerId" to bestPlayerId.toString(),
                 "resultVariant" to resultType.name,
                 "type" to resultType.name
-            ),
+            ) + (matchContext?.metadataExtras ?: emptyMap()),
             placeholders = mapOf(
                 "fieldName" to fieldName,
                 "score" to "$teamAScore-$teamBScore"
-            )
+            ),
+            bodySuffix = matchContext?.bodySuffix
         )
     }
 
@@ -251,10 +265,12 @@ class NotificationServiceImp(
         bodyKey: StringResourcesKey,
         metadata: Map<String, String>? = null,
         placeholders: Map<String, String> = emptyMap(),
+        bodySuffix: String? = null,
     ): AppResult<UUID> {
         return try {
             val title = locale.getString(titleKey)
-            val body = locale.getString(bodyKey, placeholders)
+            val baseBody = locale.getString(bodyKey, placeholders)
+            val body = appendContext(baseBody, bodySuffix)
             val metadataJson = metadata?.let { convertMapToJson(it) }
 
             val notificationId = notificationRepository.createNotification(
@@ -319,4 +335,38 @@ class NotificationServiceImp(
             "\"$k\":\"${v.replace("\"", "\\\"")}\""
         }
     }
+
+    private fun appendContext(baseBody: String, bodySuffix: String?): String {
+        if (bodySuffix.isNullOrBlank()) return baseBody
+        return "$baseBody $bodySuffix"
+    }
+
+    private fun baseMetadata(matchId: UUID, type: String, matchContext: MatchContext?): Map<String, String> {
+        return mapOf("matchId" to matchId.toString(), "type" to type) + (matchContext?.metadataExtras ?: emptyMap())
+    }
+
+    private suspend fun getMatchContext(matchId: UUID, locale: Locale): MatchContext? {
+        val match = matchRepository.getMatchById(matchId) ?: return null
+        val matchDateTime = formatMatchDateTime(match.dateTime, locale)
+        val fieldName = match.fieldName
+        return MatchContext(
+            bodySuffix = "Partido: $fieldName, $matchDateTime.",
+            metadataExtras = mapOf(
+                "fieldName" to fieldName,
+                "matchDateTime" to matchDateTime
+            )
+        )
+    }
+
+    private fun formatMatchDateTime(matchDateTimeMs: Long, locale: Locale): String {
+        val formatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM yyyy, HH:mm", locale)
+        return Instant.ofEpochMilli(matchDateTimeMs)
+            .atZone(ZoneId.of("America/Mexico_City"))
+            .format(formatter)
+    }
+
+    private data class MatchContext(
+        val bodySuffix: String,
+        val metadataExtras: Map<String, String>
+    )
 }
