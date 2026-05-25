@@ -118,7 +118,57 @@ Desvincula (elimina) un método de pago previamente guardado.
 
 ## 4. Estado de Pagos
 
-### 4.1 Recuperar Estado de Pago de un Partido
+### 4.1 Polling de Estado de Pago (Cliente UI)
+Endpoint optimizado para polling desde app móvil. Retorna solo estado de negocio para decidir UX (`isFinal`, `isSuccess`) sin exponer `clientSecret`.
+
+- **Método:** `GET`
+- **Path:** `/payment/poll/{matchId}`
+
+#### Parámetros de Ruta:
+- `matchId` (String): El ID del partido (UUID).
+- **Validaciones:**
+  - `matchId` es obligatorio.
+  - Si llega nulo o vacío, retorna `400 Bad Request`.
+
+#### Ejemplo de Respuesta Exitosa (en progreso):
+```json
+{
+  "status": "success",
+  "data": {
+    "status": "CREATED",
+    "isFinal": false,
+    "isSuccess": false
+  }
+}
+```
+
+#### Ejemplo de Respuesta Exitosa (autorizado):
+```json
+{
+  "status": "success",
+  "data": {
+    "status": "AUTHORIZED",
+    "isFinal": false,
+    "isSuccess": true
+  }
+}
+```
+
+#### Ejemplo de Respuesta Exitosa (capturado):
+```json
+{
+  "status": "success",
+  "data": {
+    "status": "SUCCEEDED",
+    "isFinal": true,
+    "isSuccess": true
+  }
+}
+```
+
+*Nota: Si no hay un pago activo o pendiente para el usuario en ese partido, `data` puede retornar `null`.*
+
+### 4.2 Recuperar Estado de Pago de un Partido
 Recupera la información del pago activo asociado al usuario para un partido específico. Útil cuando la app se cerró o se perdió la conexión durante el flujo de pago.
 
 - **Método:** `GET`
@@ -145,7 +195,7 @@ Recupera la información del pago activo asociado al usuario para un partido esp
 ```
 *Nota: Si no hay un pago activo o pendiente para el usuario en ese partido, `data` puede retornar null.*
 
-### 4.2 Validar Pago Directo
+### 4.3 Validar Pago Directo
 Valida el estado actual de un pago específico directamente con el proveedor y actualiza la base de datos interna si es necesario.
 
 - **Método:** `GET`
@@ -171,7 +221,7 @@ Valida el estado actual de un pago específico directamente con el proveedor y a
 }
 ```
 
-### 4.3 Estados de `PaymentStatusResponse` (backend)
+### 4.4 Estados de `PaymentStatusResponse` (backend)
 El campo `status` de `/payment/status/{matchId}` y `/payment/validate/{providerPaymentId}` retorna estados internos del backend:
 
 - `CREATED`: Intento iniciado o en flujo de checkout/reintento.

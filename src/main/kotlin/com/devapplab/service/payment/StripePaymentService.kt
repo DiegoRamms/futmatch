@@ -12,6 +12,7 @@ import com.devapplab.model.payment.PaymentFailureReason
 import com.devapplab.model.payment.PaymentHistoryItem
 import com.devapplab.model.payment.PaymentMethodInfo
 import com.devapplab.model.payment.PaymentOperationResult
+import com.devapplab.model.payment.PaymentPollingStatusResponse
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.payment.PaymentStatusResponse
 import com.devapplab.model.payment.RefundInfo
@@ -458,6 +459,33 @@ class StripePaymentService(
                 provider = paymentInfo.provider
             )
         )
+    }
+
+    override suspend fun getPollingStatus(
+        matchId: String,
+        userId: UUID,
+        locale: Locale
+    ): AppResult<PaymentPollingStatusResponse?> {
+        return when (val result = recoverPaymentStatus(matchId, userId, locale)) {
+            is AppResult.Success -> {
+                val data = result.data?.let { statusResponse ->
+                    val status = statusResponse.status
+                    PaymentPollingStatusResponse(
+                        status = status,
+                        isFinal = status in setOf(
+                            PaymentAttemptStatus.AUTHORIZED,
+                            PaymentAttemptStatus.SUCCEEDED,
+                            PaymentAttemptStatus.FAILED,
+                            PaymentAttemptStatus.CANCELED,
+                            PaymentAttemptStatus.REFUNDED
+                        ),
+                        isSuccess = status == PaymentAttemptStatus.SUCCEEDED || status == PaymentAttemptStatus.AUTHORIZED
+                    )
+                }
+                AppResult.Success(data)
+            }
+            is AppResult.Failure -> result
+        }
     }
 
     override suspend fun getPaymentHistory(stripeCustomerId: String, daysBack: Int): List<PaymentHistoryItem> {

@@ -17,7 +17,6 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import java.util.UUID
 
 class PaymentController(
     private val billingService: BillingService,
@@ -147,6 +146,25 @@ class PaymentController(
         }
 
         val result = paymentService.validatePaymentStatus(providerPaymentId, locale)
+        call.respond(result)
+    }
+
+    suspend fun pollPaymentStatus(call: ApplicationCall) {
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val matchId = call.parameters["matchId"]
+        val locale = call.retrieveLocale()
+
+        if (matchId.isNullOrBlank()) {
+            val error = locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.BadRequest
+            )
+            call.respond(error)
+            return
+        }
+
+        val result = paymentService.getPollingStatus(matchId, userId, locale)
         call.respond(result)
     }
 }

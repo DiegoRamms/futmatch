@@ -5,6 +5,7 @@ import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.model.payment.PaymentCaptureMethod
 import com.devapplab.model.payment.PaymentHistoryItem
 import com.devapplab.model.payment.PaymentOperationResult
+import com.devapplab.model.payment.PaymentPollingStatusResponse
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.payment.PaymentStatusResponse
 import kotlinx.serialization.Serializable
@@ -61,6 +62,12 @@ interface PaymentService {
         providerPaymentId: String,
         locale: Locale
     ): AppResult<PaymentStatusResponse>
+
+    suspend fun getPollingStatus(
+        matchId: String,
+        userId: UUID,
+        locale: Locale
+    ): AppResult<PaymentPollingStatusResponse?>
 
     suspend fun getPaymentHistory(
         stripeCustomerId: String,
