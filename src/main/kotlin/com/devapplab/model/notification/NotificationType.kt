@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class NotificationType {
+    PAYMENT_AUTHORIZED,
     PAYMENT_SUCCEEDED,
     PAYMENT_FAILED,
     RESERVATION_EXPIRED,

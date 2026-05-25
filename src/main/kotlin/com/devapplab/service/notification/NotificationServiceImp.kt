@@ -30,6 +30,19 @@ class NotificationServiceImp(
     private val logger = LoggerFactory.getLogger(this::class.java)
 
 
+    override suspend fun sendPaymentAuthorizedNotification(userId: UUID, matchId: UUID, locale: Locale) {
+        val matchContext = getMatchContext(matchId, locale)
+        sendAndPersistNotification(
+            userId = userId,
+            locale = locale,
+            notificationType = NotificationType.PAYMENT_AUTHORIZED,
+            titleKey = StringResourcesKey.NOTIFICATION_PAYMENT_AUTHORIZED_TITLE,
+            bodyKey = StringResourcesKey.NOTIFICATION_PAYMENT_AUTHORIZED_BODY,
+            metadata = baseMetadata(matchId, "PAYMENT_AUTHORIZED", matchContext),
+            bodySuffix = matchContext?.bodySuffix
+        )
+    }
+
     override suspend fun sendPaymentSucceededNotification(userId: UUID, matchId: UUID, locale: Locale) {
         val matchContext = getMatchContext(matchId, locale)
         sendAndPersistNotification(

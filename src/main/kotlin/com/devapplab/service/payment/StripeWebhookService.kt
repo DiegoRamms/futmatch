@@ -168,6 +168,7 @@ class StripeWebhookService(
     private suspend fun handlePaymentSucceeded(paymentIntent: PaymentIntent) {
         val paymentIntentId = paymentIntent.id ?: return
         logger.info("💰 payment_intent.succeeded. paymentIntentId={}", paymentIntentId)
+        val previousStatus = paymentRepository.getPaymentByProviderId(paymentIntentId)?.status
 
         val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(paymentIntentId)
         if (matchPlayerId == null) {
@@ -194,6 +195,12 @@ class StripeWebhookService(
 
         paymentIntent.metadata["matchId"]?.let { matchIdStr ->
             val matchId = UUID.fromString(matchIdStr)
+            val userId = paymentIntent.metadata["userId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            if (userId != null && previousStatus != PaymentAttemptStatus.SUCCEEDED) {
+                val locale = Locale.forLanguageTag(LocaleTag.LAN_TAG_MX.value)
+                notificationService.sendPaymentSucceededNotification(userId, matchId, locale)
+                logger.info("🔔 Payment succeeded notification sent. userId={}, matchId={}", userId, matchId)
+            }
             notifyMatchUpdate(matchId)
             logger.info("📡 Match update sent. matchId={}", matchId)
         }
@@ -234,6 +241,7 @@ class StripeWebhookService(
     private suspend fun handleAmountCapturableUpdated(paymentIntent: PaymentIntent) {
         val paymentIntentId = paymentIntent.id ?: return
         logger.info("🟡 payment_intent.amount_capturable_updated. paymentIntentId={}, status={}", paymentIntentId, paymentIntent.status)
+        val previousStatus = paymentRepository.getPaymentByProviderId(paymentIntentId)?.status
 
         // ✅ Update to AUTHORIZED: This enables the Job to capture the payment.
         val updated = paymentRepository.updatePaymentStatus(
@@ -262,6 +270,12 @@ class StripeWebhookService(
 
         paymentIntent.metadata["matchId"]?.let { matchIdStr ->
             val matchId = UUID.fromString(matchIdStr)
+            val userId = paymentIntent.metadata["userId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            if (userId != null && previousStatus != PaymentAttemptStatus.AUTHORIZED) {
+                val locale = Locale.forLanguageTag(LocaleTag.LAN_TAG_MX.value)
+                notificationService.sendPaymentAuthorizedNotification(userId, matchId, locale)
+                logger.info("🔔 Payment authorized notification sent. userId={}, matchId={}", userId, matchId)
+            }
             notifyMatchUpdate(matchId)
             logger.info("📡 Match update sent after amount_capturable_updated. matchId={}", matchId)
         }
