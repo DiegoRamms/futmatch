@@ -18,4 +18,5 @@ interface DeviceRepository {
         osVersion: String
     ): Boolean
     suspend fun getActiveFcmTokensByUserId(userId: UUID): List<String>
+    suspend fun invalidateFcmToken(fcmToken: String): Boolean
 }

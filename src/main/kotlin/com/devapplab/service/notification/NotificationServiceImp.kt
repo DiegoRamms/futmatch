@@ -12,6 +12,8 @@ import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.getString
 import com.google.firebase.messaging.FirebaseMessaging
+import com.google.firebase.messaging.FirebaseMessagingException
+import com.google.firebase.messaging.MessagingErrorCode
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MulticastMessage
 import com.google.firebase.messaging.Notification
@@ -237,8 +239,8 @@ class NotificationServiceImp(
 
             if (!sendResponse.isSuccessful) {
                 val error = sendResponse.exception
-                logger.warn("Failed to send notification to token $token: ${error?.message}")
-                // TODO: Invalidate token in DB if error indicates invalid token
+                logger.warn("Failed to send notification to token $token: ${buildFcmErrorSummary(error)}")
+                handleInvalidTokenIfNeeded(token, error)
             }
         }
     }
@@ -259,15 +261,42 @@ class NotificationServiceImp(
             try {
                 sendToToken(tokens.first(), title, body, data)
             } catch (e: Exception) {
-                logger.error("Failed to send notification to user $userId", e)
+                val token = tokens.first()
+                logger.error(
+                    "Failed to send notification to user $userId (single token=$token): ${buildFcmErrorSummary(e)}",
+                    e
+                )
+                handleInvalidTokenIfNeeded(token, e)
             }
         } else {
             try {
                 sendToTokens(tokens, title, body, data)
             } catch (e: Exception) {
-                logger.error("Failed to send multicast notification to user $userId", e)
+                logger.error(
+                    "Failed to send multicast notification to user $userId (tokens=${tokens.size}): ${buildFcmErrorSummary(e)}",
+                    e
+                )
             }
         }
+    }
+
+    private suspend fun handleInvalidTokenIfNeeded(token: String, throwable: Throwable?) {
+        val errorCode = (throwable as? FirebaseMessagingException)?.messagingErrorCode
+        if (errorCode == MessagingErrorCode.UNREGISTERED || throwable?.message?.contains("NotRegistered") == true) {
+            val invalidated = deviceRepository.invalidateFcmToken(token)
+            if (invalidated) {
+                logger.info("Invalidated stale FCM token after send failure. token=$token")
+            } else {
+                logger.warn("Failed to invalidate stale FCM token (not found). token=$token")
+            }
+        }
+    }
+
+    private fun buildFcmErrorSummary(throwable: Throwable?): String {
+        val fcmException = throwable as? FirebaseMessagingException
+        val errorCode = fcmException?.messagingErrorCode?.name ?: "UNKNOWN"
+        val message = throwable?.message ?: "No error message"
+        return "fcmErrorCode=$errorCode, message=$message"
     }
 
     suspend fun sendAndPersistNotification(

@@ -84,4 +84,12 @@ class DeviceRepositoryImpl : DeviceRepository {
                         (DeviceTable.fcmToken neq null)
             }.mapNotNull { it[DeviceTable.fcmToken] }
         }
+
+    override suspend fun invalidateFcmToken(fcmToken: String): Boolean =
+        dbQuery {
+            DeviceTable.update({ DeviceTable.fcmToken eq fcmToken }) {
+                it[DeviceTable.fcmToken] = null
+                it[DeviceTable.pushTokenUpdatedAt] = System.currentTimeMillis()
+            } > 0
+        }
 }
