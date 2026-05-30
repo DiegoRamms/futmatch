@@ -52,6 +52,8 @@ class StripeBillingService(
                 CustomerSessionCreateParams.Components.builder()
                     // iOS CustomerSheet requires components.customer_sheet.enabled=true.
                     .putExtraParam("customer_sheet", mapOf("enabled" to true))
+                    // iOS MobilePaymentElement requires this component explicitly enabled.
+                    .putExtraParam("mobile_payment_element", mapOf("enabled" to true))
                     .setPaymentElement(
                         CustomerSessionCreateParams.Components.PaymentElement.builder()
                             .setEnabled(true)
