@@ -962,11 +962,24 @@ class MatchService(
 
     private fun resolvePublicRegion(countryCode: String?, stateCode: String?): String {
         val normalizedCountry = countryCode?.trim()?.uppercase()
-        val normalizedState = stateCode?.trim()?.uppercase()
+        val normalizedState = normalizeStateCode(countryCode, stateCode)
         return if (!normalizedCountry.isNullOrBlank() && !normalizedState.isNullOrBlank()) {
             "$normalizedCountry:$normalizedState"
         } else {
             DEFAULT_PUBLIC_REGION
+        }
+    }
+
+    private fun normalizeStateCode(countryCode: String?, rawStateCode: String?): String? {
+        val state = rawStateCode?.trim()?.uppercase() ?: return null
+        val country = countryCode?.trim()?.uppercase().orEmpty()
+        if (country.isBlank()) return state
+
+        val prefix = "${country}_"
+        return if (state.startsWith(prefix)) {
+            state.removePrefix(prefix)
+        } else {
+            state
         }
     }
 

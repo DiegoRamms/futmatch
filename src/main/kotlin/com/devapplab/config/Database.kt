@@ -14,6 +14,7 @@ import com.devapplab.data.database.match.MatchRefundFailuresTable
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
+import com.devapplab.data.database.match.PublicMatchesVersionTable
 import com.devapplab.data.database.mfa.MfaCodeTable
 import com.devapplab.data.database.mfa.LoginMfaVerifyAttemptTable
 import com.devapplab.data.database.notification.NotificationTable
@@ -64,6 +65,7 @@ fun Application.configureDatabase() {
         MatchPlayerGoalsTable,
         MatchRefundFailuresTable,
         MatchResultsTable,
+        PublicMatchesVersionTable,
         PasswordResetTokensTable,
         PasswordResetVerifyAttemptTable,
         LoginAttemptTable,
