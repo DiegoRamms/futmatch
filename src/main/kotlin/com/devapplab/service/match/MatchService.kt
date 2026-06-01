@@ -54,7 +54,8 @@ class MatchService(
     private val userRepository: UserRepository,
     private val notificationService: NotificationService,
     private val billingService: BillingService,
-    private val refundFailureRepository: MatchRefundFailureRepository
+    private val refundFailureRepository: MatchRefundFailureRepository,
+    private val publicMatchesCacheService: PublicMatchesCacheService
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -63,6 +64,7 @@ class MatchService(
         const val EARTH_RADIUS_KM = 6371.0
         const val OVERLAP_THRESHOLD_MS = 15 * 60 * 1000
         const val MAX_REFUND_RETRY_COUNT = 5
+        const val DEFAULT_PUBLIC_REGION = "MX:CDMX"
 
 
         val SIGNAL_TTL_AFTER_END = 30.days
@@ -84,7 +86,7 @@ class MatchService(
         val matchCreated = matchRepository.create(match)
 
         val expireAtMillis = matchCreated.dateTimeEnd + SIGNAL_TTL_AFTER_END.inWholeMilliseconds
-        notifyMatchUpdate(matchCreated.id, expireAtMillis)
+        notifyMatchUpdate(matchCreated.id, expireAtMillis, sendRegionalPush = true)
 
         val discounts = match.discountIds?.let {
             if (it.isNotEmpty()) discountRepository.getDiscountsByIds(it) else emptyList()
@@ -154,41 +156,43 @@ class MatchService(
     }
 
     suspend fun getPlayerMatches(userLat: Double?, userLon: Double?): AppResult<List<MatchSummaryResponse>> {
-        val matchesWithField = matchRepository.getPublicMatches()
+        val snapshot = publicMatchesCacheService.getOrBuild(DEFAULT_PUBLIC_REGION) {
+            buildPublicMatchesPayload()
+        }
+        return AppResult.Success(sortPublicMatches(snapshot.matches, userLat, userLon))
+    }
 
-        val responseWithDistance = matchesWithField.map { match ->
-            val distance = if (
-                userLat != null && userLon != null &&
-                match.fieldLatitude != null && match.fieldLongitude != null
-            ) {
-                calculateDistance(userLat, userLon, match.fieldLatitude, match.fieldLongitude)
-            } else null
-
-            val summary = match.toMatchSummaryResponse()
-            val summaryWithResolvedAvatars = summary.copy(
-                teams = resolveAvatarUrls(summary.teams)
-            )
-            
-            val resolvedImages = summaryWithResolvedAvatars.fieldImages
-                .filter { it.position == 0 }
-                .map { image ->
-                    val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
-                    image.copy(imagePath = imageService.getImageUrl(publicId))
-                }
-
-            val summaryWithImages = summaryWithResolvedAvatars.copy(
-                fieldImages = resolvedImages
-            )
-
-            summaryWithImages to distance
+    suspend fun getPlayerMatchesV2(
+        userLat: Double?,
+        userLon: Double?,
+        sinceVersion: Long?,
+        countryCode: String?,
+        stateCode: String?
+    ): AppResult<PublicMatchesV2Response> {
+        val region = resolvePublicRegion(countryCode, stateCode)
+        val snapshot = publicMatchesCacheService.getOrBuild(region) {
+            buildPublicMatchesPayload()
         }
 
-        val finalSortedResponse = responseWithDistance.sortedWith(
-            compareBy<Pair<MatchSummaryResponse, Double?>> { it.first.startTime }
-                .thenBy { it.second ?: Double.MAX_VALUE }
-        ).map { it.first }
+        if (sinceVersion != null && sinceVersion == snapshot.version) {
+            return AppResult.Success(
+                PublicMatchesV2Response(
+                    region = region,
+                    currentVersion = snapshot.version,
+                    hasChanges = false,
+                    matches = null
+                )
+            )
+        }
 
-        return AppResult.Success(finalSortedResponse)
+        return AppResult.Success(
+            PublicMatchesV2Response(
+                region = region,
+                currentVersion = snapshot.version,
+                hasChanges = true,
+                matches = sortPublicMatches(snapshot.matches, userLat, userLon)
+            )
+        )
     }
 
     suspend fun getUserMatches(userId: UUID, userLat: Double?, userLon: Double?): AppResult<List<MatchSummaryResponse>> {
@@ -429,7 +433,7 @@ class MatchService(
         val canceled = matchRepository.cancelMatch(matchUuid)
         if (canceled) {
             val expireAtMillis = System.currentTimeMillis() + SIGNAL_TTL_AFTER_CANCEL.inWholeMilliseconds
-            notifyMatchUpdate(matchUuid, expireAtMillis)
+            notifyMatchUpdate(matchUuid, expireAtMillis, sendRegionalPush = true)
             matchPlayerRealtimeService.deleteMatchPlayers(matchUuid.toString())
             logger.info("✅ [MATCH_TRACE] cancelMatch | Match cancelled and realtime updated | matchId=$matchUuid")
         }
@@ -469,7 +473,7 @@ class MatchService(
             playerLevel = updatedMatch.playerLevel
         )
 
-        notifyMatchUpdate(matchId)
+        notifyMatchUpdate(matchId, sendRegionalPush = true)
 
         return AppResult.Success(response)
     }
@@ -858,13 +862,23 @@ class MatchService(
         }
     }
 
-    private suspend fun notifyMatchUpdate(matchId: UUID, expireAtMillis: Long? = null) {
+    private suspend fun notifyMatchUpdate(
+        matchId: UUID,
+        expireAtMillis: Long? = null,
+        sendRegionalPush: Boolean = false
+    ) {
         //matchUpdateBus.publish(matchId)
         //matchSignalsService.signalMatchUpdateUpsert(matchId.toString(), expireAtMillis)
 
         // New logic: Update Firestore projection
         val match = matchRepository.getMatchById(matchId)
         if (match != null) {
+            val region = resolvePublicRegion(match.fieldCountryCode, match.fieldCityCode)
+            val currentVersion = publicMatchesCacheService.invalidate(region)
+            if (sendRegionalPush) {
+                sendRegionalMatchesUpdatedPush(region, currentVersion)
+            }
+
             val firestorePlayers = match.players.map { player ->
                 val reservationExpiresAt = if (player.status == MatchPlayerStatus.RESERVED) {
                     player.joinedAt + RESERVATION_TTL.inWholeMilliseconds
@@ -884,6 +898,75 @@ class MatchService(
                 )
             }
             matchPlayerRealtimeService.updateMatchPlayers(matchId.toString(), MatchPlayerList(firestorePlayers))
+        }
+    }
+
+    private suspend fun sendRegionalMatchesUpdatedPush(region: String, currentVersion: Long) {
+        val topic = "matches_${region.replace(":", "_")}"
+        try {
+            notificationService.sendToTopic(
+                topic = topic,
+                title = "Matches actualizados",
+                body = "Hay cambios en los partidos de tu zona",
+                data = mapOf(
+                    "type" to "matches_updated",
+                    "region" to region,
+                    "version" to currentVersion.toString()
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("📲 [MATCH_TRACE] Failed to send regional matches push | topic=$topic | region=$region | version=$currentVersion", e)
+        }
+    }
+
+    private suspend fun buildPublicMatchesPayload(): List<MatchSummaryResponse> {
+        val matchesWithField = matchRepository.getPublicMatches()
+        return matchesWithField.map { match ->
+            val summary = match.toMatchSummaryResponse()
+            val summaryWithResolvedAvatars = summary.copy(
+                teams = resolveAvatarUrls(summary.teams)
+            )
+
+            val resolvedImages = summaryWithResolvedAvatars.fieldImages
+                .filter { it.position == 0 }
+                .map { image ->
+                    val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
+                    image.copy(imagePath = imageService.getImageUrl(publicId))
+                }
+
+            summaryWithResolvedAvatars.copy(fieldImages = resolvedImages)
+        }
+    }
+
+    private fun sortPublicMatches(
+        matches: List<MatchSummaryResponse>,
+        userLat: Double?,
+        userLon: Double?
+    ): List<MatchSummaryResponse> {
+        val responseWithDistance = matches.map { summary ->
+            val location = summary.location
+            val distance = if (
+                userLat != null && userLon != null &&
+                location?.latitude != null
+            ) {
+                calculateDistance(userLat, userLon, location.latitude, location.longitude)
+            } else null
+            summary to distance
+        }
+
+        return responseWithDistance.sortedWith(
+            compareBy<Pair<MatchSummaryResponse, Double?>> { it.first.startTime }
+                .thenBy { it.second ?: Double.MAX_VALUE }
+        ).map { it.first }
+    }
+
+    private fun resolvePublicRegion(countryCode: String?, stateCode: String?): String {
+        val normalizedCountry = countryCode?.trim()?.uppercase()
+        val normalizedState = stateCode?.trim()?.uppercase()
+        return if (!normalizedCountry.isNullOrBlank() && !normalizedState.isNullOrBlank()) {
+            "$normalizedCountry:$normalizedState"
+        } else {
+            DEFAULT_PUBLIC_REGION
         }
     }
 
@@ -1141,6 +1224,7 @@ class MatchService(
             teamBScore = teamBScore,
             locale = locale
         )
+        notifyMatchUpdate(matchId, sendRegionalPush = true)
 
         logger.info("🏆 [MATCH_TRACE] completeMatch END | matchId=$matchId")
         return AppResult.Success(true)

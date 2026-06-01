@@ -24,6 +24,7 @@ interface NotificationService {
     )
     suspend fun sendToToken(token: String, title: String, body: String, data: Map<String, String> = emptyMap()): String
     suspend fun sendToTokens(tokens: List<String>, title: String, body: String, data: Map<String, String> = emptyMap())
+    suspend fun sendToTopic(topic: String, title: String, body: String, data: Map<String, String> = emptyMap()): String
     suspend fun notifyUser(userId: UUID, title: String, body: String, data: Map<String, String> = emptyMap())
 
     // Retrieve and manage notifications

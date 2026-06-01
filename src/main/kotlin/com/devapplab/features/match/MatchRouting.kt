@@ -60,6 +60,11 @@ fun Route.matchRouting() {
             matchController.getPlayerMatches(call)
         }
 
+        get("matches/v2") {
+            val matchController = call.scope.get<MatchController>()
+            matchController.getPlayerMatchesV2(call)
+        }
+
         // TODO_REMOVE_DEMO: Remove after production testing
         get("matches/demo") {
             val demoMatchController = call.scope.get<DemoMatchController>()

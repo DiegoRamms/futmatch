@@ -245,6 +245,21 @@ class NotificationServiceImp(
         }
     }
 
+    override suspend fun sendToTopic(topic: String, title: String, body: String, data: Map<String, String>): String {
+        val message = Message.builder()
+            .setTopic(topic)
+            .setNotification(
+                Notification.builder()
+                    .setTitle(title)
+                    .setBody(body)
+                    .build()
+            )
+            .putAllData(data)
+            .build()
+
+        return FirebaseMessaging.getInstance().send(message)
+    }
+
     override suspend fun notifyUser(
         userId: UUID,
         title: String,

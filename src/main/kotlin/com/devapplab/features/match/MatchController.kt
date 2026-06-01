@@ -45,6 +45,23 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(result)
     }
 
+    suspend fun getPlayerMatchesV2(call: ApplicationCall) {
+        val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()
+        val lon = call.request.queryParameters["lon"]?.toDoubleOrNull()
+        val sinceVersion = call.request.queryParameters["sinceVersion"]?.toLongOrNull()
+        val countryCode = call.request.queryParameters["countryCode"]
+        val stateCode = call.request.queryParameters["stateCode"]
+
+        val result = matchService.getPlayerMatchesV2(
+            userLat = lat,
+            userLon = lon,
+            sinceVersion = sinceVersion,
+            countryCode = countryCode,
+            stateCode = stateCode
+        )
+        call.respond(result)
+    }
+
     suspend fun getUserMatches(call: ApplicationCall) {
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()

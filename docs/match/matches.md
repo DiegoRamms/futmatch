@@ -507,6 +507,179 @@ Gets a list of available matches for players, optionally filtered by location.
 
 ---
 
+## 7.1 Get Matches for Players (V2 - Versioned Cache)
+
+Returns public matches with version control to avoid downloading the full list when nothing changed.
+
+-   **Method:** `GET`
+-   **Path:** `/match/matches/v2`
+-   **Required Role:** Public (or Authenticated)
+
+### Short Explanation
+
+This endpoint is optimized for app refresh:
+- Client sends `sinceVersion` (last local version).
+- Backend compares against regional cache version.
+- If version is unchanged: returns lightweight payload (`hasChanges=false`) without list.
+- If version changed: returns full list and new version.
+- The full list includes team/player data (`teams.teamA.players`, `teams.teamB.players`) and `availableSpots`.
+
+### Query Parameters
+-   `sinceVersion` (Long, Optional): Client local version.
+-   `countryCode` (String, Optional): Region country code. Example: `MX`.
+-   `stateCode` (String, Optional): Region/state code. Example: `CDMX`.
+-   `lat` (Double, Optional): Latitude for distance sort.
+-   `lon` (Double, Optional): Longitude for distance sort.
+
+> If `countryCode/stateCode` are omitted, backend uses default region `MX:CDMX`.
+
+### Success Response (No Changes)
+
+```json
+{
+    "status": "success",
+    "data": {
+        "region": "MX:CDMX",
+        "currentVersion": 10,
+        "hasChanges": false,
+        "matches": null
+    }
+}
+```
+
+### Success Response (Changed)
+
+```json
+{
+    "status": "success",
+    "data": {
+        "region": "MX:CDMX",
+        "currentVersion": 11,
+        "hasChanges": true,
+        "matches": [
+            {
+                "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+                "fieldName": "Cancha Central",
+                "fieldImages": [
+                    {
+                        "id": "img-uuid-1",
+                        "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                        "imagePath": "https://res.cloudinary.com/.../image1.jpg",
+                        "position": 0
+                    }
+                ],
+                "startTime": 1715436000000,
+                "endTime": 1715439600000,
+                "originalPriceInCents": 500,
+                "totalDiscountInCents": 0,
+                "priceInCents": 500,
+                "genderType": "MIXED",
+                "status": "SCHEDULED",
+                "availableSpots": 4,
+                "teams": {
+                    "teamA": {
+                        "playerCount": 5,
+                        "players": [
+                            {
+                                "id": "user-uuid-1",
+                                "avatarUrl": "https://example.com/avatar1.jpg",
+                                "gender": "MALE",
+                                "name": "Juan Perez",
+                                "country": "MX",
+                                "status": "JOINED"
+                            }
+                        ]
+                    },
+                    "teamB": {
+                        "playerCount": 5,
+                        "players": [
+                            {
+                                "id": "user-uuid-2",
+                                "avatarUrl": null,
+                                "gender": "FEMALE",
+                                "name": "Maria Lopez",
+                                "country": "MX",
+                                "status": "JOINED"
+                            }
+                        ]
+                    }
+                },
+                "location": {
+                    "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+                    "address": "123 Calle Falsa",
+                    "cityCode": "MX_CDMX",
+                    "countryCode": "MX",
+                    "latitude": 40.7128,
+                    "longitude": -74.0060
+                }
+            }
+        ]
+    }
+}
+```
+
+### Invalidation Rules
+
+Regional version/cache is invalidated on:
+- `create match`
+- `update match`
+- `cancel match`
+- `complete match`
+- `join match`
+- `leave match`
+
+### Regional Push Behavior
+
+Push for auto-refresh is sent only for:
+- `create`
+- `update`
+- `cancel`
+- `complete`
+
+`join/leave` still invalidate cache/version, but do not trigger regional push.
+
+Topic format:
+- `matches_<COUNTRY>_<STATE>` (example: `matches_MX_CDMX`)
+
+Push data payload:
+- `type=matches_updated`
+- `region=MX:CDMX`
+- `version=<currentVersion>`
+
+### Client Integration Flow
+
+1. On app open (or screen open), call `GET /match/matches/v2?sinceVersion=<localVersion>`.
+2. If `hasChanges=false`, keep current UI list.
+3. If `hasChanges=true`, replace full list and persist `currentVersion`.
+4. On regional push (`matches_updated`), call V2 again with current `sinceVersion`.
+5. Keep swipe-to-refresh as manual fallback.
+
+### Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant API as Backend API
+    participant Cache as Regional Cache
+    participant FCM as FCM Topic
+
+    App->>API: GET /match/matches/v2?sinceVersion=10
+    API->>Cache: Compare region version
+    Cache-->>API: version=10
+    API-->>App: hasChanges=false, matches=null
+
+    Note over API: Admin creates/updates/cancels/completes match
+    API->>Cache: invalidate(region), version=11
+    API->>FCM: publish matches_updated(region, version=11)
+    FCM-->>App: data push (matches_updated)
+    App->>API: GET /match/matches/v2?sinceVersion=10
+    API->>Cache: Compare region version
+    Cache-->>API: version=11
+    API-->>App: hasChanges=true + full matches list
+```
+
+---
+
 ## 8. Get My Matches (User's Enrolled Matches)
 
 Gets a list of matches where the authenticated user is enrolled (status: `RESERVED` or `JOINED`).
