@@ -56,7 +56,7 @@ interface PaymentService {
         matchId: String,
         userId: UUID,
         locale: Locale
-    ): AppResult<PaymentStatusResponse?>
+    ): AppResult<PaymentStatusResponse>
 
     suspend fun validatePaymentStatus(
         providerPaymentId: String,
@@ -67,7 +67,7 @@ interface PaymentService {
         matchId: String,
         userId: UUID,
         locale: Locale
-    ): AppResult<PaymentPollingStatusResponse?>
+    ): AppResult<PaymentPollingStatusResponse>
 
     suspend fun getPaymentHistory(
         stripeCustomerId: String,

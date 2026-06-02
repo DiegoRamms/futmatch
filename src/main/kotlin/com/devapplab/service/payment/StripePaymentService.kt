@@ -365,7 +365,7 @@ class StripePaymentService(
         }
     }
 
-    override suspend fun recoverPaymentStatus(matchId: String, userId: UUID, locale: Locale): AppResult<PaymentStatusResponse?> {
+    override suspend fun recoverPaymentStatus(matchId: String, userId: UUID, locale: Locale): AppResult<PaymentStatusResponse> {
         val matchUuid = try {
             UUID.fromString(matchId)
         } catch (_: IllegalArgumentException) {
@@ -377,7 +377,12 @@ class StripePaymentService(
         }
 
         // 1. Find active payment for this user and match
-        val activePayment = paymentRepository.getActivePaymentForPlayer(matchUuid, userId) ?: return AppResult.Success(null)
+        val activePayment = paymentRepository.getActivePaymentForPlayer(matchUuid, userId) ?: return locale.createError(
+            titleKey = StringResourcesKey.PAYMENT_NOT_FOUND_TITLE,
+            descriptionKey = StringResourcesKey.PAYMENT_NOT_FOUND_DESCRIPTION,
+            status = HttpStatusCode.NotFound,
+            errorCode = ErrorCode.NOT_FOUND
+        )
 
         val providerPaymentId = activePayment.providerPaymentId ?: return AppResult.Success(
             PaymentStatusResponse(
@@ -477,11 +482,14 @@ class StripePaymentService(
         matchId: String,
         userId: UUID,
         locale: Locale
-    ): AppResult<PaymentPollingStatusResponse?> {
+    ): AppResult<PaymentPollingStatusResponse> {
         return when (val result = recoverPaymentStatus(matchId, userId, locale)) {
             is AppResult.Success -> {
-                val data = result.data?.let { statusResponse ->
-                    val status = statusResponse.status
+                // No active payment yet: report as in-progress (CREATED) instead of null.
+                // A nullable type argument on the generic AppResult wrapper breaks kotlinx
+                // serializer resolution at the respond site (falls back to PolymorphicSerializer(Any)).
+                val status = result.data?.status ?: PaymentAttemptStatus.CREATED
+                AppResult.Success(
                     PaymentPollingStatusResponse(
                         status = status,
                         isFinal = status in setOf(
@@ -493,8 +501,7 @@ class StripePaymentService(
                         ),
                         isSuccess = status == PaymentAttemptStatus.SUCCEEDED || status == PaymentAttemptStatus.AUTHORIZED
                     )
-                }
-                AppResult.Success(data)
+                )
             }
             is AppResult.Failure -> result
         }
