@@ -52,8 +52,19 @@ class StripeBillingService(
                 CustomerSessionCreateParams.Components.builder()
                     // iOS CustomerSheet requires components.customer_sheet.enabled=true.
                     .putExtraParam("customer_sheet", mapOf("enabled" to true))
-                    // iOS MobilePaymentElement requires this component explicitly enabled.
-                    .putExtraParam("mobile_payment_element", mapOf("enabled" to true))
+                    // iOS MobilePaymentElement needs its own component block for saved cards.
+                    .putExtraParam(
+                        "mobile_payment_element",
+                        mapOf(
+                            "enabled" to true,
+                            "features" to mapOf(
+                                "payment_method_redisplay" to "enabled",
+                                "payment_method_save" to "enabled",
+                                "payment_method_save_usage" to "off_session",
+                                "payment_method_remove" to "enabled"
+                            )
+                        )
+                    )
                     .setPaymentElement(
                         CustomerSessionCreateParams.Components.PaymentElement.builder()
                             .setEnabled(true)
