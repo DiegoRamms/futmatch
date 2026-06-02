@@ -92,7 +92,6 @@ class StripePaymentService(
                                 "features" to mapOf(
                                     "payment_method_redisplay" to "enabled",
                                     "payment_method_save" to "enabled",
-                                    "payment_method_save_usage" to "off_session",
                                     "payment_method_remove" to "enabled"
                                 )
                             )

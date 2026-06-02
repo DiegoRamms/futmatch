@@ -13,33 +13,66 @@ import com.devapplab.service.payment.StripeWebhookService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.retrieveLocale
+import com.stripe.exception.StripeException
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
+import org.slf4j.LoggerFactory
 
 class PaymentController(
     private val billingService: BillingService,
     private val stripeWebhookService: StripeWebhookService,
     private val paymentService: PaymentService
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
     suspend fun initCustomerSheet(call: ApplicationCall) {
-        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val provider = PaymentProvider.STRIPE
+        val locale = call.retrieveLocale()
 
-        val customerId = billingService.getOrCreateCustomer(userId, provider)
-        val customerSessionSecret = billingService.createCustomerSession(customerId)
+        try {
+            val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+            val provider = PaymentProvider.STRIPE
 
-        call.respond(
-            AppResult.Success(
-                CustomerSheetInitResponse(
-                    customerId = customerId,
-                    customerSessionClientSecret = customerSessionSecret,
-                    publishableKey = billingService.getPublishableKey()
+            val customerId = billingService.getOrCreateCustomer(userId, provider)
+            val customerSessionSecret = billingService.createCustomerSession(customerId)
+
+            call.respond(
+                AppResult.Success(
+                    CustomerSheetInitResponse(
+                        customerId = customerId,
+                        customerSessionClientSecret = customerSessionSecret,
+                        publishableKey = billingService.getPublishableKey()
+                    )
                 )
             )
-        )
+        } catch (e: StripeException) {
+            logger.error(
+                "Stripe error initializing customer sheet. statusCode={}, requestId={}, code={}, param={}, message={}",
+                e.statusCode,
+                e.requestId,
+                e.stripeError?.code,
+                e.stripeError?.param,
+                e.stripeError?.message,
+                e
+            )
+            call.respond(
+                locale.createError(
+                    titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                    descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                    status = HttpStatusCode.InternalServerError
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Unexpected error initializing customer sheet", e)
+            call.respond(
+                locale.createError(
+                    titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                    descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                    status = HttpStatusCode.InternalServerError
+                )
+            )
+        }
     }
 
     suspend fun createSetupIntent(call: ApplicationCall) {
