@@ -828,7 +828,8 @@ class MatchRepositoryImp : MatchRepository {
                 .singleOrNull()
                 ?: return@dbQuery null
 
-            if (matchRow[MatchTable.status] == MatchStatus.COMPLETED) {
+            val existingResult = MatchResultsTable.select(MatchResultsTable.matchId eq matchId).singleOrNull()
+            if (matchRow[MatchTable.status] == MatchStatus.COMPLETED && existingResult != null) {
                 return@dbQuery null
             }
 
@@ -861,8 +862,7 @@ class MatchRepositoryImp : MatchRepository {
             val teamAScore = goalsByTeam.filter { (team, _) -> team == TeamType.A }.sumOf { it.second }
             val teamBScore = goalsByTeam.filter { (team, _) -> team == TeamType.B }.sumOf { it.second }
 
-            val existing = MatchResultsTable.select(MatchResultsTable.matchId eq matchId).singleOrNull()
-            if (existing != null) {
+            if (existingResult != null) {
                 MatchResultsTable.update({ MatchResultsTable.matchId eq matchId }) {
                     it[this.bestPlayerId] = bestPlayerId
                     it[this.teamAScore] = teamAScore

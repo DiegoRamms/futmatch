@@ -123,7 +123,8 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't update match")
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdateMatchRequest>()
-        val result = matchService.updateMatch(matchId, request.toMatch(adminId, matchId))
+        val locale = call.retrieveLocale()
+        val result = matchService.updateMatch(matchId, request.toMatch(adminId, matchId), locale)
         call.respond(result)
     }
 

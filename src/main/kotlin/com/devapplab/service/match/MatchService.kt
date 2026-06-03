@@ -452,7 +452,16 @@ class MatchService(
         return AppResult.Success(result)
     }
 
-    suspend fun updateMatch(matchId: UUID, match: Match): AppResult<MatchResponse> {
+    suspend fun updateMatch(matchId: UUID, match: Match, locale: Locale): AppResult<MatchResponse> {
+        if (match.status == MatchStatus.COMPLETED) {
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_COMPLETE_ENDPOINT_REQUIRED_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_COMPLETE_ENDPOINT_REQUIRED_DESCRIPTION,
+                status = HttpStatusCode.BadRequest,
+                errorCode = ErrorCode.MATCH_COMPLETE_ENDPOINT_REQUIRED
+            )
+        }
+
         matchRepository.updateMatch(matchId, match)
         val updatedMatch = matchRepository.getMatchById(matchId)
             ?: throw IllegalStateException("Match not found after update")
@@ -1204,6 +1213,11 @@ class MatchService(
                 errorCode = ErrorCode.NOT_FOUND
             )
 
+        val wasAlreadyCompleted = matchWithField.status == MatchStatus.COMPLETED
+        if (wasAlreadyCompleted) {
+            logger.warn("🏆 [MATCH_TRACE] completeMatch repair attempt | match already completed before atomic write | matchId=$matchId")
+        }
+
         val enrolledPlayers = matchWithField.players.filter {
             it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED
         }
@@ -1228,16 +1242,20 @@ class MatchService(
             errorCode = ErrorCode.MATCH_ALREADY_COMPLETED
         )
         val (teamAScore, teamBScore) = scores
-        sendMatchCompletedNotifications(
-            players = enrolledPlayers,
-            matchId = matchId,
-            fieldName = matchWithField.fieldName,
-            bestPlayerId = request.bestPlayerId,
-            teamAScore = teamAScore,
-            teamBScore = teamBScore,
-            locale = locale
-        )
-        notifyMatchUpdate(matchId, sendRegionalPush = true)
+        if (wasAlreadyCompleted) {
+            logger.warn("🏆 [MATCH_TRACE] completeMatch repaired missing result | matchId=$matchId | teamAScore=$teamAScore | teamBScore=$teamBScore")
+        } else {
+            sendMatchCompletedNotifications(
+                players = enrolledPlayers,
+                matchId = matchId,
+                fieldName = matchWithField.fieldName,
+                bestPlayerId = request.bestPlayerId,
+                teamAScore = teamAScore,
+                teamBScore = teamBScore,
+                locale = locale
+            )
+            notifyMatchUpdate(matchId, sendRegionalPush = true)
+        }
 
         logger.info("🏆 [MATCH_TRACE] completeMatch END | matchId=$matchId")
         return AppResult.Success(true)

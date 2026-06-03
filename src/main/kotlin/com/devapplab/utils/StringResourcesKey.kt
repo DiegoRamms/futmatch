@@ -132,6 +132,8 @@ enum class StringResourcesKey(val value: String) {
     MATCH_PENDING_RESERVATION_DESCRIPTION("match_pending_reservation_description"),
     MATCH_ALREADY_COMPLETED_TITLE("match_already_completed_title"),
     MATCH_ALREADY_COMPLETED_DESCRIPTION("match_already_completed_description"),
+    MATCH_COMPLETE_ENDPOINT_REQUIRED_TITLE("match_complete_endpoint_required_title"),
+    MATCH_COMPLETE_ENDPOINT_REQUIRED_DESCRIPTION("match_complete_endpoint_required_description"),
     MATCH_INVALID_BEST_PLAYER_TITLE("match_invalid_best_player_title"),
     MATCH_INVALID_BEST_PLAYER_DESCRIPTION("match_invalid_best_player_description"),
     MATCH_GOALS_EMPTY_ERROR("match_goals_empty_error"),
