@@ -7,6 +7,7 @@ sealed class PaymentOperationResult {
     data class Failure(val reason: PaymentFailureReason, val message: String? = null) : PaymentOperationResult()
 }
 
+@kotlinx.serialization.Serializable
 enum class PaymentFailureReason {
     DECLINED,
     PROVIDER_ERROR,
