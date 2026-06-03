@@ -931,6 +931,28 @@ Allows a user to join a match. This will reserve a spot and initiate the payment
 | `team` | Enum | No | Must be a valid `TeamType` value (`A` or `B`). If null, the system will auto-assign for balance. |
 | `paymentProvider` | Enum | No | Payment provider to use (e.g., `STRIPE`). Default: `STRIPE`. |
 
+### Backend Join Window
+
+The backend only allows paid registration when the match starts within the configured payment window.
+
+- Config key: `MATCH_JOIN_PAYMENT_WINDOW_HOURS`
+- Default value: `120` hours (`5` days)
+- If the match starts after this window, the backend rejects the request before reserving a spot or creating a Stripe `PaymentIntent`.
+- This rule is based on the match start timestamp, not the match creation timestamp.
+
+### Early Join Error Response
+
+```json
+{
+    "status": "error",
+    "error": {
+        "title": "Registration Not Open Yet",
+        "message": "Paid registration opens 120 hours before the match.",
+        "errorCode": "MATCH_JOIN_TOO_EARLY"
+    }
+}
+```
+
 ### Success Response
 
 ```json
