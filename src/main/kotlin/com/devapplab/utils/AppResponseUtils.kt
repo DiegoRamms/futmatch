@@ -20,6 +20,19 @@ suspend inline fun <reified T : Any> ApplicationCall.respond(appResult: AppResul
 }
 
 /**
+ * Non-generic overload for [AppResult.Failure].
+ *
+ * A bare `AppResult.Failure` has the static type `AppResult<Nothing>`, which would bind the
+ * generic [respond] above with `T = Nothing` and fail at runtime (`serializer<Nothing>()`).
+ * This overload is more specific, so the compiler picks it for error-only responses and
+ * serializes them through the standard [AppResponse] envelope (`{"error": {...}}`).
+ */
+suspend fun ApplicationCall.respond(failure: AppResult.Failure) {
+    val response = AppResponse<Unit>(data = null, error = failure.errorResponse)
+    this.respond(status = failure.status, message = response)
+}
+
+/**
  * Handles AppResult<String> specifically for redirects.
  * If Success, redirects to the URL string in data.
  * If Failure, responds with the standard error response.
