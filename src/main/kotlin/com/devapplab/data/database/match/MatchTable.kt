@@ -26,4 +26,9 @@ object MatchTable : Table("matches") {
     val updatedAt = long("updated_at").clientDefault { (System.currentTimeMillis()) }
 
     override val primaryKey = PrimaryKey(id)
+
+    init {
+        index(false, status, dateTime)
+        index(false, status, dateTimeEnd)
+    }
 }

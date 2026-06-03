@@ -25,4 +25,8 @@ object FieldImagesTable : Table("field_images") {
 
 
     override val primaryKey = PrimaryKey(id)
+
+    init {
+        index(false, fieldId, position)
+    }
 }

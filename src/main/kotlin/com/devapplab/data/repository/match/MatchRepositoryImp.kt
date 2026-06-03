@@ -846,19 +846,6 @@ class MatchRepositoryImp : MatchRepository {
                 }
             }
 
-            val existing = MatchResultsTable.select(MatchResultsTable.matchId eq matchId).singleOrNull()
-            if (existing != null) {
-                MatchResultsTable.update({ MatchResultsTable.matchId eq matchId }) {
-                    it[this.bestPlayerId] = bestPlayerId
-                    it[updatedAt] = System.currentTimeMillis()
-                }
-            } else {
-                MatchResultsTable.insert {
-                    it[this.matchId] = matchId
-                    it[this.bestPlayerId] = bestPlayerId
-                }
-            }
-
             val goalsByTeam: List<Pair<TeamType, Int>> = MatchPlayerGoalsTable.join(
                 MatchPlayersTable,
                 JoinType.INNER,
@@ -873,6 +860,23 @@ class MatchRepositoryImp : MatchRepository {
 
             val teamAScore = goalsByTeam.filter { (team, _) -> team == TeamType.A }.sumOf { it.second }
             val teamBScore = goalsByTeam.filter { (team, _) -> team == TeamType.B }.sumOf { it.second }
+
+            val existing = MatchResultsTable.select(MatchResultsTable.matchId eq matchId).singleOrNull()
+            if (existing != null) {
+                MatchResultsTable.update({ MatchResultsTable.matchId eq matchId }) {
+                    it[this.bestPlayerId] = bestPlayerId
+                    it[this.teamAScore] = teamAScore
+                    it[this.teamBScore] = teamBScore
+                    it[updatedAt] = System.currentTimeMillis()
+                }
+            } else {
+                MatchResultsTable.insert {
+                    it[this.matchId] = matchId
+                    it[this.bestPlayerId] = bestPlayerId
+                    it[this.teamAScore] = teamAScore
+                    it[this.teamBScore] = teamBScore
+                }
+            }
 
             MatchTable.update({ MatchTable.id eq matchId }) {
                 it[status] = MatchStatus.COMPLETED
@@ -1006,8 +1010,7 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun getHomeLastMatch(userId: UUID): HomeLastMatch? {
         return dbQuery {
-            val row = ((MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
-                .leftJoin(MatchResultsTable, { MatchTable.id }, { MatchResultsTable.matchId }))
+            val row = (MatchPlayersTable innerJoin MatchTable innerJoin FieldTable innerJoin MatchResultsTable)
                 .select(
                     MatchTable.id,
                     MatchTable.fieldId,
@@ -1027,27 +1030,8 @@ class MatchRepositoryImp : MatchRepository {
                 .singleOrNull() ?: return@dbQuery null
 
             val matchId = row[MatchTable.id]
-            val persistedTeamAScore = row.getOrNull(MatchResultsTable.teamAScore)
-            val persistedTeamBScore = row.getOrNull(MatchResultsTable.teamBScore)
-            val (teamAScore, teamBScore) = if (persistedTeamAScore != null && persistedTeamBScore != null) {
-                persistedTeamAScore to persistedTeamBScore
-            } else {
-                val goalsByTeam: List<Pair<TeamType, Int>> = MatchPlayerGoalsTable.join(
-                    MatchPlayersTable,
-                    JoinType.INNER,
-                    additionalConstraint = {
-                        (MatchPlayerGoalsTable.matchId eq MatchPlayersTable.matchId) and
-                            (MatchPlayerGoalsTable.userId eq MatchPlayersTable.userId)
-                    }
-                )
-                    .select(MatchPlayersTable.team, MatchPlayerGoalsTable.goalsCount)
-                    .where { MatchPlayerGoalsTable.matchId eq matchId }
-                    .map { scoreRow -> scoreRow[MatchPlayersTable.team] to scoreRow[MatchPlayerGoalsTable.goalsCount] }
-
-                val calculatedTeamAScore = goalsByTeam.filter { (team, _) -> team == TeamType.A }.sumOf { it.second }
-                val calculatedTeamBScore = goalsByTeam.filter { (team, _) -> team == TeamType.B }.sumOf { it.second }
-                calculatedTeamAScore to calculatedTeamBScore
-            }
+            val teamAScore = row[MatchResultsTable.teamAScore]
+            val teamBScore = row[MatchResultsTable.teamBScore]
             val userTeam = row[MatchPlayersTable.team]
 
             val outcome = when (userTeam) {
@@ -1088,8 +1072,7 @@ class MatchRepositoryImp : MatchRepository {
             val wonMatchesExpr = isWinExpr.sum()
             val playedMatchesExpr = MatchPlayersTable.userId.count()
 
-            val row = ((MatchPlayersTable innerJoin MatchTable)
-                .leftJoin(MatchResultsTable, { MatchTable.id }, { MatchResultsTable.matchId }))
+            val row = (MatchPlayersTable innerJoin MatchTable innerJoin MatchResultsTable)
                 .select(
                     playedMatchesExpr,
                     wonMatchesExpr
@@ -1097,9 +1080,7 @@ class MatchRepositoryImp : MatchRepository {
                 .where {
                     (MatchPlayersTable.userId eq userId) and
                         (MatchPlayersTable.status eq MatchPlayerStatus.JOINED) and
-                        (MatchTable.status eq MatchStatus.COMPLETED) and
-                        (MatchResultsTable.teamAScore.isNotNull()) and
-                        (MatchResultsTable.teamBScore.isNotNull())
+                        (MatchTable.status eq MatchStatus.COMPLETED)
                 }
                 .singleOrNull() ?: return@dbQuery HomeWinStats(playedMatches = 0, wonMatches = 0)
 

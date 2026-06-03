@@ -16,4 +16,8 @@ object MatchPlayersTable : Table("match_players") {
     val joinedAt = long("joined_at").clientDefault { System.currentTimeMillis() }
 
     override val primaryKey = PrimaryKey(matchId, userId)
+
+    init {
+        index(false, userId, status, matchId)
+    }
 }
