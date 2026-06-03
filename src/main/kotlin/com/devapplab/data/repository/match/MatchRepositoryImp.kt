@@ -17,10 +17,13 @@ import com.devapplab.model.location.Location
 import com.devapplab.model.match.*
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
+import org.slf4j.LoggerFactory
 import java.util.*
 import kotlin.time.Duration.Companion.days
 
 class MatchRepositoryImp : MatchRepository {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     override suspend fun create(match: Match): MatchBaseInfo {
         val result = dbQuery {
             val matchResult = MatchTable.insert {
@@ -820,31 +823,47 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun completeMatchAtomic(matchId: UUID, bestPlayerId: UUID, goals: List<PlayerGoalInput>): Pair<Int, Int>? {
         return dbQuery {
+            logger.info("🏆 [COMPLETE_DEBUG] repo.atomic START | matchId=$matchId | bestPlayerId=$bestPlayerId | goals=$goals")
+
             // Lock match row to avoid concurrent complete/cancel writes
             val matchRow = MatchTable
                 .select(MatchTable.id, MatchTable.status)
                 .where { MatchTable.id eq matchId }
                 .forUpdate()
                 .singleOrNull()
-                ?: return@dbQuery null
+                ?: run {
+                    logger.warn("🏆 [COMPLETE_DEBUG] repo.atomic STOP | match not found | matchId=$matchId")
+                    return@dbQuery null
+                }
 
             val existingResult = MatchResultsTable.select(MatchResultsTable.matchId eq matchId).singleOrNull()
+            logger.info(
+                "🏆 [COMPLETE_DEBUG] repo.atomic locked match | matchId=$matchId | status=${matchRow[MatchTable.status]} | hasExistingResult=${existingResult != null}"
+            )
+
             if (matchRow[MatchTable.status] == MatchStatus.COMPLETED && existingResult != null) {
+                logger.warn("🏆 [COMPLETE_DEBUG] repo.atomic STOP | already completed with result | matchId=$matchId")
                 return@dbQuery null
             }
 
             val uniqueGoals = goals
                 .groupBy { it.userId }
                 .map { (_, entries) -> entries.last() }
+            logger.info("🏆 [COMPLETE_DEBUG] repo.atomic normalized goals | matchId=$matchId | uniqueGoals=$uniqueGoals")
 
             // Keep exact payload snapshot (remove stale rows, then insert current rows)
-            MatchPlayerGoalsTable.deleteWhere { MatchPlayerGoalsTable.matchId eq matchId }
+            val deletedGoals = MatchPlayerGoalsTable.deleteWhere { MatchPlayerGoalsTable.matchId eq matchId }
+            logger.info("🏆 [COMPLETE_DEBUG] repo.atomic deleted previous goals | matchId=$matchId | deletedRows=$deletedGoals")
+
             uniqueGoals.forEach { goalInput ->
                 MatchPlayerGoalsTable.insert {
                     it[this.matchId] = matchId
                     it[this.userId] = goalInput.userId
                     it[this.goalsCount] = goalInput.goals
                 }
+                logger.info(
+                    "🏆 [COMPLETE_DEBUG] repo.atomic inserted goal | matchId=$matchId | userId=${goalInput.userId} | goals=${goalInput.goals}"
+                )
             }
 
             val goalsByTeam: List<Pair<TeamType, Int>> = MatchPlayerGoalsTable.join(
@@ -858,17 +877,20 @@ class MatchRepositoryImp : MatchRepository {
                 .select(MatchPlayersTable.team, MatchPlayerGoalsTable.goalsCount)
                 .where { MatchPlayerGoalsTable.matchId eq matchId }
                 .map { row -> row[MatchPlayersTable.team] to row[MatchPlayerGoalsTable.goalsCount] }
+            logger.info("🏆 [COMPLETE_DEBUG] repo.atomic goals by team rows | matchId=$matchId | goalsByTeam=$goalsByTeam")
 
             val teamAScore = goalsByTeam.filter { (team, _) -> team == TeamType.A }.sumOf { it.second }
             val teamBScore = goalsByTeam.filter { (team, _) -> team == TeamType.B }.sumOf { it.second }
+            logger.info("🏆 [COMPLETE_DEBUG] repo.atomic calculated score | matchId=$matchId | teamAScore=$teamAScore | teamBScore=$teamBScore")
 
             if (existingResult != null) {
-                MatchResultsTable.update({ MatchResultsTable.matchId eq matchId }) {
+                val updatedRows = MatchResultsTable.update({ MatchResultsTable.matchId eq matchId }) {
                     it[this.bestPlayerId] = bestPlayerId
                     it[this.teamAScore] = teamAScore
                     it[this.teamBScore] = teamBScore
                     it[updatedAt] = System.currentTimeMillis()
                 }
+                logger.info("🏆 [COMPLETE_DEBUG] repo.atomic updated match_results | matchId=$matchId | updatedRows=$updatedRows")
             } else {
                 MatchResultsTable.insert {
                     it[this.matchId] = matchId
@@ -876,13 +898,16 @@ class MatchRepositoryImp : MatchRepository {
                     it[this.teamAScore] = teamAScore
                     it[this.teamBScore] = teamBScore
                 }
+                logger.info("🏆 [COMPLETE_DEBUG] repo.atomic inserted match_results | matchId=$matchId")
             }
 
-            MatchTable.update({ MatchTable.id eq matchId }) {
+            val updatedMatchRows = MatchTable.update({ MatchTable.id eq matchId }) {
                 it[status] = MatchStatus.COMPLETED
                 it[updatedAt] = System.currentTimeMillis()
             }
+            logger.info("🏆 [COMPLETE_DEBUG] repo.atomic updated match status | matchId=$matchId | updatedRows=$updatedMatchRows")
 
+            logger.info("🏆 [COMPLETE_DEBUG] repo.atomic END | matchId=$matchId | teamAScore=$teamAScore | teamBScore=$teamBScore")
             teamAScore to teamBScore
         }
     }

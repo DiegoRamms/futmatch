@@ -1203,7 +1203,9 @@ class MatchService(
         request: CompleteMatchRequest,
         locale: Locale
     ): AppResult<Boolean> {
-        logger.info("🏆 [MATCH_TRACE] completeMatch START | matchId=$matchId | userId=$userId")
+        logger.info(
+            "🏆 [COMPLETE_DEBUG] service START | matchId=$matchId | adminUserId=$userId | bestPlayerId=${request.bestPlayerId} | goals=${request.goals}"
+        )
 
         val matchWithField = matchRepository.getMatchById(matchId)
             ?: return locale.createError(
@@ -1212,17 +1214,27 @@ class MatchService(
                 status = HttpStatusCode.NotFound,
                 errorCode = ErrorCode.NOT_FOUND
             )
+        logger.info(
+            "🏆 [COMPLETE_DEBUG] service match loaded | matchId=$matchId | status=${matchWithField.status} | fieldName=${matchWithField.fieldName} | players=${matchWithField.players.map { "${it.userId}:${it.team}:${it.status}" }}"
+        )
 
         val wasAlreadyCompleted = matchWithField.status == MatchStatus.COMPLETED
         if (wasAlreadyCompleted) {
-            logger.warn("🏆 [MATCH_TRACE] completeMatch repair attempt | match already completed before atomic write | matchId=$matchId")
+            logger.warn("🏆 [COMPLETE_DEBUG] service repair attempt | match already completed before atomic write | matchId=$matchId")
         }
 
         val enrolledPlayers = matchWithField.players.filter {
             it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED
         }
         val enrolledPlayerIds = enrolledPlayers.map { it.userId }.toSet()
+        logger.info(
+            "🏆 [COMPLETE_DEBUG] service enrolled players | matchId=$matchId | enrolledPlayerIds=$enrolledPlayerIds | bestPlayerInMatch=${enrolledPlayerIds.contains(request.bestPlayerId)}"
+        )
+
         if (!enrolledPlayerIds.contains(request.bestPlayerId)) {
+            logger.warn(
+                "🏆 [COMPLETE_DEBUG] service STOP | invalid best player | matchId=$matchId | bestPlayerId=${request.bestPlayerId} | enrolledPlayerIds=$enrolledPlayerIds"
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_INVALID_BEST_PLAYER_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_INVALID_BEST_PLAYER_DESCRIPTION,
@@ -1231,20 +1243,27 @@ class MatchService(
             )
         }
 
+        logger.info("🏆 [COMPLETE_DEBUG] service calling atomic | matchId=$matchId")
         val scores = matchRepository.completeMatchAtomic(
             matchId = matchId,
             bestPlayerId = request.bestPlayerId,
             goals = request.goals
-        ) ?: return locale.createError(
-            titleKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_TITLE,
-            descriptionKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_DESCRIPTION,
-            status = HttpStatusCode.Conflict,
-            errorCode = ErrorCode.MATCH_ALREADY_COMPLETED
-        )
+        ) ?: run {
+            logger.warn("🏆 [COMPLETE_DEBUG] service STOP | atomic returned null | matchId=$matchId")
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_ALREADY_COMPLETED
+            )
+        }
         val (teamAScore, teamBScore) = scores
+        logger.info("🏆 [COMPLETE_DEBUG] service atomic success | matchId=$matchId | teamAScore=$teamAScore | teamBScore=$teamBScore")
+
         if (wasAlreadyCompleted) {
-            logger.warn("🏆 [MATCH_TRACE] completeMatch repaired missing result | matchId=$matchId | teamAScore=$teamAScore | teamBScore=$teamBScore")
+            logger.warn("🏆 [COMPLETE_DEBUG] service repaired missing result | matchId=$matchId | teamAScore=$teamAScore | teamBScore=$teamBScore")
         } else {
+            logger.info("🏆 [COMPLETE_DEBUG] service sending notifications | matchId=$matchId | players=${enrolledPlayers.map { it.userId }}")
             sendMatchCompletedNotifications(
                 players = enrolledPlayers,
                 matchId = matchId,
@@ -1257,7 +1276,7 @@ class MatchService(
             notifyMatchUpdate(matchId, sendRegionalPush = true)
         }
 
-        logger.info("🏆 [MATCH_TRACE] completeMatch END | matchId=$matchId")
+        logger.info("🏆 [COMPLETE_DEBUG] service END | matchId=$matchId")
         return AppResult.Success(true)
     }
 
