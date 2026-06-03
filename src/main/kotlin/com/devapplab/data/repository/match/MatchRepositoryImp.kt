@@ -1079,7 +1079,7 @@ class MatchRepositoryImp : MatchRepository {
                 )
                 .where {
                     (MatchPlayersTable.userId eq userId) and
-                        (MatchPlayersTable.status eq MatchPlayerStatus.JOINED) and
+                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
                         (MatchTable.status eq MatchStatus.COMPLETED)
                 }
                 .singleOrNull() ?: return@dbQuery HomeWinStats(playedMatches = 0, wonMatches = 0)
@@ -1094,9 +1094,12 @@ class MatchRepositoryImp : MatchRepository {
     override suspend fun getUserMvpCount(userId: UUID): Int {
         return dbQuery {
             val mvpCountExpr = MatchResultsTable.matchId.count()
-            MatchResultsTable
+            (MatchResultsTable innerJoin MatchTable)
                 .select(mvpCountExpr)
-                .where { MatchResultsTable.bestPlayerId eq userId }
+                .where {
+                    (MatchResultsTable.bestPlayerId eq userId) and
+                        (MatchTable.status eq MatchStatus.COMPLETED)
+                }
                 .singleOrNull()
                 ?.getOrNull(mvpCountExpr)
                 ?.toInt() ?: 0
@@ -1106,10 +1109,26 @@ class MatchRepositoryImp : MatchRepository {
     override suspend fun getUserTotalGoals(userId: UUID): Int {
         return dbQuery {
             val totalGoalsExpr = MatchPlayerGoalsTable.goalsCount.sum()
-            (MatchPlayerGoalsTable innerJoin MatchTable)
+            MatchPlayerGoalsTable
+                .join(
+                    MatchPlayersTable,
+                    JoinType.INNER,
+                    additionalConstraint = {
+                        (MatchPlayerGoalsTable.matchId eq MatchPlayersTable.matchId) and
+                            (MatchPlayerGoalsTable.userId eq MatchPlayersTable.userId)
+                    }
+                )
+                .join(
+                    MatchTable,
+                    JoinType.INNER,
+                    additionalConstraint = {
+                        MatchPlayerGoalsTable.matchId eq MatchTable.id
+                    }
+                )
                 .select(totalGoalsExpr)
                 .where {
                     (MatchPlayerGoalsTable.userId eq userId) and
+                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
                         (MatchTable.status eq MatchStatus.COMPLETED)
                 }
                 .singleOrNull()
