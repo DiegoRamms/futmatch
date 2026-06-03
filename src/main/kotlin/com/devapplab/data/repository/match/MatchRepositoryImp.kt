@@ -805,7 +805,10 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun setBestPlayer(matchId: UUID, bestPlayerId: UUID): Boolean {
         return dbQuery {
-            val existing = MatchResultsTable.select(MatchResultsTable.matchId eq matchId).singleOrNull()
+            val existing = MatchResultsTable
+                .select(MatchResultsTable.matchId)
+                .where { MatchResultsTable.matchId eq matchId }
+                .singleOrNull()
             if (existing != null) {
                 MatchResultsTable.update({ MatchResultsTable.matchId eq matchId }) {
                     it[this.bestPlayerId] = bestPlayerId
@@ -836,7 +839,10 @@ class MatchRepositoryImp : MatchRepository {
                     return@dbQuery null
                 }
 
-            val existingResult = MatchResultsTable.select(MatchResultsTable.matchId eq matchId).singleOrNull()
+            val existingResult = MatchResultsTable
+                .select(MatchResultsTable.matchId)
+                .where { MatchResultsTable.matchId eq matchId }
+                .singleOrNull()
             logger.info(
                 "🏆 [COMPLETE_DEBUG] repo.atomic locked match | matchId=$matchId | status=${matchRow[MatchTable.status]} | hasExistingResult=${existingResult != null}"
             )
