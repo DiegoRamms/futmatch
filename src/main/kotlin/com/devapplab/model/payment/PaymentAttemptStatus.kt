@@ -1,8 +1,5 @@
 package com.devapplab.model.payment
 
-import kotlinx.serialization.Serializable
-
-@Serializable
 enum class PaymentAttemptStatus { 
     CREATED,      // Intento iniciado, usuario en checkout
     AUTHORIZED,   // Fondos retenidos/autorizados en Stripe, listo para captura
