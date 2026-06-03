@@ -913,10 +913,8 @@ class MatchService(
     private suspend fun sendRegionalMatchesUpdatedPush(region: String, currentVersion: Long) {
         val topic = "matches_${region.replace(":", "_")}"
         try {
-            notificationService.sendToTopic(
+            notificationService.sendDataOnlyToTopic(
                 topic = topic,
-                title = "Matches actualizados",
-                body = "Hay cambios en los partidos de tu zona",
                 data = mapOf(
                     "type" to "matches_updated",
                     "region" to region,

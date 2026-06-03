@@ -17,6 +17,7 @@ import com.google.firebase.messaging.MessagingErrorCode
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MulticastMessage
 import com.google.firebase.messaging.Notification
+import com.google.firebase.messaging.AndroidConfig
 import io.ktor.http.*
 import org.slf4j.LoggerFactory
 import java.time.Instant
@@ -252,6 +253,20 @@ class NotificationServiceImp(
                 Notification.builder()
                     .setTitle(title)
                     .setBody(body)
+                    .build()
+            )
+            .putAllData(data)
+            .build()
+
+        return FirebaseMessaging.getInstance().send(message)
+    }
+
+    override suspend fun sendDataOnlyToTopic(topic: String, data: Map<String, String>): String {
+        val message = Message.builder()
+            .setTopic(topic)
+            .setAndroidConfig(
+                AndroidConfig.builder()
+                    .setPriority(AndroidConfig.Priority.HIGH)
                     .build()
             )
             .putAllData(data)

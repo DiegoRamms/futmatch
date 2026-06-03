@@ -654,6 +654,48 @@ Push data payload:
 4. On regional push (`matches_updated`), call V2 again with current `sinceVersion`.
 5. Keep swipe-to-refresh as manual fallback.
 
+### ASCII Flow
+
+```text
+READ FLOW
+
+[Client]
+   |
+   | GET /match/matches/v2?sinceVersion=10
+   v
+[Backend]
+   |
+   | resolve region (example: MX:CDMX)
+   | read regional version from DB
+   | compare client version vs backend version
+   |
+   +--> same version
+   |      |
+   |      +--> response: hasChanges=false, matches=null
+   |
+   +--> different version
+          |
+          | use/rebuild in-memory payload cache for region
+          +--> response: hasChanges=true, currentVersion=11, matches=[...]
+
+
+UPDATE FLOW
+
+[Create / Update / Cancel / Complete / Join / Leave]
+   |
+   +--> increment regional version in DB
+   |
+   +--> clear in-memory payload cache for region
+   |
+   +--> if event is Create / Update / Cancel / Complete
+   |       |
+   |       +--> send regional data-only push: matches_updated
+   |
+   +--> if event is Join / Leave
+           |
+           +--> no regional push
+```
+
 ### Sequence Diagram
 
 ```mermaid
