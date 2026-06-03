@@ -953,6 +953,28 @@ The backend only allows paid registration when the match starts within the confi
 }
 ```
 
+### Client Join Countdown Behavior
+
+When the match is still outside the allowed registration period, the mobile client must not show the `Join` CTA yet. Instead, it should render a disabled state with a countdown indicating when the player will be able to join.
+
+- The client calculates the opening time as `match.startTime - MATCH_JOIN_PAYMENT_WINDOW_HOURS`.
+- Until that instant, the bottom CTA area should show a friendly countdown message such as `Podrás unirte en ...`.
+- Team-level join buttons must also remain hidden/disabled during this period.
+- Once the countdown reaches zero, the disabled state disappears and the normal `Join match` button can be shown.
+
+Recommended countdown display variants in client:
+
+- More than 1 day remaining: `2 d 05 h 14 min`
+- More than 1 hour remaining: `7 h 08 min 12 s`
+- More than 1 minute remaining: `18 min 09 s`
+- Less than 1 minute remaining: `42 s`
+
+Recommended supporting copy in client:
+
+- Primary line: `Podrás unirte en %s`
+- Secondary line: `Por ahora todavía no puedes apartar tu lugar. En cuanto se abra el registro, aquí mismo verás el botón para unirte.`
+- Disabled button label: `Disponible pronto`
+
 ### Success Response
 
 ```json
