@@ -973,7 +973,6 @@ Recommended supporting copy in client:
 
 - Primary line: `Podrás unirte en %s`
 - Secondary line: `Por ahora todavía no puedes apartar tu lugar. En cuanto se abra el registro, aquí mismo verás el botón para unirte.`
-- Disabled button label: `Disponible pronto`
 
 ### Success Response
 
