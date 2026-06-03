@@ -10,6 +10,7 @@ import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.features.match.MatchUpdateBus
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
+import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
 import com.devapplab.model.firestore.MatchPlayerList
@@ -55,7 +56,8 @@ class MatchService(
     private val notificationService: NotificationService,
     private val billingService: BillingService,
     private val refundFailureRepository: MatchRefundFailureRepository,
-    private val publicMatchesCacheService: PublicMatchesCacheService
+    private val publicMatchesCacheService: PublicMatchesCacheService,
+    private val matchPaymentConfig: MatchPaymentConfig
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -525,6 +527,27 @@ class MatchService(
             )
         }
 
+        val now = System.currentTimeMillis()
+        val timeUntilMatch = match.dateTime - now
+        val maxJoinPaymentWindowMs = matchPaymentConfig.maxJoinPaymentWindowHours.hours.inWholeMilliseconds
+
+        if (timeUntilMatch > maxJoinPaymentWindowMs) {
+            logger.warn(
+                "⚠️ [MATCH_TRACE] joinMatch | Paid registration not open yet | userId={} | matchId={} | timeUntilMatchMs={} | maxWindowHours={}",
+                userId,
+                matchId,
+                timeUntilMatch,
+                matchPaymentConfig.maxJoinPaymentWindowHours
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_JOIN_TOO_EARLY_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_JOIN_TOO_EARLY_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_JOIN_TOO_EARLY,
+                placeholders = mapOf("hours" to matchPaymentConfig.maxJoinPaymentWindowHours.toString())
+            )
+        }
+
         if (matchRepository.isUserInMatch(matchId, userId)) {
             logger.warn("⚠️ [MATCH_TRACE] joinMatch | User already in match")
             return locale.createError(
@@ -582,7 +605,6 @@ class MatchService(
             val matchPlayerId = matchRepository.getMatchPlayerId(matchId, userId)
                 ?: throw IllegalStateException("Match player not found after join")
 
-            val timeUntilMatch = match.dateTime - System.currentTimeMillis()
             val captureMethod = if (timeUntilMatch > CAPTURE_METHOD_THRESHOLD.inWholeMilliseconds) {
                 PaymentCaptureMethod.MANUAL
             } else {

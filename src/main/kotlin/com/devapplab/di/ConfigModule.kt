@@ -1,6 +1,7 @@
 package com.devapplab.di
 
 import com.devapplab.model.EmailConfig
+import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.StripeConfig
 import com.devapplab.model.WebhookConfig
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
@@ -8,6 +9,16 @@ import io.ktor.server.config.ApplicationConfig
 import org.koin.dsl.module
 
 val configModule = module {
+    single {
+        val config = get<ApplicationConfig>()
+        MatchPaymentConfig(
+            maxJoinPaymentWindowHours = config.propertyOrNull("match.payment.maxJoinWindowHours")
+                ?.getString()
+                ?.toLongOrNull()
+                ?: 120
+        )
+    }
+
     single {
         val config = get<ApplicationConfig>()
         MfaRateLimitConfig(

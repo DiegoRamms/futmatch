@@ -52,6 +52,7 @@ Un partido se rige por la capacidad definida en el campo `maxPlayers`.
 ### 5. Reglas de Cobro y la "Regla de las 6 Horas"
 Dependiendo de cuánto tiempo falte para el inicio del partido, el comportamiento del cobro cambia:
 
+* **Más de la ventana máxima de inscripción pagada:** El sistema no permite unirse ni crea un intento de pago. Esta ventana se configura con `MATCH_JOIN_PAYMENT_WINDOW_HOURS` y por defecto es de **120 horas (5 días)** para evitar que las autorizaciones retenidas expiren antes de la captura.
 * **Más de 6 horas para el partido:** El sistema solo **autoriza** el pago (dinero retenido en la tarjeta del usuario, método `MANUAL`). El cobro real sucederá automáticamente cuando falten menos de 6 horas.
 * **Menos de 6 horas para el partido:** El sistema **cobra** el dinero inmediatamente al confirmar el pago (método `AUTOMATIC`).
 

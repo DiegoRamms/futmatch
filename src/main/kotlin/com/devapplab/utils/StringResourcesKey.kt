@@ -125,6 +125,8 @@ enum class StringResourcesKey(val value: String) {
     MATCH_NOT_SCHEDULED_DESCRIPTION("match_not_scheduled_description"),
     MATCH_TEAM_FULL_TITLE("match_team_full_title"),
     MATCH_TEAM_FULL_DESCRIPTION("match_team_full_description"),
+    MATCH_JOIN_TOO_EARLY_TITLE("match_join_too_early_title"),
+    MATCH_JOIN_TOO_EARLY_DESCRIPTION("match_join_too_early_description"),
     MATCH_LEAVE_SUCCESS_MESSAGE("match_leave_success_message"),
     MATCH_NOT_JOINED_TITLE("match_not_joined_title"),
     MATCH_NOT_JOINED_DESCRIPTION("match_not_joined_description"),

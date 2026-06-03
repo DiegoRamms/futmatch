@@ -38,6 +38,7 @@ El estado del jugador en un partido se define mediante los siguientes estados t�
 
 #### Fase 2: Reserva Atómica y Selección de Equipo
 * El usuario envía un `JoinMatchRequest`, opcionalmente especificando el equipo al que desea unirse.
+* Antes de reservar cupo, el Backend valida que el partido esté dentro de la ventana máxima de inscripción pagada (`MATCH_JOIN_PAYMENT_WINDOW_HOURS`, por defecto 120 horas). Si falta más tiempo, responde error y no crea jugador ni `PaymentIntent`.
 * El Backend valida el balanceo de los equipos. Si no se especifica equipo, el jugador es asignado automáticamente al equipo con menos integrantes.
 * Se añade al jugador a la base de datos (en estado `RESERVED`) y se emite inmediatamente una notificación de actualización (`notifyMatchUpdate`) para que los clientes actualicen sus interfaces de manera optimista.
 
