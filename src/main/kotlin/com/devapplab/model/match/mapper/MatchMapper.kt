@@ -85,6 +85,7 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
         priceInCents = prices.finalPriceInCents,
         genderType = this.genderType,
         status = this.status,
+        maxPlayers = this.maxPlayers,
         availableSpots = if (availableSpots < 0) 0 else availableSpots,
         teams = teams,
         location = location
@@ -113,6 +114,7 @@ fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
         priceInCents = prices.finalPriceInCents,
         genderType = this.genderType,
         status = this.status,
+        maxPlayers = this.maxPlayers,
         availableSpots = if (availableSpots < 0) 0 else availableSpots,
         teams = emptyTeams,
         location = location,

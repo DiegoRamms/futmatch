@@ -522,7 +522,7 @@ This endpoint is optimized for app refresh:
 - Backend compares against regional cache version.
 - If version is unchanged: returns lightweight payload (`hasChanges=false`) without list.
 - If version changed: returns full list and new version.
-- The full list includes team/player data (`teams.teamA.players`, `teams.teamB.players`) and `availableSpots`.
+- The full list includes team/player data (`teams.teamA.players`, `teams.teamB.players`), fixed capacity (`maxPlayers`) and the current snapshot (`availableSpots`).
 
 ### Query Parameters
 -   `sinceVersion` (Long, Optional): Client local version.
@@ -575,6 +575,7 @@ This endpoint is optimized for app refresh:
                 "priceInCents": 500,
                 "genderType": "MIXED",
                 "status": "SCHEDULED",
+                "maxPlayers": 14,
                 "availableSpots": 4,
                 "teams": {
                     "teamA": {
@@ -616,6 +617,21 @@ This endpoint is optimized for app refresh:
         ]
     }
 }
+```
+
+### Capacity Contract
+
+- `maxPlayers` is the fixed total capacity configured for the match.
+- `maxPlayers` does not change when players join, reserve, cancel or leave.
+- `availableSpots` remains a backend snapshot value for convenience, but frontend should treat `maxPlayers` as the source of truth for fixed capacity.
+
+Expected frontend usage for list responses (`/match/matches/v2`):
+
+```text
+availableSpots = maxPlayers - (teams.teamA.playerCount + teams.teamB.playerCount)
+spotsPerTeam = maxPlayers / 2
+missingTeamA = spotsPerTeam - teams.teamA.playerCount
+missingTeamB = spotsPerTeam - teams.teamB.playerCount
 ```
 
 ### Invalidation Rules
@@ -771,6 +787,7 @@ After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appea
             "priceInCents": 500,
             "genderType": "MIXED",
             "status": "SCHEDULED",
+            "maxPlayers": 14,
             "availableSpots": 4,
             "teams": {
                 "teamA": {
@@ -811,6 +828,21 @@ After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appea
         }
     ]
 }
+```
+
+### Capacity Contract
+
+- `maxPlayers` is the fixed total capacity configured for the match.
+- `maxPlayers` does not change when players join, reserve, cancel or leave.
+- In `/match/my-matches`, frontend should calculate team slots from `maxPlayers` plus the response snapshot.
+
+Expected frontend usage for list responses (`/match/my-matches`):
+
+```text
+availableSpots = maxPlayers - (teams.teamA.playerCount + teams.teamB.playerCount)
+spotsPerTeam = maxPlayers / 2
+missingTeamA = spotsPerTeam - teams.teamA.playerCount
+missingTeamB = spotsPerTeam - teams.teamB.playerCount
 ```
 
 ---
@@ -855,6 +887,7 @@ Gets complete details of a specific match.
         "priceInCents": 500,
         "genderType": "MIXED",
         "status": "SCHEDULED",
+        "maxPlayers": 14,
         "availableSpots": 4,
         "teams": {
             "teamA": {
@@ -900,6 +933,21 @@ Gets complete details of a specific match.
         "rules": "No se permiten tacos de metal"
     }
 }
+```
+
+### Capacity Contract
+
+- `maxPlayers` is the fixed total capacity configured for the match.
+- `maxPlayers` does not change when players join, reserve, cancel or leave.
+- In detail, frontend should use `maxPlayers` together with realtime Firestore players instead of inferring total capacity from `availableSpots`.
+
+Expected frontend usage for detail responses (`/match/{matchId}` + Firestore realtime):
+
+```text
+availableSpots = maxPlayers - firestorePlayers.size
+spotsPerTeam = maxPlayers / 2
+missingTeamA = spotsPerTeam - firestoreTeamAPlayers.size
+missingTeamB = spotsPerTeam - firestoreTeamBPlayers.size
 ```
 
 ---
