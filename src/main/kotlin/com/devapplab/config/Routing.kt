@@ -11,9 +11,11 @@ import com.devapplab.features.payment.paymentsRouting
 import com.devapplab.features.payment.stripeRouting
 import com.devapplab.features.profile.profileRouting
 import com.devapplab.features.user.userRouting
+import com.devapplab.model.AppCheckConfig
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.ErrorResponse
+import com.devapplab.service.appcheck.FirebaseAppCheckService
 import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -26,12 +28,15 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.koin.ktor.ext.inject
 import java.io.File
 
 
 fun Application.configureRouting() {
 
     val isDevelopment = environment.config.propertyOrNull("ktor.development")?.getString()?.toBoolean() ?: false
+    val appCheckService by inject<FirebaseAppCheckService>()
+    val appCheckConfig by inject<AppCheckConfig>()
 
     install(StatusPages) {
 
@@ -80,6 +85,20 @@ fun Application.configureRouting() {
             )
         }
 
+        exception<InvalidAppCheckException> { call, cause ->
+            this@configureRouting.log.warn("[InvalidAppCheck] path={}, reason={}", call.request.path(), cause.message)
+            call.respond<String>(
+                AppResult.Failure(
+                    ErrorResponse(
+                        title = "Invalid App Check token",
+                        message = "The request is missing a valid Firebase App Check token.",
+                        errorCode = ErrorCode.ACCESS_DENIED
+                    ),
+                    appStatus = HttpStatusCode.Unauthorized
+                )
+            )
+        }
+
 
         exception<Throwable> { call, cause ->
             val locale = call.retrieveLocale()
@@ -109,19 +128,22 @@ fun Application.configureRouting() {
     routing {
         //TODO Validate rate limit with Client
         staticFiles("/uploads", File("uploads"))
-        authRouting()
         stripeRouting()
         cronRouting()
-        authenticate("auth-jwt") {
-            rateLimit(RateLimitName(RateLimitType.PROTECTED.value)) {
-                userRouting()
-                fieldRouting()
-                matchRouting()
-                locationRouting()
-                paymentsRouting()
-                deviceRouting()
-                notificationRouting()
-                profileRouting()
+        route("") {
+            requireAppCheck(appCheckService, appCheckConfig)
+            authRouting()
+            authenticate("auth-jwt") {
+                rateLimit(RateLimitName(RateLimitType.PROTECTED.value)) {
+                    userRouting()
+                    fieldRouting()
+                    matchRouting()
+                    locationRouting()
+                    paymentsRouting()
+                    deviceRouting()
+                    notificationRouting()
+                    profileRouting()
+                }
             }
         }
     }

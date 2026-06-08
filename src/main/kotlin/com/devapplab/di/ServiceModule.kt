@@ -1,6 +1,7 @@
 package com.devapplab.di
 
 import com.devapplab.service.UserService
+import com.devapplab.service.appcheck.FirebaseAppCheckService
 import com.devapplab.service.ProfileService
 import com.devapplab.service.auth.AuthenticatedResponseGenerator
 import com.devapplab.service.auth.AuthTokenManagementService
@@ -37,6 +38,7 @@ import org.koin.dsl.module
 val serviceModule = module {
 
     singleOf(::UserService)
+    singleOf(::FirebaseAppCheckService)
     singleOf(::ProfileService)
     singleOf(::RegistrationService)
     singleOf(::AuthenticatedResponseGenerator)

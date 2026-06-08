@@ -1,6 +1,7 @@
 package com.devapplab.di
 
 import com.devapplab.model.EmailConfig
+import com.devapplab.model.AppCheckConfig
 import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.StripeConfig
 import com.devapplab.model.WebhookConfig
@@ -9,6 +10,22 @@ import io.ktor.server.config.ApplicationConfig
 import org.koin.dsl.module
 
 val configModule = module {
+    single {
+        val config = get<ApplicationConfig>()
+        AppCheckConfig(
+            enabled = config.propertyOrNull("appCheck.enabled")?.getString()?.toBooleanStrictOrNull() ?: false,
+            enforce = config.propertyOrNull("appCheck.enforce")?.getString()?.toBooleanStrictOrNull() ?: false,
+            projectNumber = config.propertyOrNull("appCheck.projectNumber")?.getString().orEmpty(),
+            allowedAppIds = config.propertyOrNull("appCheck.allowedAppIds")
+                ?.getString()
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.toSet()
+                ?: emptySet()
+        )
+    }
+
     single {
         val config = get<ApplicationConfig>()
         MatchPaymentConfig(

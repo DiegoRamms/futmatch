@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.firebase.admin)
+    implementation(libs.jwks.rsa)
     implementation(platform(libs.grpc.bom))
     implementation(libs.cloudinary)
     // Security fix for CVE-2025-48924
