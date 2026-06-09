@@ -130,10 +130,11 @@ fun Application.configureRouting() {
         staticFiles("/uploads", File("uploads"))
         stripeRouting()
         cronRouting()
-        route("") {
-            requireAppCheck(appCheckService, appCheckConfig)
+        appCheck(appCheckService, appCheckConfig) {
             authRouting()
-            authenticate("auth-jwt") {
+        }
+        authenticate("auth-jwt") {
+            appCheck(appCheckService, appCheckConfig) {
                 rateLimit(RateLimitName(RateLimitType.PROTECTED.value)) {
                     userRouting()
                     fieldRouting()

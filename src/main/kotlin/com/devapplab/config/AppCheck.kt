@@ -10,6 +10,15 @@ import io.ktor.server.routing.Route
 
 private const val FIREBASE_APP_CHECK_HEADER = "X-Firebase-AppCheck"
 
+fun Route.appCheck(
+    appCheckService: FirebaseAppCheckService,
+    appCheckConfig: AppCheckConfig,
+    build: Route.() -> Unit
+) {
+    requireAppCheck(appCheckService, appCheckConfig)
+    build()
+}
+
 fun Route.requireAppCheck(
     appCheckService: FirebaseAppCheckService,
     appCheckConfig: AppCheckConfig

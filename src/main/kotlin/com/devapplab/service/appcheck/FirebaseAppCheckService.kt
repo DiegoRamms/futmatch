@@ -65,7 +65,10 @@ class FirebaseAppCheckService(
 
             AppCheckVerificationResult.Valid(appId)
         }.getOrElse { error ->
-            AppCheckVerificationResult.Invalid(error.javaClass.simpleName)
+            AppCheckVerificationResult.Invalid(
+                listOfNotNull(error.javaClass.simpleName, error.message)
+                    .joinToString(": ")
+            )
         }
     }
 
