@@ -190,7 +190,12 @@ private class FakeMatchRepository(
     override suspend fun hasActiveReservation(userId: UUID): Boolean = error("not used")
     override suspend fun setPlayerGoals(matchId: UUID, goals: List<PlayerGoalInput>): Boolean = error("not used")
     override suspend fun setBestPlayer(matchId: UUID, bestPlayerId: UUID): Boolean = error("not used")
-    override suspend fun completeMatchAtomic(matchId: UUID, bestPlayerId: UUID, goals: List<PlayerGoalInput>): Pair<Int, Int>? = error("not used")
+    override suspend fun completeMatchAtomic(
+        matchId: UUID,
+        bestPlayerId: UUID,
+        goals: List<PlayerGoalInput>,
+        externalGoals: List<TeamGoalInput>
+    ): Pair<Int, Int>? = error("not used")
     override suspend fun getMatchPlayerGoals(matchId: UUID): List<MatchPlayerGoal> = error("not used")
     override suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int> = error("not used")
     override suspend fun getHomeSuggestedMatches(userId: UUID, limit: Int): List<HomeSuggestedMatch> = emptyList()

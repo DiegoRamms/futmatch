@@ -160,7 +160,7 @@ Updates an existing match.
 
 ## 3. Complete Match
 
-Registers the final result of a match, including player goals and the best player (MVP).
+Registers the final result of a match, including player goals, external team goals, and the best player (MVP).
 
 -   **Method:** `POST`
 -   **Path:** `/match/admin/{matchId}/complete`
@@ -183,6 +183,16 @@ Registers the final result of a match, including player goals and the best playe
             "goals": 1
         }
     ],
+    "externalGoals": [
+        {
+            "team": "A",
+            "goals": 1
+        },
+        {
+            "team": "B",
+            "goals": 0
+        }
+    ],
     "bestPlayerId": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
 }
 ```
@@ -191,12 +201,19 @@ Registers the final result of a match, including player goals and the best playe
 
 | Field | Type | Required | Validation Rules |
 |:------|:-----|:---------|:----------------|
-| `goals` | List | Yes | Must contain at least one goal entry. |
+| `goals` | List | Yes | User goal entries. `goals` or `externalGoals` must contain at least one entry. |
 | `goals[].userId` | UUID | Yes | Must be a valid UUID of a user enrolled in the match. |
 | `goals[].goals` | Int | Yes | Must be >= 0. |
+| `externalGoals` | List | No | Goals scored by players outside the app, grouped by team. Defaults to an empty list. |
+| `externalGoals[].team` | Enum | Yes | Supported values: `A`, `B`. |
+| `externalGoals[].goals` | Int | Yes | Must be >= 0. These goals affect only the final team score. |
 | `bestPlayerId` | UUID | Yes | Must be a valid UUID of a user enrolled in the match. |
 
 > `goals[].isBestPlayer` is not supported. Use only `bestPlayerId` at the root of the payload.
+
+> External players are not returned by any backend endpoint and are not persisted as users. The client UI should render local controls such as "External Team A" and "External Team B", then send those values through `externalGoals`.
+
+> `externalGoals` are added to `match_results.team_a_score` and `match_results.team_b_score`. They are not stored in `match_player_goals`, do not belong to any user, and do not affect individual player statistics.
 
 ### Completion Notifications
 

@@ -23,7 +23,12 @@ interface MatchRepository {
     suspend fun hasActiveReservation(userId: UUID): Boolean
     suspend fun setPlayerGoals(matchId: UUID, goals: List<PlayerGoalInput>): Boolean
     suspend fun setBestPlayer(matchId: UUID, bestPlayerId: UUID): Boolean
-    suspend fun completeMatchAtomic(matchId: UUID, bestPlayerId: UUID, goals: List<PlayerGoalInput>): Pair<Int, Int>?
+    suspend fun completeMatchAtomic(
+        matchId: UUID,
+        bestPlayerId: UUID,
+        goals: List<PlayerGoalInput>,
+        externalGoals: List<TeamGoalInput>
+    ): Pair<Int, Int>?
     suspend fun getMatchPlayerGoals(matchId: UUID): List<MatchPlayerGoal>
     suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int>
     suspend fun getHomeSuggestedMatches(userId: UUID, limit: Int): List<HomeSuggestedMatch>

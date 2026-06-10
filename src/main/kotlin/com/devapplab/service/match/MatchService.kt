@@ -1224,7 +1224,7 @@ class MatchService(
         locale: Locale
     ): AppResult<Boolean> {
         logger.info(
-            "🏆 [COMPLETE_DEBUG] service START | matchId=$matchId | adminUserId=$userId | bestPlayerId=${request.bestPlayerId} | goals=${request.goals}"
+            "🏆 [COMPLETE_DEBUG] service START | matchId=$matchId | adminUserId=$userId | bestPlayerId=${request.bestPlayerId} | goals=${request.goals} | externalGoals=${request.externalGoals}"
         )
 
         val matchWithField = matchRepository.getMatchById(matchId)
@@ -1267,7 +1267,8 @@ class MatchService(
         val scores = matchRepository.completeMatchAtomic(
             matchId = matchId,
             bestPlayerId = request.bestPlayerId,
-            goals = request.goals
+            goals = request.goals,
+            externalGoals = request.externalGoals
         ) ?: run {
             logger.warn("🏆 [COMPLETE_DEBUG] service STOP | atomic returned null | matchId=$matchId")
             return locale.createError(

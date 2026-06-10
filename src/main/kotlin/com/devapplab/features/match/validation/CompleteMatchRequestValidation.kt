@@ -6,10 +6,10 @@ import io.ktor.server.plugins.requestvalidation.*
 
 fun CompleteMatchRequest.validate(): ValidationResult {
     return when {
-        goals.isEmpty() ->
+        goals.isEmpty() && externalGoals.isEmpty() ->
             ValidationResult.Invalid(StringResourcesKey.MATCH_GOALS_EMPTY_ERROR.value)
 
-        goals.any { it.goals < 0 } ->
+        goals.any { it.goals < 0 } || externalGoals.any { it.goals < 0 } ->
             ValidationResult.Invalid(StringResourcesKey.MATCH_INVALID_GOALS_ERROR.value)
 
         else -> ValidationResult.Valid

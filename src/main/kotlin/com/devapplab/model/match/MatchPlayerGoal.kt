@@ -23,8 +23,15 @@ data class PlayerGoalInput(
 )
 
 @Serializable
+data class TeamGoalInput(
+    val team: TeamType,
+    val goals: Int,
+)
+
+@Serializable
 data class CompleteMatchRequest(
     val goals: List<PlayerGoalInput>,
+    val externalGoals: List<TeamGoalInput> = emptyList(),
     @Serializable(with = UUIDSerializer::class)
     val bestPlayerId: UUID,
 )
