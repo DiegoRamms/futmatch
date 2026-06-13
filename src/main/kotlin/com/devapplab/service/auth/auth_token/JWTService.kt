@@ -12,22 +12,44 @@ import java.util.*
 import kotlin.time.Duration.Companion.minutes
 
 class JWTService : AuthTokenService {
+    @Volatile
+    private var cachedAlgorithm: Algorithm? = null
+
+    @Volatile
+    private var cachedPrivateKey: String? = null
+
     override suspend fun createAuthToken(claimConfig: ClaimConfig, jwtConfig: JWTConfig): String {
         return withContext(Dispatchers.Default) {
-            jwtConfig.let {
-                val algorithm = Algorithm.ECDSA256(jwtConfig.loadECPrivateKey())
-                val now = System.currentTimeMillis()
+            val algorithm = getOrCreateAlgorithm(jwtConfig)
+            val now = System.currentTimeMillis()
 
-               val token = JWT.create()
-                    .withIssuer(it.issuer)
-                    .withAudience(it.audience)
-                    .withClaim(ClaimType.USER_IDENTIFIER.value, claimConfig.userId.toString())
-                    .withClaim(ClaimType.USER_ROLE.value, claimConfig.userRole.toString())
-                    .withClaim(ClaimType.DEVICE_IDENTIFIER.value, claimConfig.deviceId.toString())
-                    .withExpiresAt(Date(now + jwtConfig.accessTokenLifetime.minutes.inWholeMilliseconds))
-                    .sign(algorithm)
+            JWT.create()
+                .withIssuer(jwtConfig.issuer)
+                .withAudience(jwtConfig.audience)
+                .withClaim(ClaimType.USER_IDENTIFIER.value, claimConfig.userId.toString())
+                .withClaim(ClaimType.USER_ROLE.value, claimConfig.userRole.toString())
+                .withClaim(ClaimType.DEVICE_IDENTIFIER.value, claimConfig.deviceId.toString())
+                .withExpiresAt(Date(now + jwtConfig.accessTokenLifetime.minutes.inWholeMilliseconds))
+                .sign(algorithm)
+        }
+    }
 
-                token
+    private fun getOrCreateAlgorithm(jwtConfig: JWTConfig): Algorithm {
+        val currentPrivateKey = jwtConfig.private
+        val existingAlgorithm = cachedAlgorithm
+        if (existingAlgorithm != null && cachedPrivateKey == currentPrivateKey) {
+            return existingAlgorithm
+        }
+
+        return synchronized(this) {
+            val synchronizedAlgorithm = cachedAlgorithm
+            if (synchronizedAlgorithm != null && cachedPrivateKey == currentPrivateKey) {
+                synchronizedAlgorithm
+            } else {
+                Algorithm.ECDSA256(jwtConfig.loadECPrivateKey()).also {
+                    cachedAlgorithm = it
+                    cachedPrivateKey = currentPrivateKey
+                }
             }
         }
     }
