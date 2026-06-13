@@ -2,9 +2,7 @@ package com.devapplab.data.repository
 
 import com.devapplab.config.dbQuery
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
-import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.auth.RefreshTokenRecord
-import com.devapplab.model.auth.RefreshTokenValidationInfo
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
@@ -21,34 +19,6 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
         }
         return result[RefreshTokenTable.id]
     }
-
-
-    override suspend fun findLatestTokenByUserId(userId: UUID): RefreshTokenRecord? = dbQuery {
-        RefreshTokenTable.selectAll()
-            .where { (RefreshTokenTable.userId eq userId) and (RefreshTokenTable.revoked eq false) }
-            .orderBy(RefreshTokenTable.createdAt, SortOrder.DESC)
-            .limit(1)
-            .mapNotNull { it.toRefreshTokenRecord() }
-            .singleOrNull()
-    }
-
-    override fun getValidationInfo(deviceId: UUID): RefreshTokenValidationInfo? {
-        return (RefreshTokenTable innerJoin UserTable)
-            .select(
-                RefreshTokenTable.userId,
-                RefreshTokenTable.token,
-                RefreshTokenTable.expiresAt,
-                RefreshTokenTable.createdAt,
-                RefreshTokenTable.revoked,
-                UserTable.isEmailVerified
-            )
-            .where { (RefreshTokenTable.deviceId eq deviceId) and (RefreshTokenTable.revoked eq false) }
-            .orderBy(RefreshTokenTable.createdAt, SortOrder.DESC)
-            .limit(1)
-            .mapNotNull { it.toRefreshTokenValidationInfo() }
-            .singleOrNull()
-    }
-
     override fun findByTokenHash(tokenHash: String): RefreshTokenRecord? {
         return RefreshTokenTable.selectAll()
             .where { RefreshTokenTable.token eq tokenHash }
@@ -113,13 +83,4 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
             revoked = this[RefreshTokenTable.revoked]
         )
 
-    private fun ResultRow.toRefreshTokenValidationInfo(): RefreshTokenValidationInfo =
-        RefreshTokenValidationInfo(
-            userId = this[RefreshTokenTable.userId],
-            isEmailVerified = this[UserTable.isEmailVerified],
-            token = this[RefreshTokenTable.token],
-            expiresAt = this[RefreshTokenTable.expiresAt],
-            createdAt = this[RefreshTokenTable.createdAt],
-            revoked = this[RefreshTokenTable.revoked]
-        )
 }

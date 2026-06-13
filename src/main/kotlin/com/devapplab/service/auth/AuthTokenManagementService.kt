@@ -9,7 +9,6 @@ import com.devapplab.model.ErrorCode
 import com.devapplab.model.auth.ClaimConfig
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.RefreshTokenPayload
-import com.devapplab.model.auth.RefreshTokenRecord
 import com.devapplab.model.auth.response.AuthCode
 import com.devapplab.model.auth.response.AuthResponse
 import com.devapplab.model.auth.response.AuthTokenResponse
@@ -44,18 +43,17 @@ class AuthTokenManagementService(
         refreshJWTRequest: RefreshJWTRequest,
         jwtConfig: JWTConfig
     ): AppResult<AuthResponse> {
-
+        @Suppress("UNUSED_PARAMETER")
+        val ignoredRequest = refreshJWTRequest
         val plainRefresh = currentRefreshToken ?: return locale.respondInvalidRefreshTokenError()
         val hashedRefresh = hashingService.hashOpaqueToken(plainRefresh)
-        val requestedUserId = refreshJWTRequest.userId
-        val requestedDeviceId = refreshJWTRequest.deviceId
 
         val tokenRecord = runCatching {
             dbExecutor.tx {
                 refreshTokenRepository.findByTokenHash(hashedRefresh)
             }
         }.getOrElse { error ->
-            logger.error("🔥 auth.refresh.lookup_failed requestedUserId=$requestedUserId requestedDeviceId=$requestedDeviceId", error)
+            logger.error("🔥 auth.refresh.lookup_failed", error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -63,29 +61,8 @@ class AuthTokenManagementService(
         }
 
         if (tokenRecord == null) {
-            logger.warn("⚠️ auth.refresh.invalid unknown_token requestedUserId=$requestedUserId requestedDeviceId=$requestedDeviceId")
+            logger.warn("⚠️ auth.refresh.invalid unknown_token")
             return locale.respondInvalidRefreshTokenError()
-        }
-
-        if (requestedUserId != null || requestedDeviceId != null) {
-            // TODO: Remove legacy userId/deviceId refresh payload support once all clients use refresh-token-only requests.
-            logger.warn(
-                "Deprecated legacy refresh payload used. Prefer refresh-token-only flow. requestedUserId={} requestedDeviceId={} tokenUserId={} tokenDeviceId={}",
-                requestedUserId,
-                requestedDeviceId,
-                tokenRecord.userId,
-                tokenRecord.deviceId
-            )
-            if (requestedUserId != tokenRecord.userId || requestedDeviceId != tokenRecord.deviceId) {
-                logger.warn(
-                    "⚠️ auth.refresh.legacy_mismatch requestedUserId={} requestedDeviceId={} tokenUserId={} tokenDeviceId={}",
-                    requestedUserId,
-                    requestedDeviceId,
-                    tokenRecord.userId,
-                    tokenRecord.deviceId
-                )
-                return locale.respondInvalidRefreshTokenError()
-            }
         }
 
         if (tokenRecord.revoked) {
