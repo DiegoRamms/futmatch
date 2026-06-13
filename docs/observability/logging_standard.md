@@ -32,6 +32,7 @@ Futmatch logging should follow these rules:
    - expected rejections
    - suspicious security events
    - internal server failures
+6. Do not add success logs to every high-volume read flow by default
 
 This standard is informed by:
 
@@ -69,6 +70,7 @@ All auth/session/security logs should aim to include these fields whenever avail
 - `buildNumber`
 - `osVersion`
 - `deviceModel`
+- `message`
 
 ---
 
@@ -86,7 +88,7 @@ Examples:
 - `auth.refresh.reuse_detected`
 - `auth.sign_out.success`
 - `device.fcm_token.updated`
-- `user.home.loaded`
+- `user.profile_picture.uploaded`
 
 ### `severity`
 
@@ -164,6 +166,34 @@ Examples:
 - `device_not_owned`
 - `db_error`
 
+### `message`
+
+Optional short human-readable summary.
+
+Use it sparingly:
+
+- keep it short
+- do not duplicate the full payload
+- do not replace `event`, `outcome`, or `reason`
+- do not put secrets or large free text in it
+
+Good example:
+
+- `Join rejected because match is full`
+
+Bad examples:
+
+- full paragraph explanations
+- stack traces
+- copied request payloads
+- sensitive values
+
+Implementation rule:
+
+- every structured log should end up with a `message`
+- if a custom message is not provided, the logging base may derive a short default message from `event` and `reason`
+- prefer explicit custom messages only for important business or security events where the generated message would be too generic
+
 ### `statusCode`
 
 HTTP response status code, if available.
@@ -204,10 +234,7 @@ Examples:
 - `auth.sign_out.success`
 - `device.fcm_token.updated`
 - `device.fcm_token.update_failed`
-- `user.home.loaded`
-- `user.profile.loaded`
 - `user.profile_picture.uploaded`
-- `payment.history.loaded`
 - `user.profile.name.updated`
 
 Do not create one-off event names unless they represent a real new event type.
@@ -246,9 +273,7 @@ Do not create one-off event names unless they represent a real new event type.
 
 ### User / Profile
 
-- `user.home.loaded`
 - `user.home.load_failed`
-- `user.profile.loaded`
 - `user.profile.load_failed`
 - `user.profile_picture.uploaded`
 - `user.profile_picture.upload_failed`
@@ -265,9 +290,101 @@ Do not create one-off event names unless they represent a real new event type.
 
 - `admin.organizers.listed`
 
+### Location
+
+- `location.created`
+- `location.create_failed`
+- `location.updated`
+- `location.update_failed`
+- `location.deleted`
+- `location.delete_failed`
+- `location.load_failed`
+
 ### Payment
 
-- `payment.history.loaded`
+- `payment.customer_sheet.initialized`
+- `payment.customer_sheet.init_failed`
+- `payment.setup_intent.created`
+- `payment.setup_intent.create_failed`
+- `payment.method.detached`
+- `payment.method.detach_failed`
+- `payment.status.recover_failed`
+- `payment.status.validate_failed`
+- `payment.status.poll_failed`
+
+### Field
+
+- `field.created`
+- `field.updated`
+- `field.deleted`
+- `field.location_linked`
+- `field.location_link_failed`
+- `field.list.loaded`
+- `field.admin_list.loaded`
+- `field.basic_list.loaded`
+- `field.image.loaded`
+- `field.image.created`
+- `field.image.create_failed`
+- `field.image.updated`
+- `field.image.update_failed`
+- `field.image.deleted`
+- `field.image.delete_failed`
+
+### Match
+
+- `match.created`
+- `match.create_failed`
+- `match.updated`
+- `match.update_failed`
+- `match.canceled`
+- `match.cancel_failed`
+- `match.detail.load_failed`
+- `match.join_reserved`
+- `match.join_failed`
+- `match.left`
+- `match.leave_failed`
+
+## 6. When To Add Logs
+
+Use this decision rule before adding a new log.
+
+### Always log
+
+- authentication and session events
+- token refresh and token security events
+- permission or ownership rejections
+- writes and state mutations
+- payment operations
+- admin actions with business impact
+- internal failures and exceptions
+
+### Usually log
+
+- user-visible business rejections
+- suspicious or deprecated flows
+- long-running or asynchronous operations
+
+### Usually do not log
+
+- successful high-frequency read endpoints
+- successful list fetches
+- successful image fetches
+- successful polling-style endpoints
+- internal helper steps that duplicate a higher-level structured event
+
+### Rule For Future AI Agents
+
+Before adding a log, ask:
+
+1. Is this a security event, mutation, payment event, admin action, rejection, or real failure?
+2. Will this help debug production behavior without flooding high-volume traffic?
+3. Is this already covered by a higher-level structured event?
+
+Decision:
+
+- if `yes, high value and not duplicated` -> add the log
+- if `yes, but already covered` -> do not add another log
+- if `no, this is a routine high-volume success read` -> do not add the log
 
 ---
 

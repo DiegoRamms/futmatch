@@ -7,6 +7,10 @@ import com.devapplab.model.payment.CustomerSheetInitResponse
 import com.devapplab.model.payment.PaymentMethodResponse
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.payment.SetupIntentResponse
+import com.devapplab.observability.appFailure
+import com.devapplab.observability.appRejected
+import com.devapplab.observability.appSuccess
+import com.devapplab.observability.requestContext
 import com.devapplab.service.billing.BillingService
 import com.devapplab.service.payment.PaymentService
 import com.devapplab.service.payment.StripeWebhookService
@@ -30,6 +34,7 @@ class PaymentController(
 
     suspend fun initCustomerSheet(call: ApplicationCall) {
         val locale = call.retrieveLocale()
+        val context = call.requestContext()
 
         try {
             val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
@@ -47,6 +52,14 @@ class PaymentController(
                     )
                 )
             )
+            logger.appSuccess(
+                event = "payment.customer_sheet.initialized",
+                context = context,
+                message = "Customer sheet initialized",
+                userId = userId,
+                statusCode = HttpStatusCode.OK.value,
+                extra = mapOf("provider" to provider.name)
+            )
         } catch (e: StripeException) {
             logger.error(
                 "Stripe error initializing customer sheet. statusCode={}, requestId={}, code={}, param={}, message={}",
@@ -57,6 +70,14 @@ class PaymentController(
                 e.stripeError?.message,
                 e
             )
+            logger.appFailure(
+                event = "payment.customer_sheet.init_failed",
+                context = context,
+                message = "Customer sheet initialization failed in Stripe",
+                reason = "stripe_error",
+                statusCode = HttpStatusCode.InternalServerError.value,
+                throwable = e
+            )
             call.respond(
                 locale.createError(
                     titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
@@ -66,6 +87,14 @@ class PaymentController(
             )
         } catch (e: Exception) {
             logger.error("Unexpected error initializing customer sheet", e)
+            logger.appFailure(
+                event = "payment.customer_sheet.init_failed",
+                context = context,
+                message = "Customer sheet initialization failed unexpectedly",
+                reason = "unexpected_error",
+                statusCode = HttpStatusCode.InternalServerError.value,
+                throwable = e
+            )
             call.respond(
                 locale.createError(
                     titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
@@ -77,21 +106,49 @@ class PaymentController(
     }
 
     suspend fun createSetupIntent(call: ApplicationCall) {
-        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val provider = PaymentProvider.STRIPE
+        val context = call.requestContext()
+        val locale = call.retrieveLocale()
+        try {
+            val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+            val provider = PaymentProvider.STRIPE
 
-        val customerId = billingService.getOrCreateCustomer(userId, provider)
-        val clientSecret = billingService.createSetupIntent(customerId)
+            val customerId = billingService.getOrCreateCustomer(userId, provider)
+            val clientSecret = billingService.createSetupIntent(customerId)
 
-        call.respond(
-            AppResult.Success(
-                SetupIntentResponse(
-                    customerId = customerId,
-                    clientSecret = clientSecret,
-                    publishableKey = billingService.getPublishableKey()
+            call.respond(
+                AppResult.Success(
+                    SetupIntentResponse(
+                        customerId = customerId,
+                        clientSecret = clientSecret,
+                        publishableKey = billingService.getPublishableKey()
+                    )
                 )
             )
-        )
+            logger.appSuccess(
+                event = "payment.setup_intent.created",
+                context = context,
+                message = "Setup intent created",
+                userId = userId,
+                statusCode = HttpStatusCode.OK.value,
+                extra = mapOf("provider" to provider.name)
+            )
+        } catch (e: Exception) {
+            logger.appFailure(
+                event = "payment.setup_intent.create_failed",
+                context = context,
+                message = "Setup intent creation failed",
+                reason = "unexpected_error",
+                statusCode = HttpStatusCode.InternalServerError.value,
+                throwable = e
+            )
+            call.respond(
+                locale.createError(
+                    titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                    descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                    status = HttpStatusCode.InternalServerError
+                )
+            )
+        }
     }
 
     suspend fun listMethods(call: ApplicationCall) {
@@ -114,16 +171,40 @@ class PaymentController(
     }
 
     suspend fun detachMethod(call: ApplicationCall) {
+        val context = call.requestContext()
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val paymentMethodId = call.parameters["paymentMethodId"]
-            ?: return call.respond(
-                HttpStatusCode.BadRequest,
-                AppResult.Success(false)
-            )
+            ?: run {
+                logger.appRejected(
+                    event = "payment.method.detach_failed",
+                    context = context,
+                    message = "Payment method detach rejected because the payment method id is missing",
+                    reason = "missing_payment_method_id",
+                    userId = userId,
+                    statusCode = HttpStatusCode.BadRequest.value
+                )
+                return call.respond(HttpStatusCode.BadRequest, AppResult.Success(false))
+            }
 
         val ok = billingService.detachPaymentMethod(paymentMethodId)
         if (ok) {
+            logger.appSuccess(
+                event = "payment.method.detached",
+                context = context,
+                message = "Payment method detached",
+                userId = userId,
+                statusCode = HttpStatusCode.NoContent.value
+            )
             call.respond(HttpStatusCode.NoContent)
         } else {
+            logger.appFailure(
+                event = "payment.method.detach_failed",
+                context = context,
+                message = "Payment method detach failed",
+                reason = "detach_failed",
+                userId = userId,
+                statusCode = HttpStatusCode.InternalServerError.value
+            )
             call.respond(HttpStatusCode.InternalServerError, AppResult.Success(false))
         }
     }
@@ -150,8 +231,17 @@ class PaymentController(
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val matchId = call.parameters["matchId"]
         val locale = call.retrieveLocale()
+        val context = call.requestContext()
 
         if (matchId.isNullOrBlank()) {
+            logger.appRejected(
+                event = "payment.status.recover_failed",
+                context = context,
+                message = "Payment status recovery rejected because the match id is missing",
+                reason = "missing_match_id",
+                userId = userId,
+                statusCode = HttpStatusCode.BadRequest.value
+            )
             val error = locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
@@ -168,8 +258,16 @@ class PaymentController(
     suspend fun validatePayment(call: ApplicationCall) {
         val providerPaymentId = call.parameters["providerPaymentId"]
         val locale = call.retrieveLocale()
+        val context = call.requestContext()
 
         if (providerPaymentId.isNullOrBlank()) {
+            logger.appRejected(
+                event = "payment.status.validate_failed",
+                context = context,
+                message = "Payment validation rejected because the provider payment id is missing",
+                reason = "missing_provider_payment_id",
+                statusCode = HttpStatusCode.BadRequest.value
+            )
             val error = locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
@@ -187,8 +285,17 @@ class PaymentController(
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val matchId = call.parameters["matchId"]
         val locale = call.retrieveLocale()
+        val context = call.requestContext()
 
         if (matchId.isNullOrBlank()) {
+            logger.appRejected(
+                event = "payment.status.poll_failed",
+                context = context,
+                message = "Payment status poll rejected because the match id is missing",
+                reason = "missing_match_id",
+                userId = userId,
+                statusCode = HttpStatusCode.BadRequest.value
+            )
             val error = locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,

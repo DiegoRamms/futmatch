@@ -7,6 +7,7 @@ import com.devapplab.model.match.mapper.toMatch
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.request.JoinMatchRequest
 import com.devapplab.model.match.request.UpdateMatchRequest
+import com.devapplab.observability.requestContext
 import com.devapplab.utils.respond
 import com.devapplab.utils.retrieveLocale
 import com.devapplab.utils.toUUIDOrNull
@@ -23,7 +24,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<CreateMatchRequest>()
         val locale = call.retrieveLocale()
-        val result = matchService.create(request.toMatch(adminId), locale)
+        val result = matchService.create(request.toMatch(adminId), locale, call.requestContext())
         call.respond(result)
     }
 
@@ -74,7 +75,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val matchId = UUID.fromString(call.parameters["matchId"])
         val locale = call.retrieveLocale()
 
-        val result = matchService.getMatchDetail(locale, matchId)
+        val result = matchService.getMatchDetail(locale, matchId, call.requestContext())
         call.respond(result)
     }
 
@@ -115,7 +116,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
     suspend fun cancelMatch(call: ApplicationCall) {
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't cancel match")
         val locale = call.retrieveLocale()
-        val result = matchService.cancelMatch(matchId, locale)
+        val result = matchService.cancelMatch(matchId, locale, call.requestContext())
         call.respond(result)
     }
 
@@ -124,7 +125,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdateMatchRequest>()
         val locale = call.retrieveLocale()
-        val result = matchService.updateMatch(matchId, request.toMatch(adminId, matchId), locale)
+        val result = matchService.updateMatch(matchId, request.toMatch(adminId, matchId), locale, call.requestContext())
         call.respond(result)
     }
 
@@ -134,7 +135,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<JoinMatchRequest>()
         val locale = call.retrieveLocale()
-        val result = matchService.joinMatch(userId, matchId, request.team, request.paymentProvider, locale)
+        val result = matchService.joinMatch(userId, matchId, request.team, request.paymentProvider, locale, call.requestContext())
         call.respond(result)
     }
 
@@ -142,7 +143,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't leave match")
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val locale = call.retrieveLocale()
-        val result = matchService.leaveMatch(userId, matchId, locale)
+        val result = matchService.leaveMatch(userId, matchId, locale, call.requestContext())
         call.respond(result)
     }
 

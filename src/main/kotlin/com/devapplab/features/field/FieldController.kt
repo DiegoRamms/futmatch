@@ -6,6 +6,7 @@ import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.field.mapper.toField
 import com.devapplab.model.field.request.CreateFieldRequest
 import com.devapplab.model.field.request.UpdateFieldRequest
+import com.devapplab.observability.requestContext
 import com.devapplab.utils.respond
 import com.devapplab.utils.respondRedirect
 import com.devapplab.utils.retrieveLocale
@@ -19,7 +20,7 @@ class FieldController(
     suspend fun createField(call: ApplicationCall) {
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<CreateFieldRequest>()
-        val appResult = fieldService.createField(request.toField(adminId))
+        val appResult = fieldService.createField(request.toField(adminId), call.requestContext())
         call.respond(appResult = appResult)
     }
 
@@ -30,7 +31,7 @@ class FieldController(
         val position = (call.parameters["position"])?.toInt() ?: 0
         fieldService.ensureAdminAssignedToField(adminId, fieldId)
         val multipart = call.receiveMultipart()
-        val appResult = fieldService.saveFieldImage(locale, fieldId, position, multipart)
+        val appResult = fieldService.saveFieldImage(locale, fieldId, position, multipart, call.requestContext(), adminId)
         call.respond(appResult)
     }
 
@@ -41,7 +42,7 @@ class FieldController(
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         fieldService.ensureAdminAssignedToField(adminId, fieldId)
         val multipart = call.receiveMultipart()
-        val appResult = fieldService.updateFieldImage(locale, imageId, multipart)
+        val appResult = fieldService.updateFieldImage(locale, imageId, multipart, call.requestContext(), adminId)
         call.respond(appResult)
     }
 
@@ -51,14 +52,14 @@ class FieldController(
         val fieldId = UUID.fromString(call.parameters["fieldId"])
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         fieldService.ensureAdminAssignedToField(adminId, fieldId)
-        val appResult = fieldService.deleteFieldImage(locale, imageId)
+        val appResult = fieldService.deleteFieldImage(locale, imageId, call.requestContext(), adminId)
         call.respond(appResult)
     }
 
     suspend fun getImage(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
         val imageName = call.parameters["imageName"]
-        val appResult: AppResult<String> = fieldService.getImage(locale, imageName)
+        val appResult: AppResult<String> = fieldService.getImage(locale, imageName, call.requestContext())
         call.respondRedirect(appResult)
     }
 
@@ -67,7 +68,7 @@ class FieldController(
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdateFieldRequest>()
         fieldService.ensureAdminAssignedToField(adminId, request.fieldId)
-        val updatedId = fieldService.updateField(locale, request.toField(adminId))
+        val updatedId = fieldService.updateField(locale, request.toField(adminId), call.requestContext(), adminId)
         call.respond(updatedId)
     }
 
@@ -78,7 +79,7 @@ class FieldController(
         val locationId = UUID.fromString(call.parameters["locationId"])
         
         fieldService.ensureAdminAssignedToField(adminId, fieldId)
-        val result = fieldService.linkLocationToField(locale, fieldId, locationId)
+        val result = fieldService.linkLocationToField(locale, fieldId, locationId, call.requestContext(), adminId)
         call.respond(result)
     }
 
@@ -87,7 +88,7 @@ class FieldController(
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val fieldId = UUID.fromString(call.parameters["fieldId"])
         fieldService.ensureAdminAssignedToField(adminId, fieldId)
-        val deleted = fieldService.deleteField(locale, fieldId)
+        val deleted = fieldService.deleteField(locale, fieldId, call.requestContext(), adminId)
         call.respond(deleted)
     }
 

@@ -37,13 +37,13 @@ class UserController(private val service: UserService) {
     }
 
     suspend fun getOrganizers(call: ApplicationCall) {
-        val result = service.getOrganizers(call.requestContext())
+        val result = service.getOrganizers()
         call.respond(result)
     }
 
     suspend fun getPaymentHistory(call: ApplicationCall) {
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val result = service.getPaymentHistory(userId, context = call.requestContext())
+        val result = service.getPaymentHistory(userId)
         call.respond(result)
     }
 

@@ -11,11 +11,31 @@ enum class AppLogSeverity {
     ERROR
 }
 
+private fun defaultLogMessage(event: String, reason: String?): String {
+    val eventMessage = event
+        .replace('.', ' ')
+        .replace('_', ' ')
+        .trim()
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
+    val reasonMessage = reason
+        ?.replace('_', ' ')
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+
+    return if (reasonMessage != null) {
+        "$eventMessage: $reasonMessage"
+    } else {
+        eventMessage
+    }
+}
+
 fun Logger.appEvent(
     severity: AppLogSeverity,
     event: String,
     context: AppRequestContext,
     outcome: String,
+    message: String? = null,
     reason: String? = null,
     userId: UUID? = null,
     deviceId: UUID? = null,
@@ -24,6 +44,8 @@ fun Logger.appEvent(
     extra: Map<String, Any?> = emptyMap(),
     throwable: Throwable? = null
 ) {
+    val resolvedMessage = message ?: defaultLogMessage(event, reason)
+
     val payload = buildJsonObject {
         put("event", JsonPrimitive(event))
         put("severity", JsonPrimitive(severity.name))
@@ -31,6 +53,7 @@ fun Logger.appEvent(
         put("method", JsonPrimitive(context.method))
         put("path", JsonPrimitive(context.path))
         put("outcome", JsonPrimitive(outcome))
+        put("message", JsonPrimitive(resolvedMessage))
         reason?.let { put("reason", JsonPrimitive(it)) }
         userId?.let { put("userId", JsonPrimitive(it.toString())) }
         deviceId?.let { put("deviceId", JsonPrimitive(it.toString())) }
@@ -66,38 +89,42 @@ fun Logger.appEvent(
 fun Logger.appSuccess(
     event: String,
     context: AppRequestContext,
+    message: String? = null,
     userId: UUID? = null,
     deviceId: UUID? = null,
     statusCode: Int? = null,
     durationMs: Long? = null,
     extra: Map<String, Any?> = emptyMap()
-) = appEvent(AppLogSeverity.INFO, event, context, "success", userId = userId, deviceId = deviceId, statusCode = statusCode, durationMs = durationMs, extra = extra)
+) = appEvent(AppLogSeverity.INFO, event, context, "success", message = message, userId = userId, deviceId = deviceId, statusCode = statusCode, durationMs = durationMs, extra = extra)
 
 fun Logger.appRejected(
     event: String,
     context: AppRequestContext,
+    message: String? = null,
     reason: String,
     userId: UUID? = null,
     deviceId: UUID? = null,
     statusCode: Int? = null,
     durationMs: Long? = null,
     extra: Map<String, Any?> = emptyMap()
-) = appEvent(AppLogSeverity.WARN, event, context, "rejected", reason = reason, userId = userId, deviceId = deviceId, statusCode = statusCode, durationMs = durationMs, extra = extra)
+) = appEvent(AppLogSeverity.WARN, event, context, "rejected", message = message, reason = reason, userId = userId, deviceId = deviceId, statusCode = statusCode, durationMs = durationMs, extra = extra)
 
 fun Logger.appBlocked(
     event: String,
     context: AppRequestContext,
+    message: String? = null,
     reason: String,
     userId: UUID? = null,
     deviceId: UUID? = null,
     statusCode: Int? = null,
     durationMs: Long? = null,
     extra: Map<String, Any?> = emptyMap()
-) = appEvent(AppLogSeverity.WARN, event, context, "blocked", reason = reason, userId = userId, deviceId = deviceId, statusCode = statusCode, durationMs = durationMs, extra = extra)
+) = appEvent(AppLogSeverity.WARN, event, context, "blocked", message = message, reason = reason, userId = userId, deviceId = deviceId, statusCode = statusCode, durationMs = durationMs, extra = extra)
 
 fun Logger.appFailure(
     event: String,
     context: AppRequestContext,
+    message: String? = null,
     reason: String,
     userId: UUID? = null,
     deviceId: UUID? = null,
@@ -105,12 +132,13 @@ fun Logger.appFailure(
     durationMs: Long? = null,
     extra: Map<String, Any?> = emptyMap(),
     throwable: Throwable? = null
-) = appEvent(AppLogSeverity.ERROR, event, context, "failed", reason = reason, userId = userId, deviceId = deviceId, statusCode = statusCode, durationMs = durationMs, extra = extra, throwable = throwable)
+) = appEvent(AppLogSeverity.ERROR, event, context, "failed", message = message, reason = reason, userId = userId, deviceId = deviceId, statusCode = statusCode, durationMs = durationMs, extra = extra, throwable = throwable)
 
 fun Logger.appRotated(
     event: String,
     context: AppRequestContext,
+    message: String? = null,
     userId: UUID? = null,
     deviceId: UUID? = null,
     extra: Map<String, Any?> = emptyMap()
-) = appEvent(AppLogSeverity.INFO, event, context, "rotated", userId = userId, deviceId = deviceId, extra = extra)
+) = appEvent(AppLogSeverity.INFO, event, context, "rotated", message = message, userId = userId, deviceId = deviceId, extra = extra)

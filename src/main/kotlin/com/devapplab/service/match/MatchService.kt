@@ -21,6 +21,9 @@ import com.devapplab.model.match.mapper.toResponse
 import com.devapplab.model.match.response.*
 import com.devapplab.model.notification.NotificationType
 import com.devapplab.model.payment.*
+import com.devapplab.observability.AppRequestContext
+import com.devapplab.observability.appRejected
+import com.devapplab.observability.appSuccess
 import com.devapplab.service.billing.BillingService
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
 import com.devapplab.service.image.ImageService
@@ -75,8 +78,16 @@ class MatchService(
         val RESERVATION_TTL = 5.minutes
     }
 
-    suspend fun create(match: Match, locale: Locale): AppResult<MatchResponse> {
+    suspend fun create(match: Match, locale: Locale, context: AppRequestContext): AppResult<MatchResponse> {
         if (isMatchOverlapping(match)) {
+            logger.appRejected(
+                event = "match.create_failed",
+                context = context,
+                reason = "match_overlap",
+                userId = match.adminId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("fieldId" to match.fieldId)
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_OVERLAP_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_OVERLAP_DESCRIPTION,
@@ -109,6 +120,13 @@ class MatchService(
             genderType = matchCreated.genderType,
             playerLevel = matchCreated.playerLevel
         )
+        logger.appSuccess(
+            event = "match.created",
+            context = context,
+            userId = match.adminId,
+            statusCode = HttpStatusCode.OK.value,
+            extra = mapOf("matchId" to matchCreated.id, "fieldId" to matchCreated.fieldId)
+        )
         return AppResult.Success(response)
     }
 
@@ -126,7 +144,6 @@ class MatchService(
     }
 
     suspend fun getMatchesByFieldId(fieldId: UUID): AppResult<List<MatchWithFieldResponse>> {
-        logger.info("📋 [MATCH_TRACE] getMatchesByFieldId START | fieldId=$fieldId")
         val matches = matchRepository.getMatchesByFieldId(fieldId).map { match ->
             val response = match.toResponse()
 
@@ -137,12 +154,10 @@ class MatchService(
 
             response.copy(fieldImages = resolvedImages)
         }
-        logger.info("🏁 [MATCH_TRACE] getMatchesByFieldId END | Found ${matches.size} matches")
         return AppResult.Success(matches)
     }
 
     suspend fun getAllMatches(): AppResult<List<MatchWithFieldResponse>> {
-        logger.info("📋 [MATCH_TRACE] getAllMatches START")
         val matches = matchRepository.getAllMatches().map { match ->
             val response = match.toResponse()
 
@@ -153,7 +168,6 @@ class MatchService(
 
             response.copy(fieldImages = resolvedImages)
         }
-        logger.info("🏁 [MATCH_TRACE] getAllMatches END | Found ${matches.size} matches")
         return AppResult.Success(matches)
     }
 
@@ -161,7 +175,8 @@ class MatchService(
         val snapshot = publicMatchesCacheService.getOrBuild(DEFAULT_PUBLIC_REGION) {
             buildPublicMatchesPayload()
         }
-        return AppResult.Success(sortPublicMatches(snapshot.matches, userLat, userLon))
+        val matches = sortPublicMatches(snapshot.matches, userLat, userLon)
+        return AppResult.Success(matches)
     }
 
     suspend fun getPlayerMatchesV2(
@@ -187,18 +202,18 @@ class MatchService(
             )
         }
 
+        val matches = sortPublicMatches(snapshot.matches, userLat, userLon)
         return AppResult.Success(
             PublicMatchesV2Response(
                 region = region,
                 currentVersion = snapshot.version,
                 hasChanges = true,
-                matches = sortPublicMatches(snapshot.matches, userLat, userLon)
+                matches = matches
             )
         )
     }
 
     suspend fun getUserMatches(userId: UUID, userLat: Double?, userLon: Double?): AppResult<List<MatchSummaryResponse>> {
-        logger.info("📋 [MATCH_TRACE] getUserMatches START | userId=$userId")
         val matchesWithField = matchRepository.getUserMatches(userId)
 
         val responseWithDistance = matchesWithField.map { match ->
@@ -231,19 +246,26 @@ class MatchService(
                 .thenBy { it.second ?: Double.MAX_VALUE }
         ).map { it.first }
 
-        logger.info("🏁 [MATCH_TRACE] getUserMatches END | Found ${matchesWithField.size} matches")
         return AppResult.Success(finalSortedResponse)
     }
 
-    suspend fun getMatchDetail(locale: Locale, matchId: UUID): AppResult<MatchDetailResponse> {
-        logger.info("👀 [MATCH_TRACE] getMatchDetail START | matchId=$matchId")
+    suspend fun getMatchDetail(locale: Locale, matchId: UUID, context: AppRequestContext): AppResult<MatchDetailResponse> {
         val match = matchRepository.getMatchById(matchId)
-            ?: return locale.createError(
+            ?: run {
+                logger.appRejected(
+                    event = "match.detail.load_failed",
+                    context = context,
+                    reason = "match_not_found",
+                    statusCode = HttpStatusCode.NotFound.value,
+                    extra = mapOf("matchId" to matchId)
+                )
+                return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,
                 descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
                 status = HttpStatusCode.NotFound,
                 errorCode = ErrorCode.NOT_FOUND
             )
+            }
 
         val matchDetailResponse = match.toMatchDetailResponse()
 
@@ -254,7 +276,6 @@ class MatchService(
 
         val responseWithImages = matchDetailResponse.copy(fieldImages = resolvedImages)
 
-        logger.info("🏁 [MATCH_TRACE] getMatchDetail END | matchId=$matchId")
         return AppResult.Success(responseWithImages)
     }
 
@@ -283,16 +304,25 @@ class MatchService(
         }
     }
 
-    suspend fun cancelMatch(matchUuid: UUID, locale: Locale): AppResult<MatchCancelResult> {
+    suspend fun cancelMatch(matchUuid: UUID, locale: Locale, context: AppRequestContext): AppResult<MatchCancelResult> {
         logger.info("🚫 [MATCH_TRACE] cancelMatch START | matchId=$matchUuid")
 
         val match = matchRepository.getMatchById(matchUuid)
-            ?: return locale.createError(
+            ?: run {
+                logger.appRejected(
+                    event = "match.cancel_failed",
+                    context = context,
+                    reason = "match_not_found",
+                    statusCode = HttpStatusCode.NotFound.value,
+                    extra = mapOf("matchId" to matchUuid)
+                )
+                return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,
                 descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
                 status = HttpStatusCode.NotFound,
                 errorCode = ErrorCode.NOT_FOUND
             )
+            }
 
         val fieldName = match.fieldName
 
@@ -449,13 +479,34 @@ class MatchService(
             refundFailures = refundFailures
         )
 
-        logger.info("🏁 [MATCH_TRACE] cancelMatch END | matchId=$matchUuid | result=$result")
+        logger.appSuccess(
+            event = "match.canceled",
+            context = context,
+            statusCode = HttpStatusCode.OK.value,
+            extra = mapOf(
+                "matchId" to matchUuid,
+                "canceled" to canceled,
+                "totalPlayers" to playersWithPayments.size,
+                "playersRemoved" to playersRemoved,
+                "paymentsCancelled" to paymentsCancelled,
+                "refundsIssued" to refundsIssued,
+                "refundFailuresCount" to refundFailures.size
+            )
+        )
 
         return AppResult.Success(result)
     }
 
-    suspend fun updateMatch(matchId: UUID, match: Match, locale: Locale): AppResult<MatchResponse> {
+    suspend fun updateMatch(matchId: UUID, match: Match, locale: Locale, context: AppRequestContext): AppResult<MatchResponse> {
         if (match.status == MatchStatus.COMPLETED) {
+            logger.appRejected(
+                event = "match.update_failed",
+                context = context,
+                reason = "complete_endpoint_required",
+                userId = match.adminId,
+                statusCode = HttpStatusCode.BadRequest.value,
+                extra = mapOf("matchId" to matchId)
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_COMPLETE_ENDPOINT_REQUIRED_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_COMPLETE_ENDPOINT_REQUIRED_DESCRIPTION,
@@ -486,6 +537,13 @@ class MatchService(
 
         notifyMatchUpdate(matchId, sendRegionalPush = true)
 
+        logger.appSuccess(
+            event = "match.updated",
+            context = context,
+            userId = match.adminId,
+            statusCode = HttpStatusCode.OK.value,
+            extra = mapOf("matchId" to matchId, "fieldId" to updatedMatch.fieldId)
+        )
         return AppResult.Success(response)
     }
 
@@ -494,13 +552,22 @@ class MatchService(
         matchId: UUID,
         team: TeamType?,
         paymentProvider: PaymentProvider,
-        locale: Locale
+        locale: Locale,
+        context: AppRequestContext
     ): AppResult<JoinMatchResponse> {
         logger.info("🟢 [MATCH_TRACE] joinMatch START | userId=$userId | matchId=$matchId | team=$team | provider=$paymentProvider")
 
         // 0. Check for active reservation
         if (matchRepository.hasActiveReservation(userId)) {
             logger.warn("⚠️ [MATCH_TRACE] joinMatch | User has pending reservation | userId=$userId")
+            logger.appRejected(
+                event = "match.join_failed",
+                context = context,
+                reason = "pending_reservation",
+                userId = userId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("matchId" to matchId)
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_PENDING_RESERVATION_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_PENDING_RESERVATION_DESCRIPTION,
@@ -510,15 +577,33 @@ class MatchService(
         }
 
         val match = matchRepository.getMatchById(matchId)
-            ?: return locale.createError(
+            ?: run {
+                logger.appRejected(
+                    event = "match.join_failed",
+                    context = context,
+                    reason = "match_not_found",
+                    userId = userId,
+                    statusCode = HttpStatusCode.NotFound.value,
+                    extra = mapOf("matchId" to matchId)
+                )
+                return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,
                 descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
                 status = HttpStatusCode.NotFound,
                 errorCode = ErrorCode.NOT_FOUND
             )
+            }
 
         if (match.status != MatchStatus.SCHEDULED) {
             logger.warn("⚠️ [MATCH_TRACE] joinMatch | Match not scheduled | status=${match.status}")
+            logger.appRejected(
+                event = "match.join_failed",
+                context = context,
+                reason = "match_not_scheduled",
+                userId = userId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("matchId" to matchId, "status" to match.status.name)
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_NOT_SCHEDULED_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_NOT_SCHEDULED_DESCRIPTION,
@@ -539,6 +624,14 @@ class MatchService(
                 timeUntilMatch,
                 matchPaymentConfig.maxJoinPaymentWindowHours
             )
+            logger.appRejected(
+                event = "match.join_failed",
+                context = context,
+                reason = "join_too_early",
+                userId = userId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("matchId" to matchId, "maxWindowHours" to matchPaymentConfig.maxJoinPaymentWindowHours)
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_JOIN_TOO_EARLY_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_JOIN_TOO_EARLY_DESCRIPTION,
@@ -550,6 +643,14 @@ class MatchService(
 
         if (matchRepository.isUserInMatch(matchId, userId)) {
             logger.warn("⚠️ [MATCH_TRACE] joinMatch | User already in match")
+            logger.appRejected(
+                event = "match.join_failed",
+                context = context,
+                reason = "already_joined",
+                userId = userId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("matchId" to matchId)
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_ALREADY_JOINED_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_ALREADY_JOINED_DESCRIPTION,
@@ -563,6 +664,14 @@ class MatchService(
 
         if (activePlayers.size >= match.maxPlayers) {
             logger.warn("⚠️ [MATCH_TRACE] joinMatch | Match full")
+            logger.appRejected(
+                event = "match.join_failed",
+                context = context,
+                reason = "match_full",
+                userId = userId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("matchId" to matchId)
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_FULL_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_FULL_DESCRIPTION,
@@ -577,6 +686,14 @@ class MatchService(
 
             if (currentTeamCount >= maxPerTeam) {
                 logger.warn("⚠️ [MATCH_TRACE] joinMatch | Team full")
+                logger.appRejected(
+                    event = "match.join_failed",
+                    context = context,
+                    reason = "team_full",
+                    userId = userId,
+                    statusCode = HttpStatusCode.Conflict.value,
+                    extra = mapOf("matchId" to matchId, "team" to team.name)
+                )
                 return locale.createError(
                     titleKey = StringResourcesKey.MATCH_TEAM_FULL_TITLE,
                     descriptionKey = StringResourcesKey.MATCH_TEAM_FULL_DESCRIPTION,
@@ -646,6 +763,13 @@ class MatchService(
                     // No need to notify again here, we did it before payment creation.
                     // If payment succeeds, webhook will handle status update to JOINED/PAID.
 
+                    logger.appSuccess(
+                        event = "match.join_reserved",
+                        context = context,
+                        userId = userId,
+                        statusCode = HttpStatusCode.OK.value,
+                        extra = mapOf("matchId" to matchId, "team" to teamToJoin.name, "provider" to paymentProvider.name)
+                    )
                     logger.info("🏁 [MATCH_TRACE] joinMatch END | Success | userId=$userId | matchId=$matchId")
                     AppResult.Success(
                         JoinMatchResponse(
@@ -698,18 +822,36 @@ class MatchService(
         }
     }
 
-    suspend fun leaveMatch(userId: UUID, matchId: UUID, locale: Locale): AppResult<Boolean> {
+    suspend fun leaveMatch(userId: UUID, matchId: UUID, locale: Locale, context: AppRequestContext): AppResult<Boolean> {
         logger.info("🔴 [MATCH_TRACE] leaveMatch START | userId=$userId | matchId=$matchId")
         val match = matchRepository.getMatchById(matchId)
-            ?: return locale.createError(
+            ?: run {
+                logger.appRejected(
+                    event = "match.leave_failed",
+                    context = context,
+                    reason = "match_not_found",
+                    userId = userId,
+                    statusCode = HttpStatusCode.NotFound.value,
+                    extra = mapOf("matchId" to matchId)
+                )
+                return locale.createError(
                 titleKey = StringResourcesKey.NOT_FOUND_TITLE,
                 descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
                 status = HttpStatusCode.NotFound,
                 errorCode = ErrorCode.NOT_FOUND
             )
+            }
 
         if (!matchRepository.isUserInMatch(matchId, userId)) {
             logger.warn("⚠️ [MATCH_TRACE] leaveMatch | User not in match")
+            logger.appRejected(
+                event = "match.leave_failed",
+                context = context,
+                reason = "not_joined",
+                userId = userId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("matchId" to matchId)
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_NOT_JOINED_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_NOT_JOINED_DESCRIPTION,
@@ -719,6 +861,14 @@ class MatchService(
         }
 
         if (match.status != MatchStatus.SCHEDULED) {
+            logger.appRejected(
+                event = "match.leave_failed",
+                context = context,
+                reason = "match_not_scheduled",
+                userId = userId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("matchId" to matchId, "status" to match.status.name)
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.MATCH_NOT_SCHEDULED_TITLE,
                 descriptionKey = StringResourcesKey.MATCH_NOT_SCHEDULED_DESCRIPTION,
@@ -741,6 +891,13 @@ class MatchService(
             logger.info("🗑️ [MATCH_TRACE] leaveMatch | Removed player from DB | userId=$userId | matchId=$matchId")
             notifyMatchUpdate(matchId)
 
+            logger.appSuccess(
+                event = "match.left",
+                context = context,
+                userId = userId,
+                statusCode = HttpStatusCode.OK.value,
+                extra = mapOf("matchId" to matchId)
+            )
             logger.info("🏁 [MATCH_TRACE] leaveMatch END | Success | userId=$userId | matchId=$matchId")
             return AppResult.Success(true)
         } else {

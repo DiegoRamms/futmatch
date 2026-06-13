@@ -70,12 +70,6 @@ class UserService(
             imageService.getImageUrl(publicId)
         }.orEmpty()
 
-        logger.appSuccess(
-            event = "user.profile.loaded",
-            context = context,
-            userId = userId,
-            statusCode = HttpStatusCode.OK.value
-        )
         return AppResult.Success(userBaseInfo.toUserResponse(profilePicUrl))
     }
 
@@ -156,44 +150,23 @@ class UserService(
         )
     }
 
-    suspend fun getOrganizers(context: AppRequestContext): AppResult<List<OrganizerListItem>> {
+    suspend fun getOrganizers(): AppResult<List<OrganizerListItem>> {
         val organizers = dbExecutor.tx { userRepository.getOrganizers() }
-        logger.appSuccess(
-            event = "admin.organizers.listed",
-            context = context,
-            statusCode = HttpStatusCode.OK.value,
-            extra = mapOf("count" to organizers.size)
-        )
         return AppResult.Success(data = organizers, appStatus = HttpStatusCode.OK)
     }
 
     suspend fun getPaymentHistory(
         userId: UUID,
-        provider: com.devapplab.model.payment.PaymentProvider = com.devapplab.model.payment.PaymentProvider.STRIPE,
-        context: AppRequestContext
+        provider: com.devapplab.model.payment.PaymentProvider = com.devapplab.model.payment.PaymentProvider.STRIPE
     ): AppResult<List<PaymentHistoryItem>> {
         val stripeCustomerId = userRepository.getPaymentProfile(userId, provider)
         if (stripeCustomerId.isNullOrBlank()) {
-            logger.appSuccess(
-                event = "payment.history.loaded",
-                context = context,
-                userId = userId,
-                statusCode = HttpStatusCode.OK.value,
-                extra = mapOf("count" to 0, "provider" to provider.name)
-            )
             return AppResult.Success(emptyList())
         }
 
         val paymentService = paymentServiceFactory.getService(provider)
         val history = paymentService.getPaymentHistory(stripeCustomerId, daysBack = 30)
 
-        logger.appSuccess(
-            event = "payment.history.loaded",
-            context = context,
-            userId = userId,
-            statusCode = HttpStatusCode.OK.value,
-            extra = mapOf("count" to history.size, "provider" to provider.name)
-        )
         return AppResult.Success(data = history, appStatus = HttpStatusCode.OK)
     }
 
@@ -392,16 +365,6 @@ class UserService(
             )
         }
 
-        logger.appSuccess(
-            event = "user.home.loaded",
-            context = context,
-            userId = userId,
-            statusCode = HttpStatusCode.OK.value,
-            extra = mapOf(
-                "suggestedMatchesCount" to suggestedResponse.size,
-                "hasLastMatch" to (lastMatchResponse != null)
-            )
-        )
         return AppResult.Success(
             data = UserHomeResponse(
                 profile = HomeProfileSection(
