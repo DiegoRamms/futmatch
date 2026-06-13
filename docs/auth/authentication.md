@@ -223,6 +223,8 @@ Returned if the device is unknown, not trusted, or the user's email is not yet v
 {
     "status": "success",
     "data": {
+        "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "deviceId": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
         "challengeToken": "eyJhbGciOiJub25lIn0.login-mfa-challenge",
         "authCode": "SUCCESS_NEED_MFA"
     }
@@ -231,8 +233,9 @@ Returned if the device is unknown, not trusted, or the user's email is not yet v
 
 Mobile migration summary:
 
-- old client flow: store `userId` and `deviceId` and forward them to `mfa/send` and `mfa/verify`
-- new client flow: store only `challengeToken`
+- temporary response during migration: `challengeToken` plus `userId` and `deviceId`
+- old client flow: use `userId` and `deviceId` and forward them to `mfa/send` and `mfa/verify`
+- new client flow: use only `challengeToken`
 - recommended client state: `pendingMfaChallengeToken`
 
 ### 2.2 Send MFA Code

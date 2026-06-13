@@ -190,6 +190,8 @@ class SignInService(
 
                     return AppResult.Success(
                         AuthResponse(
+                            userId = user.userId,
+                            deviceId = deviceDecision.deviceId,
                             challengeToken = challengeToken,
                             authCode = AuthCode.SUCCESS_NEED_MFA
                         )

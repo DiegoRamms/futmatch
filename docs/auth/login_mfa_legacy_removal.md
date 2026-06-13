@@ -14,6 +14,7 @@ Remove temporary backward compatibility for the legacy login MFA payload and lea
 
 Final contract:
 
+- `POST /auth/signIn` MFA response -> `challengeToken` only
 - `POST /auth/mfa/send` -> `challengeToken`
 - `POST /auth/mfa/verify` -> `challengeToken + code`
 
@@ -85,6 +86,23 @@ Remove:
 
 Keep only the final challenge-based contract.
 
+### 5. Legacy MFA response fields in signIn
+
+Review and simplify:
+
+- [`SignInService.kt`](/Users/diego/ServerKtorProjects/futmatch/src/main/kotlin/com/devapplab/service/auth/SignInService.kt)
+- [`AuthResponse.kt`](/Users/diego/ServerKtorProjects/futmatch/src/main/kotlin/com/devapplab/model/auth/response/AuthResponse.kt)
+
+After all clients migrate, remove the temporary MFA response compatibility fields from `SUCCESS_NEED_MFA`:
+
+- `userId`
+- `deviceId`
+
+Keep only:
+
+- `challengeToken`
+- `authCode`
+
 ## Logs To Stop Expecting
 
 After removal, these deprecated warnings should disappear:
@@ -104,7 +122,7 @@ If they still appear in logs, client migration is incomplete.
 6. Remove deprecated notes from documentation
 7. Run auth tests
 8. Validate manually:
-   - `signIn` returns `challengeToken`
+   - `signIn` MFA response returns `challengeToken` only
    - `mfa/send` only accepts `challengeToken`
    - `mfa/verify` only accepts `challengeToken + code`
 
