@@ -4,6 +4,7 @@ import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
+import com.devapplab.data.repository.mfa.LoginMfaChallengeRepository
 import com.devapplab.data.repository.mfa.LoginMfaVerifyAttemptRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
@@ -17,6 +18,7 @@ import com.devapplab.model.mfa.*
 import com.devapplab.model.mfa.response.MfaSendCodeResponse
 import com.devapplab.model.user.UserStatus
 import com.devapplab.service.auth.mfa.MfaCodeService
+import com.devapplab.service.auth.mfa.LoginMfaChallengeTokenService
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
 import com.devapplab.service.auth.state.SignInDeviceDecision
 import com.devapplab.service.auth.state.SignInPreCheck
@@ -32,6 +34,12 @@ import java.util.*
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
+private data class LoginMfaContext(
+    val userId: UUID,
+    val deviceId: UUID,
+    val challengeTokenHash: String? = null
+)
+
 class SignInService(
     private val dbExecutor: DbExecutor,
     private val userRepository: UserRepository,
@@ -41,7 +49,9 @@ class SignInService(
     private val emailService: EmailService,
     private val authRepository: AuthRepository,
     private val loginAttemptRepository: LoginAttemptRepository,
+    private val loginMfaChallengeRepository: LoginMfaChallengeRepository,
     private val loginMfaVerifyAttemptRepository: LoginMfaVerifyAttemptRepository,
+    private val loginMfaChallengeTokenService: LoginMfaChallengeTokenService,
     private val mfaRateLimitConfig: MfaRateLimitConfig,
     private val authenticatedResponseGenerator: AuthenticatedResponseGenerator,
 ) {
@@ -168,10 +178,19 @@ class SignInService(
                 }
 
                 if (deviceDecision.needsMfa) {
+                    val challengeToken = runCatching {
+                        createLoginMfaChallenge(user.userId, deviceDecision.deviceId)
+                    }.getOrElse { error ->
+                        logger.error("🔥 signIn - Challenge creation failed for user=${user.userId}", error)
+                        return locale.createError(
+                            StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                            StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
+                        )
+                    }
+
                     return AppResult.Success(
                         AuthResponse(
-                            userId = user.userId,
-                            deviceId = deviceDecision.deviceId,
+                            challengeToken = challengeToken,
                             authCode = AuthCode.SUCCESS_NEED_MFA
                         )
                     )
@@ -239,9 +258,15 @@ class SignInService(
         locale: Locale,
         mfaCodeRequest: MfaCodeRequest
     ): AppResult<MfaSendCodeResponse> {
+        val mfaContext = resolveLoginMfaContext(
+            challengeToken = mfaCodeRequest.challengeToken,
+            fallbackUserId = mfaCodeRequest.userId,
+            fallbackDeviceId = mfaCodeRequest.deviceId,
+            operation = "mfa/send"
+        ) ?: return locale.respondInvalidMfaCodeError()
 
-        val userId = mfaCodeRequest.userId
-        val deviceId = mfaCodeRequest.deviceId
+        val userId = mfaContext.userId
+        val deviceId = mfaContext.deviceId
 
         val user = runCatching {
             dbExecutor.tx { userRepository.getUserById(userId) }
@@ -346,9 +371,15 @@ class SignInService(
         mfaCodeVerificationRequest: MfaCodeVerificationRequest,
         jwtConfig: JWTConfig
     ): AppResult<AuthResponse> {
-
-        val (userId, deviceId, code) = mfaCodeVerificationRequest
-        val hashedInput = hashingService.hashOpaqueToken(code)
+        val mfaContext = resolveLoginMfaContext(
+            challengeToken = mfaCodeVerificationRequest.challengeToken,
+            fallbackUserId = mfaCodeVerificationRequest.userId,
+            fallbackDeviceId = mfaCodeVerificationRequest.deviceId,
+            operation = "mfa/verify"
+        ) ?: return locale.respondInvalidMfaCodeError()
+        val userId = mfaContext.userId
+        val deviceId = mfaContext.deviceId
+        val hashedInput = hashingService.hashOpaqueToken(mfaCodeVerificationRequest.code)
 
         val userRole = runCatching {
             dbExecutor.tx {
@@ -370,6 +401,7 @@ class SignInService(
 
                 authRepository.completeMfaVerification(userId, deviceId, validCode.id)
                 loginMfaVerifyAttemptRepository.delete(userId, deviceId)
+                mfaContext.challengeTokenHash?.let { loginMfaChallengeRepository.markUsed(it, now) }
 
                 user.userRole
             }
@@ -382,6 +414,64 @@ class SignInService(
         } ?: return locale.respondInvalidMfaCodeError()
 
         return authenticatedResponseGenerator.generate(locale, userId, deviceId, userRole, jwtConfig)
+    }
+
+    private suspend fun createLoginMfaChallenge(userId: UUID, deviceId: UUID): String {
+        val now = System.currentTimeMillis()
+        val tokenData = loginMfaChallengeTokenService.generateChallengeTokenData(now)
+
+        dbExecutor.tx {
+            loginMfaChallengeRepository.revokeActiveByUserAndDevice(userId, deviceId, now)
+            loginMfaChallengeRepository.create(
+                tokenHash = tokenData.hashedToken,
+                userId = userId,
+                deviceId = deviceId,
+                expiresAt = tokenData.expiresAt,
+                createdAt = now
+            ) ?: error("Failed to create login MFA challenge")
+        }
+
+        return tokenData.plainToken
+    }
+
+    private suspend fun resolveLoginMfaChallenge(challengeToken: String) =
+        dbExecutor.tx {
+            loginMfaChallengeRepository.findValidByTokenHash(
+                tokenHash = loginMfaChallengeTokenService.hashToken(challengeToken),
+                now = System.currentTimeMillis()
+            )
+        }
+
+    private suspend fun resolveLoginMfaContext(
+        challengeToken: String?,
+        fallbackUserId: UUID?,
+        fallbackDeviceId: UUID?,
+        operation: String
+    ): LoginMfaContext? {
+        if (!challengeToken.isNullOrBlank()) {
+            val challenge = resolveLoginMfaChallenge(challengeToken) ?: return null
+            return LoginMfaContext(
+                userId = challenge.userId,
+                deviceId = challenge.deviceId,
+                challengeTokenHash = challenge.tokenHash
+            )
+        }
+
+        // TODO: Remove legacy userId/deviceId MFA payload support once clients are migrated to challengeToken.
+        if (fallbackUserId != null && fallbackDeviceId != null) {
+            logger.warn(
+                "Deprecated legacy login MFA payload used on {}. Prefer challengeToken-based flow. userId={} deviceId={}",
+                operation,
+                fallbackUserId,
+                fallbackDeviceId
+            )
+            return LoginMfaContext(
+                userId = fallbackUserId,
+                deviceId = fallbackDeviceId
+            )
+        }
+
+        return null
     }
 
     private fun registerInvalidLoginMfaAttempt(userId: UUID, deviceId: UUID, now: Long): com.devapplab.model.user.UserRole? {

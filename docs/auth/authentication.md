@@ -1,6 +1,6 @@
 # Auth Endpoints Documentation
 
-This document provides a detailed description of the authentication-related endpoints, including example requests and responses.
+This document provides a detailed description of the authentication-related endpoints, including request validation rules, example requests and responses, and mobile migration notes for the MFA login challenge flow.
 
 ## Common Concepts
 
@@ -23,6 +23,16 @@ Most authentication and registration endpoints require device information for se
 
 Successful authentication responses now include a `firebaseToken`. This is a Custom Token that the client should use to authenticate with the Firebase SDK (`signInWithCustomToken`).
 
+### Client Migration Note
+
+The login MFA flow is migrating from a legacy payload based on `userId + deviceId` to a new payload based on `challengeToken`.
+
+Current backend behavior:
+
+- preferred flow: `challengeToken`
+- temporary compatibility: `userId + deviceId` is still accepted in `POST /auth/mfa/send` and `POST /auth/mfa/verify`
+- legacy support is deprecated and will be removed after client migration
+
 ---
 
 ## 1. Registration Flow
@@ -36,6 +46,22 @@ Initiates the registration process and sends a verification code to the user's e
 *   **Method:** `POST`
 *   **Path:** `/auth/register/start`
 *   **Description:** Validates user data and creates a pending registration record.
+
+#### Validation Rules
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `name` | String | Yes | Must not be blank. Max 30 chars. Valid name characters only. |
+| `lastName` | String | Yes | Must not be blank. Max 30 chars. Valid name characters only. |
+| `email` | String | Yes | Must match email format. |
+| `phone` | String | Yes | Must match phone format. |
+| `password` | String | Yes | Minimum 8 chars, uppercase, lowercase, digit, and special character. |
+| `birthDate` | Long | Yes | Must represent an adult user. |
+| `country` | String | Yes | Required. |
+| `playerPosition` | Enum | Yes | Valid enum value. |
+| `gender` | Enum | Yes | Valid enum value. |
+| `level` | Enum | Yes | Valid enum value. |
+| `userRole` | Enum | No | Valid enum value. Default `PLAYER`. |
 
 #### Example Request:
 ```json
@@ -75,6 +101,13 @@ Completes the registration using the verification code sent to the email.
 *   **Path:** `/auth/register/complete`
 *   **Description:** Verifies the code and creates the user and a trusted device record. **Requires `User-Agent` header.**
 
+#### Validation Rules
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `email` | String | Yes | Must match email format. |
+| `verificationCode` | String | Yes | Must not be blank. |
+
 #### Example Request:
 ```json
 {
@@ -109,6 +142,12 @@ Resends the verification code if it has expired or was not received.
 *   **Method:** `POST`
 *   **Path:** `/auth/register/resend-code`
 
+#### Validation Rules
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `email` | String | Yes | Must match email format. |
+
 #### Example Request:
 ```json
 {
@@ -140,6 +179,14 @@ Authenticates a user and returns JWT tokens or an MFA challenge.
 *   **Path:** `/auth/signIn`
 *   **Description:** Authenticates a user with email and password. **Requires `User-Agent` header.**
 *   **Lockout Policy:** Multiple failed attempts will temporarily lock the account.
+
+#### Validation Rules
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `email` | String | Yes | Must match email format. |
+| `password` | String | Yes | Must satisfy password complexity rules. |
+| `deviceId` | UUID | No | Optional. If present, must be a valid non-empty UUID. |
 
 #### Example Request:
 ```json
@@ -176,12 +223,17 @@ Returned if the device is unknown, not trusted, or the user's email is not yet v
 {
     "status": "success",
     "data": {
-        "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
-        "deviceId": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+        "challengeToken": "eyJhbGciOiJub25lIn0.login-mfa-challenge",
         "authCode": "SUCCESS_NEED_MFA"
     }
 }
 ```
+
+Mobile migration summary:
+
+- old client flow: store `userId` and `deviceId` and forward them to `mfa/send` and `mfa/verify`
+- new client flow: store only `challengeToken`
+- recommended client state: `pendingMfaChallengeToken`
 
 ### 2.2 Send MFA Code
 
@@ -189,8 +241,32 @@ Sends an MFA code to the user for Sign In verification.
 
 *   **Method:** `POST`
 *   **Path:** `/auth/mfa/send`
+*   **Preferred contract:** `challengeToken`
+*   **Deprecated contract:** `userId + deviceId` is still accepted temporarily for backward compatibility and will be removed after client migration.
+
+#### Validation Rules
+
+Preferred request:
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `challengeToken` | String | Yes | Must not be blank. |
+
+Temporary legacy request still accepted:
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `userId` | UUID | Yes | Valid non-empty UUID. |
+| `deviceId` | UUID | Yes | Valid non-empty UUID. |
 
 #### Example Request:
+```json
+{
+    "challengeToken": "eyJhbGciOiJub25lIn0.login-mfa-challenge"
+}
+```
+
+#### Legacy Request Example (Deprecated)
 ```json
 {
     "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
@@ -216,8 +292,35 @@ Verifies the MFA code and completes the Sign In.
 
 *   **Method:** `POST`
 *   **Path:** `/auth/mfa/verify`
+*   **Preferred contract:** `challengeToken + code`
+*   **Deprecated contract:** `userId + deviceId + code` is still accepted temporarily for backward compatibility and will be removed after client migration.
+
+#### Validation Rules
+
+Preferred request:
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `challengeToken` | String | Yes | Must not be blank. |
+| `code` | String | Yes | Must not be blank. |
+
+Temporary legacy request still accepted:
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `userId` | UUID | Yes | Valid non-empty UUID. |
+| `deviceId` | UUID | Yes | Valid non-empty UUID. |
+| `code` | String | Yes | Must not be blank. |
 
 #### Example Request:
+```json
+{
+    "challengeToken": "eyJhbGciOiJub25lIn0.login-mfa-challenge",
+    "code": "123456"
+}
+```
+
+#### Legacy Request Example (Deprecated)
 ```json
 {
     "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
@@ -256,6 +359,13 @@ Obtains a new access token using a refresh token.
 *   **Headers:** Requires `X-Refresh-Token: <refresh_token>`
 *   **Description:** Provides a new `accessToken`. If the refresh token is near expiration, it will be rotated (a new `refreshToken` will be returned). **Note:** This endpoint does NOT return a new `firebaseToken`, as the Firebase SDK handles its own session refresh.
 
+#### Validation Rules
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `userId` | UUID | Yes | Valid non-empty UUID. |
+| `deviceId` | UUID | Yes | Valid non-empty UUID. |
+
 #### Example Request Body:
 ```json
 {
@@ -290,6 +400,12 @@ Invalidates the session for a specific device.
 *   **Headers:** Requires `Authorization: Bearer <access_token>`
 *   **Note:** The `deviceId` must belong to the authenticated user.
 
+#### Validation Rules
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `deviceId` | UUID | Yes | Valid non-empty UUID. |
+
 #### Example Request:
 ```json
 {
@@ -318,6 +434,12 @@ Initiates the password reset process.
 
 *   **Method:** `POST`
 *   **Path:** `/auth/forgot-password`
+
+#### Validation Rules
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `email` | String | Yes | Must match email format. |
 *   **Security Note:** This endpoint always returns a generic success response to avoid account enumeration.
 
 #### Example Request:
@@ -346,6 +468,13 @@ Verifies the password reset code and returns a temporary `resetToken`.
 *   **Method:** `POST`
 *   **Path:** `/auth/verify-reset-mfa`
 
+#### Validation Rules
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `email` | String | Yes | Must match email format. |
+| `code` | String | Yes | Must not be blank. |
+
 #### Example Request:
 ```json
 {
@@ -371,6 +500,87 @@ Updates the password using the `resetToken`.
 *   **Method:** `PUT`
 *   **Path:** `/auth/password`
 *   **Headers:** Requires `Authorization: Bearer <resetToken>`
+
+#### Validation Rules
+
+| Field | Type | Required | Validation Rules |
+| :--- | :--- | :--- | :--- |
+| `newPassword` | String | Yes | Must satisfy password complexity rules. |
+
+---
+
+## 5. Mobile Migration Guide
+
+This section is intended for clients that still use the old MFA login flow.
+
+### Login MFA Migration
+
+Old flow:
+
+1. `POST /auth/signIn`
+2. receive `SUCCESS_NEED_MFA` with `userId` and `deviceId`
+3. call `POST /auth/mfa/send` with `userId` and `deviceId`
+4. call `POST /auth/mfa/verify` with `userId`, `deviceId`, and `code`
+
+New flow:
+
+1. `POST /auth/signIn`
+2. receive `SUCCESS_NEED_MFA` with `challengeToken`
+3. call `POST /auth/mfa/send` with `challengeToken`
+4. call `POST /auth/mfa/verify` with `challengeToken` and `code`
+
+### Client State Recommendation
+
+Replace:
+
+- `pendingMfaUserId`
+- `pendingMfaDeviceId`
+
+With:
+
+- `pendingMfaChallengeToken`
+
+### Client Implementation Steps
+
+1. Keep the `signIn` request body unchanged.
+2. Update the MFA-required response parser to read `challengeToken`.
+3. Update the `mfa/send` request model to support `challengeToken`.
+4. Update the `mfa/verify` request model to support `challengeToken`.
+5. Clear the pending challenge after successful MFA verification, cancel, or terminal error.
+6. Treat legacy `userId/deviceId` support as deprecated and remove it after all clients migrate.
+
+### Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant API as Futmatch API
+    participant Mail as Email
+
+    App->>API: POST /auth/signIn(email, password, deviceId?)
+    API-->>App: SUCCESS_NEED_MFA + challengeToken
+    App->>API: POST /auth/mfa/send(challengeToken)
+    API->>Mail: Send MFA code
+    API-->>App: newCodeSent + expiresInSeconds
+    App->>API: POST /auth/mfa/verify(challengeToken, code)
+    API-->>App: SUCCESS + accessToken + refreshToken + firebaseToken
+```
+
+### Documentation Safety
+
+This document is safe to keep in the repository as long as it contains:
+
+- API contracts
+- request/response examples
+- migration steps
+
+It must not contain:
+
+- real tokens
+- real secrets
+- production credentials
+- operational bypasses
+- internal-only emergency procedures
 
 #### Example Request:
 ```json

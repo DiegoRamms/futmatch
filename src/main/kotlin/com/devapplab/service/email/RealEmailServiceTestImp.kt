@@ -132,6 +132,7 @@ class RealEmailServiceTestImp(
 
 
     private fun logCode(code: String){
+        // TODO: Remove MFA/verification code logging before production or when emails are sent to each real user.
         logger.info("🔐 Código MFA generado: $code")
         logger.info("⏰ Este código expira en 5 minutos.")
     }

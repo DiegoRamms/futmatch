@@ -2,13 +2,13 @@ package com.devapplab.model.mfa
 
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
-import java.util.*
+import java.util.UUID
 
 @Serializable
 data class MfaCodeRequest(
+    val challengeToken: String? = null,
     @Serializable(with = UUIDSerializer::class)
-    val userId: UUID,
+    val userId: UUID? = null,
     @Serializable(with = UUIDSerializer::class)
-    val deviceId: UUID
+    val deviceId: UUID? = null
 )
-

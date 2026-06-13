@@ -15,6 +15,7 @@ import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.match.PublicMatchesVersionTable
+import com.devapplab.data.database.mfa.LoginMfaChallengeTable
 import com.devapplab.data.database.mfa.MfaCodeTable
 import com.devapplab.data.database.mfa.LoginMfaVerifyAttemptTable
 import com.devapplab.data.database.notification.NotificationTable
@@ -51,6 +52,7 @@ fun Application.configureDatabase() {
         UserTable,
         DeviceTable,
         MfaCodeTable,
+        LoginMfaChallengeTable,
         LoginMfaVerifyAttemptTable,
         RefreshTokenTable,
         LocationsTable,

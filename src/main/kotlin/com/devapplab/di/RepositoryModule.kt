@@ -18,6 +18,8 @@ import com.devapplab.data.repository.match.MatchRefundFailureRepositoryImpl
 import com.devapplab.data.repository.match.PublicMatchesVersionRepository
 import com.devapplab.data.repository.match.PublicMatchesVersionRepositoryImpl
 import com.devapplab.data.repository.mfa.LoginMfaVerifyAttemptRepository
+import com.devapplab.data.repository.mfa.LoginMfaChallengeRepository
+import com.devapplab.data.repository.mfa.LoginMfaChallengeRepositoryImpl
 import com.devapplab.data.repository.mfa.LoginMfaVerifyAttemptRepositoryImpl
 import com.devapplab.data.repository.notification.NotificationRepository
 import com.devapplab.data.repository.notification.NotificationRepositoryImpl
@@ -44,6 +46,7 @@ val repositoryModule = module {
     singleOf(::RefreshTokenRepositoryImp) { bind<RefreshTokenRepository>() }
     singleOf(::DeviceRepositoryImpl) { bind<DeviceRepository>() }
     singleOf(::MfaCodeRepositoryImpl) { bind<MfaCodeRepository>() }
+    singleOf(::LoginMfaChallengeRepositoryImpl) { bind<LoginMfaChallengeRepository>() }
     singleOf(::LoginMfaVerifyAttemptRepositoryImpl) { bind<LoginMfaVerifyAttemptRepository>() }
     singleOf(::AuthRepositoryImpl) { bind<AuthRepository>() }
     singleOf(::FieldRepositoryImp) { bind<FieldRepository>() }

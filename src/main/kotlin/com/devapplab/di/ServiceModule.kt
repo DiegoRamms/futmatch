@@ -10,6 +10,7 @@ import com.devapplab.service.auth.RegistrationService
 import com.devapplab.service.auth.SignInService
 import com.devapplab.service.auth.auth_token.JWTService
 import com.devapplab.service.auth.auth_token.RefreshTokenServiceImp
+import com.devapplab.service.auth.mfa.LoginMfaChallengeTokenServiceImpl
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.billing.BillingService
 import com.devapplab.service.billing.StripeBillingService
@@ -48,6 +49,7 @@ val serviceModule = module {
     singleOf(::HashingServiceImpl) { bind<com.devapplab.service.hashing.HashingService>() }
     singleOf(::JWTService) { bind<com.devapplab.service.auth.auth_token.AuthTokenService>() }
     singleOf(::RefreshTokenServiceImp) { bind<com.devapplab.service.auth.refresh_token.RefreshTokenService>() }
+    singleOf(::LoginMfaChallengeTokenServiceImpl) { bind<com.devapplab.service.auth.mfa.LoginMfaChallengeTokenService>() }
     singleOf(::MfaCodeService)
     //singleOf(::EmailServiceImpl) { bind<EmailService>() }
     singleOf(::RealEmailServiceTestImp) { bind<com.devapplab.service.email.EmailService>() }
