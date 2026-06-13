@@ -17,6 +17,9 @@ import com.devapplab.model.mfa.VerifyResetMfaRequest
 import com.devapplab.model.user.UserStatus
 import com.devapplab.model.user.request.UpdatePasswordRequest
 import com.devapplab.model.user.response.UpdatePasswordResponse
+import com.devapplab.observability.AuthLogSeverity
+import com.devapplab.observability.AuthRequestContext
+import com.devapplab.observability.authEvent
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
 import com.devapplab.service.auth.state.UpdatePasswordTxResult
@@ -59,7 +62,8 @@ class PasswordResetService(
 
     suspend fun forgotPassword(
         locale: Locale,
-        forgotPasswordRequest: ForgotPasswordRequest
+        forgotPasswordRequest: ForgotPasswordRequest,
+        context: AuthRequestContext
     ): AppResult<ForgotPasswordResponse> {
 
         val email = forgotPasswordRequest.email.trim()
@@ -74,7 +78,7 @@ class PasswordResetService(
         val user = runCatching {
             dbExecutor.tx { userRepository.findByEmail(email) }
         }.getOrElse { error ->
-            logger.error("🔥 forgotPassword getUser DB error email=$email", error)
+            logger.authEvent(AuthLogSeverity.ERROR, "auth.password_reset.request.failed", context, "failed", "db_error", throwable = error)
             return genericSuccessResponse
         } ?: return genericSuccessResponse
 
@@ -102,7 +106,7 @@ class PasswordResetService(
                 )
             }
         }.getOrElse { error ->
-            logger.error("🔥 forgotPassword createMfaCode DB error userId=${user.id}", error)
+            logger.authEvent(AuthLogSeverity.ERROR, "auth.password_reset.request.failed", context, "failed", "db_error", userId = user.id, throwable = error)
             return genericSuccessResponse
         }
 
@@ -110,19 +114,19 @@ class PasswordResetService(
             is MfaCreationResult.Created -> {
                 runCatching {
                     emailService.sendMfaPasswordResetEmail(user.email, code, locale)
-                    logger.info("✅ Sent password reset code to user ${user.id}")
+                    logger.authEvent(AuthLogSeverity.INFO, "auth.password_reset.request.success", context, "success", userId = user.id)
                     runCatching {
                         passwordResetVerifyAttemptRepository.deleteSafe(email)
                     }.onFailure { error ->
-                        logger.warn("⚠️ Failed to clear password reset verify attempts after resend | email=$email", error)
+                        logger.authEvent(AuthLogSeverity.WARN, "auth.password_reset.request.failed", context, "failed", "cleanup_failed", userId = user.id, throwable = error)
                     }
                 }.getOrElse { error ->
-                    logger.error("📧 Failed to send password reset email to userId=${user.id}", error)
+                    logger.authEvent(AuthLogSeverity.ERROR, "auth.password_reset.request.failed", context, "failed", "email_send_failed", userId = user.id, throwable = error)
                 }
             }
 
-            is MfaCreationResult.Cooldown -> logger.info("ℹ️ forgotPassword cooldown for email=$email")
-            is MfaCreationResult.Locked -> logger.info("ℹ️ forgotPassword locked window for email=$email")
+            is MfaCreationResult.Cooldown -> logger.authEvent(AuthLogSeverity.WARN, "auth.password_reset.request.failed", context, "rejected", "cooldown")
+            is MfaCreationResult.Locked -> logger.authEvent(AuthLogSeverity.WARN, "auth.password_reset.request.failed", context, "blocked", "generation_locked")
         }
 
         return genericSuccessResponse
@@ -131,7 +135,8 @@ class PasswordResetService(
     suspend fun updatePassword(
         resetToken: String,
         request: UpdatePasswordRequest,
-        locale: Locale
+        locale: Locale,
+        context: AuthRequestContext
     ): AppResult<UpdatePasswordResponse> {
 
         // CPU fuera de tx
@@ -162,7 +167,7 @@ class PasswordResetService(
                 UpdatePasswordTxResult.Success
             }
         }.getOrElse { error ->
-            logger.error("🔥 updatePassword DB error", error)
+            logger.authEvent(AuthLogSeverity.ERROR, "auth.password_reset.complete.failed", context, "failed", "db_error", throwable = error)
             return locale.createError(
                 StringResourcesKey.PASSWORD_UPDATE_FAILED_TITLE,
                 StringResourcesKey.PASSWORD_UPDATE_FAILED_DESCRIPTION,
@@ -189,12 +194,15 @@ class PasswordResetService(
                 status = HttpStatusCode.InternalServerError
             )
 
-            UpdatePasswordTxResult.Success -> AppResult.Success(
-                UpdatePasswordResponse(
-                    success = true,
-                    message = locale.getString(StringResourcesKey.PASSWORD_UPDATE_SUCCESS_MESSAGE)
+            UpdatePasswordTxResult.Success -> {
+                logger.authEvent(AuthLogSeverity.INFO, "auth.password_reset.complete.success", context, "success")
+                AppResult.Success(
+                    UpdatePasswordResponse(
+                        success = true,
+                        message = locale.getString(StringResourcesKey.PASSWORD_UPDATE_SUCCESS_MESSAGE)
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -202,6 +210,7 @@ class PasswordResetService(
     suspend fun verifyResetMfa(
         locale: Locale,
         verifyResetMfaRequest: VerifyResetMfaRequest,
+        context: AuthRequestContext,
     ): AppResult<VerifyResetMfaResponse> {
 
         val email = verifyResetMfaRequest.email.trim()
@@ -243,7 +252,7 @@ class PasswordResetService(
                 ResetMfaResult.Success(tokenData.plainToken)
             }
         }.getOrElse { error ->
-            logger.error("🔥 verifyResetMfa DB error email=$email", error)
+            logger.authEvent(AuthLogSeverity.ERROR, "auth.password_reset.verify.failed", context, "failed", "db_error", throwable = error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY

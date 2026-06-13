@@ -6,6 +6,7 @@ import com.devapplab.model.user.request.UpdateCountryRequest
 import com.devapplab.model.user.request.UpdateGenderRequest
 import com.devapplab.model.user.request.UpdateNameRequest
 import com.devapplab.model.user.request.UpdatePositionRequest
+import com.devapplab.observability.requestContext
 import com.devapplab.service.UserService
 import com.devapplab.utils.respond
 import com.devapplab.utils.retrieveLocale
@@ -16,14 +17,14 @@ class UserController(private val service: UserService) {
     suspend fun getHome(call: ApplicationCall) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val result = service.getHome(userId, locale)
+        val result = service.getHome(userId, locale, call.requestContext())
         call.respond(result)
     }
 
     suspend fun getUserById(call: ApplicationCall) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val result = service.getUserById(userId, locale)
+        val result = service.getUserById(userId, locale, call.requestContext())
         call.respond(result)
     }
 
@@ -31,18 +32,18 @@ class UserController(private val service: UserService) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val multipart = call.receiveMultipart()
-        val result = service.uploadProfilePic(userId, multipart, locale)
+        val result = service.uploadProfilePic(userId, multipart, locale, call.requestContext())
         call.respond(result)
     }
 
     suspend fun getOrganizers(call: ApplicationCall) {
-        val result = service.getOrganizers()
+        val result = service.getOrganizers(call.requestContext())
         call.respond(result)
     }
 
     suspend fun getPaymentHistory(call: ApplicationCall) {
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val result = service.getPaymentHistory(userId)
+        val result = service.getPaymentHistory(userId, context = call.requestContext())
         call.respond(result)
     }
 
@@ -50,7 +51,7 @@ class UserController(private val service: UserService) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdateNameRequest>()
-        val result = service.updateName(userId, request.name, request.lastName, locale)
+        val result = service.updateName(userId, request.name, request.lastName, locale, call.requestContext())
         call.respond(result)
     }
 
@@ -58,7 +59,7 @@ class UserController(private val service: UserService) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdateCountryRequest>()
-        val result = service.updateCountry(userId, request.countryCode, locale)
+        val result = service.updateCountry(userId, request.countryCode, locale, call.requestContext())
         call.respond(result)
     }
 
@@ -66,7 +67,7 @@ class UserController(private val service: UserService) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdateGenderRequest>()
-        val result = service.updateGender(userId, request.gender, locale)
+        val result = service.updateGender(userId, request.gender, locale, call.requestContext())
         call.respond(result)
     }
 
@@ -74,7 +75,7 @@ class UserController(private val service: UserService) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdatePositionRequest>()
-        val result = service.updatePosition(userId, request.position, locale)
+        val result = service.updatePosition(userId, request.position, locale, call.requestContext())
         call.respond(result)
     }
 }

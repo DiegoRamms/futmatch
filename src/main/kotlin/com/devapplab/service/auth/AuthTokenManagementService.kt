@@ -14,6 +14,11 @@ import com.devapplab.model.auth.response.AuthResponse
 import com.devapplab.model.auth.response.AuthTokenResponse
 import com.devapplab.model.auth.response.RefreshJWTRequest
 import com.devapplab.model.user.UserRole
+import com.devapplab.observability.AuthRequestContext
+import com.devapplab.observability.authFailure
+import com.devapplab.observability.authRejected
+import com.devapplab.observability.authRotated
+import com.devapplab.observability.authSuccess
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
 import com.devapplab.service.hashing.HashingService
@@ -41,7 +46,8 @@ class AuthTokenManagementService(
         locale: Locale,
         currentRefreshToken: String?,
         refreshJWTRequest: RefreshJWTRequest,
-        jwtConfig: JWTConfig
+        jwtConfig: JWTConfig,
+        context: AuthRequestContext
     ): AppResult<AuthResponse> {
         @Suppress("UNUSED_PARAMETER")
         val ignoredRequest = refreshJWTRequest
@@ -53,7 +59,7 @@ class AuthTokenManagementService(
                 refreshTokenRepository.findByTokenHash(hashedRefresh)
             }
         }.getOrElse { error ->
-            logger.error("🔥 auth.refresh.lookup_failed", error)
+            logger.authFailure("auth.refresh.failed", context, "db_error", throwable = error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -61,7 +67,7 @@ class AuthTokenManagementService(
         }
 
         if (tokenRecord == null) {
-            logger.warn("⚠️ auth.refresh.invalid unknown_token")
+            logger.authRejected("auth.refresh.failed", context, "unknown_token")
             return locale.respondInvalidRefreshTokenError()
         }
 
@@ -69,31 +75,16 @@ class AuthTokenManagementService(
             runCatching {
                 dbExecutor.tx { refreshTokenRepository.revokeCurrentToken(tokenRecord.deviceId) }
             }.onFailure { error ->
-                logger.error(
-                    "🔥 auth.refresh.reuse_detected revoke_current_failed userId={} deviceId={}",
-                    tokenRecord.userId,
-                    tokenRecord.deviceId,
-                    error
-                )
+                logger.authFailure("auth.refresh.failed", context, "db_error", tokenRecord.userId, tokenRecord.deviceId, throwable = error)
             }
 
-            logger.warn(
-                "⚠️ auth.refresh.reuse_detected userId={} deviceId={} tokenCreatedAt={}",
-                tokenRecord.userId,
-                tokenRecord.deviceId,
-                tokenRecord.createdAt
-            )
+            logger.authRejected("auth.refresh.reuse_detected", context, "reuse_detected", tokenRecord.userId, tokenRecord.deviceId, extra = mapOf("tokenCreatedAt" to tokenRecord.createdAt))
             return locale.respondInvalidRefreshTokenError()
         }
 
         val now = System.currentTimeMillis()
         if (tokenRecord.expiresAt <= now) {
-            logger.warn(
-                "⚠️ auth.refresh.invalid expired_token userId={} deviceId={} tokenCreatedAt={}",
-                tokenRecord.userId,
-                tokenRecord.deviceId,
-                tokenRecord.createdAt
-            )
+            logger.authRejected("auth.refresh.failed", context, "expired_token", tokenRecord.userId, tokenRecord.deviceId, extra = mapOf("tokenCreatedAt" to tokenRecord.createdAt))
             return locale.respondInvalidRefreshTokenError()
         }
 
@@ -102,7 +93,7 @@ class AuthTokenManagementService(
                 refreshTokenRepository.findActiveByDeviceId(tokenRecord.deviceId)
             }
         }.getOrElse { error ->
-            logger.error("🔥 auth.refresh.active_lookup_failed userId={} deviceId={}", tokenRecord.userId, tokenRecord.deviceId, error)
+            logger.authFailure("auth.refresh.failed", context, "db_error", tokenRecord.userId, tokenRecord.deviceId, throwable = error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -113,20 +104,10 @@ class AuthTokenManagementService(
             runCatching {
                 dbExecutor.tx { refreshTokenRepository.revokeCurrentToken(tokenRecord.deviceId) }
             }.onFailure { error ->
-                logger.error(
-                    "🔥 auth.refresh.reuse_detected revoke_current_failed userId={} deviceId={}",
-                    tokenRecord.userId,
-                    tokenRecord.deviceId,
-                    error
-                )
+                logger.authFailure("auth.refresh.failed", context, "db_error", tokenRecord.userId, tokenRecord.deviceId, throwable = error)
             }
 
-            logger.warn(
-                "⚠️ auth.refresh.reuse_detected stale_or_non_current_token userId={} deviceId={} tokenCreatedAt={}",
-                tokenRecord.userId,
-                tokenRecord.deviceId,
-                tokenRecord.createdAt
-            )
+            logger.authRejected("auth.refresh.reuse_detected", context, "stale_or_non_current_token", tokenRecord.userId, tokenRecord.deviceId, extra = mapOf("tokenCreatedAt" to tokenRecord.createdAt))
             return locale.respondInvalidRefreshTokenError()
         }
 
@@ -135,7 +116,7 @@ class AuthTokenManagementService(
                 userRepository.getUserById(tokenRecord.userId)?.userRole ?: UserRole.PLAYER
             }
         }.getOrElse { error ->
-            logger.error("🔥 auth.refresh.user_lookup_failed userId={} deviceId={}", tokenRecord.userId, tokenRecord.deviceId, error)
+            logger.authFailure("auth.refresh.failed", context, "db_error", tokenRecord.userId, tokenRecord.deviceId, throwable = error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -148,11 +129,7 @@ class AuthTokenManagementService(
             expiresAt = tokenRecord.expiresAt
         )
         if (!refreshTokenService.isValidRefreshToken(payload)) {
-            logger.warn(
-                "⚠️ auth.refresh.invalid hash_or_expiration_validation_failed userId={} deviceId={}",
-                tokenRecord.userId,
-                tokenRecord.deviceId
-            )
+            logger.authRejected("auth.refresh.failed", context, "hash_or_expiration_validation_failed", tokenRecord.userId, tokenRecord.deviceId)
             return locale.respondInvalidRefreshTokenError()
         }
 
@@ -172,7 +149,7 @@ class AuthTokenManagementService(
                 dbExecutor.tx { authRepository.rotateRefreshToken(tokenRecord.userId, tokenRecord.deviceId, newPayload) }
                 true
             }.getOrElse { error ->
-                logger.error("🔥 auth.refresh.rotate_failed userId={} deviceId={}", tokenRecord.userId, tokenRecord.deviceId, error)
+                logger.authFailure("auth.refresh.failed", context, "db_error", tokenRecord.userId, tokenRecord.deviceId, throwable = error)
                 false
             }
 
@@ -185,10 +162,10 @@ class AuthTokenManagementService(
 
             newRefreshToken = newPayload.plainToken
             authCode = AuthCode.REFRESHED_BOTH_TOKENS
-            logger.info("✅ auth.refresh.rotated userId={} deviceId={}", tokenRecord.userId, tokenRecord.deviceId)
+            logger.authRotated("auth.refresh.rotated", context, tokenRecord.userId, tokenRecord.deviceId)
         } else {
             authCode = AuthCode.REFRESHED_JWT
-            logger.info("✅ auth.refresh.success userId={} deviceId={} rotated=false", tokenRecord.userId, tokenRecord.deviceId)
+            logger.authSuccess("auth.refresh.success", context, tokenRecord.userId, tokenRecord.deviceId, extra = mapOf("rotated" to false))
         }
 
         return AppResult.Success(

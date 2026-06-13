@@ -1,51 +1,30 @@
-# futmatch
+# Futmatch Backend
 
-This project was created using the [Ktor Project Generator](https://start.ktor.io).
+Ktor backend for Futmatch.
 
-Here are some useful links to get you started:
+## Requirements
 
-- [Ktor Documentation](https://ktor.io/docs/home.html)
-- [Ktor GitHub page](https://github.com/ktorio/ktor)
-- The [Ktor Slack chat](https://app.slack.com/client/T09229ZC6/C0A974TJ9). You'll need to [request an invite](https://surveys.jetbrains.com/s3/kotlin-slack-sign-up) to join.
+- Java 17
+- PostgreSQL
+- Environment variables configured for the current environment
 
-## Features
+## Common Commands
 
-Here's a list of features included in this project:
+- `./gradlew run`
+- `./gradlew compileKotlin`
+- `./gradlew test`
+- `./gradlew build`
+- `./gradlew buildFatJar`
 
-| Name                                                                   | Description                                                                        |
-| ------------------------------------------------------------------------|------------------------------------------------------------------------------------ |
-| [Rate Limiting](https://start.ktor.io/p/ktor-server-rate-limiting)     | Manage request rate limiting as you see fit                                        |
-| [Koin](https://start.ktor.io/p/koin)                                   | Provides dependency injection                                                      |
-| [Routing](https://start.ktor.io/p/routing)                             | Provides a structured routing DSL                                                  |
-| [kotlinx.serialization](https://start.ktor.io/p/kotlinx-serialization) | Handles JSON serialization using kotlinx.serialization library                     |
-| [Content Negotiation](https://start.ktor.io/p/content-negotiation)     | Provides automatic content conversion according to Content-Type and Accept headers |
-| [Exposed](https://start.ktor.io/p/exposed)                             | Adds Exposed database to your application                                          |
-| [Postgres](https://start.ktor.io/p/postgres)                           | Adds Postgres database to your application                                         |
-| [CORS](https://start.ktor.io/p/cors)                                   | Enables Cross-Origin Resource Sharing (CORS)                                       |
-| [Compression](https://start.ktor.io/p/compression)                     | Compresses responses using encoding algorithms like GZIP                           |
-| [Request Validation](https://start.ktor.io/p/request-validation)       | Adds validation for incoming requests                                              |
-| [Authentication](https://start.ktor.io/p/auth)                         | Provides extension point for handling the Authorization header                     |
-| [Authentication JWT](https://start.ktor.io/p/auth-jwt)                 | Handles JSON Web Token (JWT) bearer authentication scheme                          |
+## Key Docs
 
-## Building & Running
+- Auth contracts: [authentication.md](/Users/diego/ServerKtorProjects/futmatch/docs/auth/authentication.md)
+- Client migration summary: [client_auth_migration_summary.md](/Users/diego/ServerKtorProjects/futmatch/docs/auth/client_auth_migration_summary.md)
+- Device endpoints: [device_endpoints.md](/Users/diego/ServerKtorProjects/futmatch/docs/device/device_endpoints.md)
+- Observability: [logging_standard.md](/Users/diego/ServerKtorProjects/futmatch/docs/observability/logging_standard.md)
+- AI/project context: [AI_CONTEXT.md](/Users/diego/ServerKtorProjects/futmatch/AI_CONTEXT.md)
 
-To build or run the project, use one of the following tasks:
+## Notes
 
-| Task                          | Description                                                          |
-| -------------------------------|---------------------------------------------------------------------- |
-| `./gradlew test`              | Run the tests                                                        |
-| `./gradlew build`             | Build everything                                                     |
-| `buildFatJar`                 | Build an executable JAR of the server with all dependencies included |
-| `buildImage`                  | Build the docker image to use with the fat JAR                       |
-| `publishImageToLocalRegistry` | Publish the docker image locally                                     |
-| `run`                         | Run the server                                                       |
-| `runDocker`                   | Run using the local docker image                                     |
-
-If the server starts successfully, you'll see the following output:
-
-```
-2024-12-04 14:32:45.584 [main] INFO  Application - Application started in 0.303 seconds.
-2024-12-04 14:32:45.682 [main] INFO  Application - Responding at http://0.0.0.0:8080
-```
-
-# futmatch
+- Keep backend contracts aligned with the docs above
+- When request or response contracts change, update the corresponding docs in the same change

@@ -17,6 +17,14 @@ import com.devapplab.model.auth.response.SignOutResponse
 import com.devapplab.model.mfa.*
 import com.devapplab.model.mfa.response.MfaSendCodeResponse
 import com.devapplab.model.user.UserStatus
+import com.devapplab.observability.AuthLogSeverity
+import com.devapplab.observability.AuthRequestContext
+import com.devapplab.observability.authBlocked
+import com.devapplab.observability.authFailure
+import com.devapplab.observability.authMfaRequired
+import com.devapplab.observability.authRejected
+import com.devapplab.observability.authSuccess
+import com.devapplab.observability.authEvent
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.mfa.LoginMfaChallengeTokenService
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
@@ -80,12 +88,13 @@ class SignInService(
         signInRequest: SignInRequest,
         jwtConfig: JWTConfig,
         deviceInfo: String?,
+        context: AuthRequestContext,
     ): AppResult<AuthResponse> {
         val startTime = System.currentTimeMillis()
         val email = signInRequest.email
 
         if (deviceInfo.isNullOrBlank()) {
-            logger.error("❌ signIn - Missing device info (Took ${System.currentTimeMillis() - startTime} ms)")
+            logger.authRejected("auth.sign_in.failed", context, "missing_device_info", statusCode = HttpStatusCode.BadRequest.value, durationMs = System.currentTimeMillis() - startTime)
             return locale.respondDeviceInfoRequired()
         }
 
@@ -104,7 +113,7 @@ class SignInService(
                 SignInPreCheck.Ok(user)
             }
         }.getOrElse { error ->
-            logger.error("🔥 signIn - DB error on preCheck for email=$email", error)
+            logger.authFailure("auth.sign_in.failed", context, "db_error", durationMs = System.currentTimeMillis() - startTime, throwable = error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -112,6 +121,7 @@ class SignInService(
         }
 
         if (preCheck is SignInPreCheck.Locked) {
+            logger.authBlocked("auth.sign_in.failed", context, "account_locked", statusCode = HttpStatusCode.Forbidden.value, durationMs = System.currentTimeMillis() - startTime, extra = mapOf("remainingMinutes" to preCheck.remainingMinutes))
             return locale.createError(
                 StringResourcesKey.AUTH_ACCOUNT_LOCKED_TITLE,
                 StringResourcesKey.AUTH_ACCOUNT_LOCKED_DESCRIPTION,
@@ -124,30 +134,28 @@ class SignInService(
 
         val credentialsOk = user != null && hashingService.verify(signInRequest.password, user.password)
         if (!credentialsOk) {
-            logger.error("❌ signIn - Invalid credentials (Took ${System.currentTimeMillis() - startTime} ms)")
-            return handleFailedLoginAttemptTx(email, locale)
+            logger.authRejected("auth.sign_in.failed", context, "invalid_credentials", statusCode = HttpStatusCode.Unauthorized.value, durationMs = System.currentTimeMillis() - startTime)
+            return handleFailedLoginAttemptTx(email, locale, context)
         }
 
         runCatching {
             dbExecutor.tx { loginAttemptRepository.delete(email) }
         }.onFailure { error ->
-            logger.error("🔥 signIn - Failed to clear login attempts", error)
+            logger.authFailure("auth.sign_in.failed", context, "db_error", throwable = error)
         }
 
         return when (user.status) {
             UserStatus.BLOCKED -> {
-                logger.error("❌ signIn - User is blocked (Took ${System.currentTimeMillis() - startTime} ms)")
+                logger.authBlocked("auth.sign_in.failed", context, "user_blocked", user.userId, statusCode = HttpStatusCode.Forbidden.value, durationMs = System.currentTimeMillis() - startTime)
                 locale.respondSignInBlockedUserError()
             }
 
             UserStatus.SUSPENDED -> {
-                logger.error("❌ signIn - User is suspended (Took ${System.currentTimeMillis() - startTime} ms)")
+                logger.authBlocked("auth.sign_in.failed", context, "user_suspended", user.userId, statusCode = HttpStatusCode.Forbidden.value, durationMs = System.currentTimeMillis() - startTime)
                 locale.respondSignInSuspendedUserError()
             }
 
             UserStatus.ACTIVE -> {
-                logger.info("✅ signIn - Credentials verified (Took ${System.currentTimeMillis() - startTime} ms)")
-
                 val providedDeviceId = signInRequest.deviceId
 
                 val deviceDecision = runCatching {
@@ -170,7 +178,7 @@ class SignInService(
                         )
                     }
                 }.getOrElse { error ->
-                    logger.error("🔥 signIn - Device resolution failed for user=${user.userId}", error)
+                    logger.authFailure("auth.sign_in.failed", context, "db_error", user.userId, durationMs = System.currentTimeMillis() - startTime, throwable = error)
                     return locale.createError(
                         StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                         StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -181,13 +189,14 @@ class SignInService(
                     val challengeToken = runCatching {
                         createLoginMfaChallenge(user.userId, deviceDecision.deviceId)
                     }.getOrElse { error ->
-                        logger.error("🔥 signIn - Challenge creation failed for user=${user.userId}", error)
+                        logger.authFailure("auth.sign_in.failed", context, "db_error", user.userId, deviceDecision.deviceId, durationMs = System.currentTimeMillis() - startTime, throwable = error)
                         return locale.createError(
                             StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                             StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
                         )
                     }
 
+                    logger.authMfaRequired(context, if (!user.isEmailVerified) "email_not_verified" else "untrusted_device", user.userId, deviceDecision.deviceId, System.currentTimeMillis() - startTime)
                     return AppResult.Success(
                         AuthResponse(
                             userId = user.userId,
@@ -198,18 +207,22 @@ class SignInService(
                     )
                 }
 
-                authenticatedResponseGenerator.generate(
+                val result = authenticatedResponseGenerator.generate(
                     locale = locale,
                     userId = user.userId,
                     deviceId = deviceDecision.deviceId,
                     userRole = user.userRole,
                     jwtConfig = jwtConfig
                 )
+                if (result is AppResult.Success) {
+                    logger.authSuccess("auth.sign_in.success", context, user.userId, deviceDecision.deviceId, durationMs = System.currentTimeMillis() - startTime)
+                }
+                result
             }
         }
     }
 
-    private suspend fun handleFailedLoginAttemptTx(email: String, locale: Locale): AppResult.Failure {
+    private suspend fun handleFailedLoginAttemptTx(email: String, locale: Locale, context: AuthRequestContext): AppResult.Failure {
         val lockUntil = runCatching {
             dbExecutor.tx {
                 val now = System.currentTimeMillis()
@@ -236,7 +249,7 @@ class SignInService(
                 loginAttemptRepository.findByEmail(email)?.lockedUntil
             }
         }.getOrElse { error ->
-            logger.error("🔥 signIn - Failed to update login attempts for email=$email", error)
+            logger.authFailure("auth.sign_in.failed", context, "db_error", throwable = error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -258,14 +271,26 @@ class SignInService(
 
     suspend fun sendMFACode(
         locale: Locale,
-        mfaCodeRequest: MfaCodeRequest
+        mfaCodeRequest: MfaCodeRequest,
+        context: AuthRequestContext
     ): AppResult<MfaSendCodeResponse> {
         val mfaContext = resolveLoginMfaContext(
             challengeToken = mfaCodeRequest.challengeToken,
             fallbackUserId = mfaCodeRequest.userId,
             fallbackDeviceId = mfaCodeRequest.deviceId,
-            operation = "mfa/send"
-        ) ?: return locale.respondInvalidMfaCodeError()
+            operation = "mfa/send",
+            context = context
+        ) ?: run {
+            logger.authEvent(
+                severity = AuthLogSeverity.WARN,
+                event = "auth.mfa.challenge.invalid",
+                context = context,
+                outcome = "rejected",
+                reason = "invalid_challenge",
+                statusCode = HttpStatusCode.Unauthorized.value
+            )
+            return locale.respondInvalidMfaCodeError()
+        }
 
         val userId = mfaContext.userId
         val deviceId = mfaContext.deviceId
@@ -273,7 +298,16 @@ class SignInService(
         val user = runCatching {
             dbExecutor.tx { userRepository.getUserById(userId) }
         }.getOrElse { error ->
-            logger.error("🔥 sendMFACode getUserById DB error userId=$userId", error)
+            logger.authEvent(
+                severity = AuthLogSeverity.ERROR,
+                event = "auth.mfa.send.failed",
+                context = context,
+                outcome = "failed",
+                reason = "db_error",
+                userId = userId,
+                deviceId = deviceId,
+                throwable = error
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
@@ -303,7 +337,16 @@ class SignInService(
                 )
             }
         }.getOrElse { error ->
-            logger.error("🔥 sendMFACode createMfaCode DB error userId=${user.id}", error)
+            logger.authEvent(
+                severity = AuthLogSeverity.ERROR,
+                event = "auth.mfa.send.failed",
+                context = context,
+                outcome = "failed",
+                reason = "db_error",
+                userId = user.id,
+                deviceId = deviceId,
+                throwable = error
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
@@ -318,7 +361,16 @@ class SignInService(
                     emailService.sendMfaCodeEmail(user.email, code, locale)
                     true
                 }.getOrElse { error ->
-                    logger.error("📧 Failed to send MFA email userId=${user.id} email=${user.email}", error)
+                    logger.authEvent(
+                        severity = AuthLogSeverity.ERROR,
+                        event = "auth.mfa.send.failed",
+                        context = context,
+                        outcome = "failed",
+                        reason = "email_send_failed",
+                        userId = user.id,
+                        deviceId = deviceId,
+                        throwable = error
+                    )
                     false
                 }
 
@@ -331,11 +383,19 @@ class SignInService(
                     )
                 }
 
-                logger.info("✅ Sent MFA code to user ${user.id} for purpose SIGN_IN")
+                logger.authEvent(
+                    severity = AuthLogSeverity.INFO,
+                    event = "auth.mfa.send.success",
+                    context = context,
+                    outcome = "success",
+                    userId = user.id,
+                    deviceId = deviceId,
+                    extra = mapOf("purpose" to "SIGN_IN")
+                )
                 runCatching {
                     loginMfaVerifyAttemptRepository.deleteSafe(user.id, deviceId)
                 }.onFailure { error ->
-                    logger.warn("⚠️ Failed to clear login MFA verify attempts after sending code | userId=${user.id} deviceId=$deviceId", error)
+                    logger.authEvent(AuthLogSeverity.WARN, "auth.mfa.send.failed", context, "failed", "cleanup_failed", userId = user.id, deviceId = deviceId, throwable = error)
                 }
                 AppResult.Success(
                     MfaSendCodeResponse(
@@ -347,6 +407,17 @@ class SignInService(
             }
 
             is MfaCreationResult.Cooldown -> {
+                logger.authEvent(
+                    severity = AuthLogSeverity.WARN,
+                    event = "auth.mfa.send.failed",
+                    context = context,
+                    outcome = "rejected",
+                    reason = "cooldown",
+                    userId = user.id,
+                    deviceId = deviceId,
+                    statusCode = HttpStatusCode.Conflict.value,
+                    extra = mapOf("retryAfterSeconds" to creationResult.retryAfterSeconds)
+                )
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_COOLDOWN_TITLE,
                     descriptionKey = StringResourcesKey.MFA_COOLDOWN_DESCRIPTION,
@@ -357,6 +428,17 @@ class SignInService(
             }
 
             is MfaCreationResult.Locked -> {
+                logger.authEvent(
+                    severity = AuthLogSeverity.WARN,
+                    event = "auth.mfa.send.failed",
+                    context = context,
+                    outcome = "blocked",
+                    reason = "generation_locked",
+                    userId = user.id,
+                    deviceId = deviceId,
+                    statusCode = HttpStatusCode.Forbidden.value,
+                    extra = mapOf("lockDurationMinutes" to creationResult.lockDurationMinutes)
+                )
                 locale.createError(
                     titleKey = StringResourcesKey.MFA_GENERATION_LOCKED_TITLE,
                     descriptionKey = StringResourcesKey.MFA_GENERATION_LOCKED_DESCRIPTION,
@@ -371,14 +453,26 @@ class SignInService(
     suspend fun verifyMfaCode(
         locale: Locale,
         mfaCodeVerificationRequest: MfaCodeVerificationRequest,
-        jwtConfig: JWTConfig
+        jwtConfig: JWTConfig,
+        context: AuthRequestContext
     ): AppResult<AuthResponse> {
         val mfaContext = resolveLoginMfaContext(
             challengeToken = mfaCodeVerificationRequest.challengeToken,
             fallbackUserId = mfaCodeVerificationRequest.userId,
             fallbackDeviceId = mfaCodeVerificationRequest.deviceId,
-            operation = "mfa/verify"
-        ) ?: return locale.respondInvalidMfaCodeError()
+            operation = "mfa/verify",
+            context = context
+        ) ?: run {
+            logger.authEvent(
+                severity = AuthLogSeverity.WARN,
+                event = "auth.mfa.challenge.invalid",
+                context = context,
+                outcome = "rejected",
+                reason = "invalid_challenge",
+                statusCode = HttpStatusCode.Unauthorized.value
+            )
+            return locale.respondInvalidMfaCodeError()
+        }
         val userId = mfaContext.userId
         val deviceId = mfaContext.deviceId
         val hashedInput = hashingService.hashOpaqueToken(mfaCodeVerificationRequest.code)
@@ -408,14 +502,46 @@ class SignInService(
                 user.userRole
             }
         }.getOrElse { error ->
-            logger.error("🔥 verifyMfaCode DB error userId=$userId deviceId=$deviceId", error)
+            logger.authEvent(
+                severity = AuthLogSeverity.ERROR,
+                event = "auth.mfa.verify.failed",
+                context = context,
+                outcome = "failed",
+                reason = "db_error",
+                userId = userId,
+                deviceId = deviceId,
+                throwable = error
+            )
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
             )
-        } ?: return locale.respondInvalidMfaCodeError()
+        } ?: run {
+            logger.authEvent(
+                severity = AuthLogSeverity.WARN,
+                event = "auth.mfa.verify.failed",
+                context = context,
+                outcome = "rejected",
+                reason = "invalid_mfa_code",
+                userId = userId,
+                deviceId = deviceId,
+                statusCode = HttpStatusCode.Unauthorized.value
+            )
+            return locale.respondInvalidMfaCodeError()
+        }
 
-        return authenticatedResponseGenerator.generate(locale, userId, deviceId, userRole, jwtConfig)
+        val result = authenticatedResponseGenerator.generate(locale, userId, deviceId, userRole, jwtConfig)
+        if (result is AppResult.Success) {
+            logger.authEvent(
+                severity = AuthLogSeverity.INFO,
+                event = "auth.mfa.verify.success",
+                context = context,
+                outcome = "success",
+                userId = userId,
+                deviceId = deviceId
+            )
+        }
+        return result
     }
 
     private suspend fun createLoginMfaChallenge(userId: UUID, deviceId: UUID): String {
@@ -448,7 +574,8 @@ class SignInService(
         challengeToken: String?,
         fallbackUserId: UUID?,
         fallbackDeviceId: UUID?,
-        operation: String
+        operation: String,
+        context: AuthRequestContext
     ): LoginMfaContext? {
         if (!challengeToken.isNullOrBlank()) {
             val challenge = resolveLoginMfaChallenge(challengeToken) ?: return null
@@ -461,11 +588,15 @@ class SignInService(
 
         // TODO: Remove legacy userId/deviceId MFA payload support once clients are migrated to challengeToken.
         if (fallbackUserId != null && fallbackDeviceId != null) {
-            logger.warn(
-                "Deprecated legacy login MFA payload used on {}. Prefer challengeToken-based flow. userId={} deviceId={}",
-                operation,
-                fallbackUserId,
-                fallbackDeviceId
+            logger.authEvent(
+                severity = AuthLogSeverity.WARN,
+                event = "auth.mfa.legacy_fallback",
+                context = context,
+                outcome = "rejected",
+                reason = "legacy_payload_deprecated",
+                userId = fallbackUserId,
+                deviceId = fallbackDeviceId,
+                extra = mapOf("operation" to operation)
             )
             return LoginMfaContext(
                 userId = fallbackUserId,
@@ -500,13 +631,27 @@ class SignInService(
         return null
     }
 
-    suspend fun signOut(locale: Locale, userId: UUID, deviceId: UUID): AppResult<SignOutResponse> {
+    suspend fun signOut(
+        locale: Locale,
+        userId: UUID,
+        deviceId: UUID,
+        context: AuthRequestContext
+    ): AppResult<SignOutResponse> {
         val isOwnedByUser = dbExecutor.tx {
             deviceRepository.isValidDeviceIdForUser(deviceId, userId)
         }
 
         if (!isOwnedByUser) {
-            logger.warn("⚠️ signOut denied. deviceId=$deviceId does not belong to userId=$userId")
+            logger.authEvent(
+                severity = AuthLogSeverity.WARN,
+                event = "auth.sign_out.failed",
+                context = context,
+                outcome = "rejected",
+                reason = "device_not_owned",
+                userId = userId,
+                deviceId = deviceId,
+                statusCode = HttpStatusCode.Forbidden.value
+            )
             return locale.respondSignOutAccessDeniedError()
         }
 
@@ -515,13 +660,33 @@ class SignInService(
         }
 
         return if (wasRevoke) {
+            logger.authEvent(
+                severity = AuthLogSeverity.INFO,
+                event = "auth.sign_out.success",
+                context = context,
+                outcome = "success",
+                userId = userId,
+                deviceId = deviceId
+            )
             AppResult.Success(
                 SignOutResponse(
                     success = true,
                     message = locale.getString(StringResourcesKey.AUTH_SIGN_OUT_SUCCESS_MESSAGE)
                 )
             )
-        } else locale.respondSignOutError()
+        } else {
+            logger.authEvent(
+                severity = AuthLogSeverity.ERROR,
+                event = "auth.sign_out.failed",
+                context = context,
+                outcome = "failed",
+                reason = "revoke_failed",
+                userId = userId,
+                deviceId = deviceId,
+                statusCode = HttpStatusCode.InternalServerError.value
+            )
+            locale.respondSignOutError()
+        }
     }
 
     private fun Locale.respondUserNotFoundError(): AppResult.Failure =

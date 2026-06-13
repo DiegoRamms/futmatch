@@ -15,6 +15,9 @@ import com.devapplab.model.auth.response.AuthResponse
 import com.devapplab.model.auth.response.SimpleResponse
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.UserStatus
+import com.devapplab.observability.AuthLogSeverity
+import com.devapplab.observability.AuthRequestContext
+import com.devapplab.observability.authEvent
 import com.devapplab.service.auth.state.CompleteRegistrationAbort
 import com.devapplab.service.auth.state.CompleteRegistrationFailure
 import com.devapplab.service.auth.state.RegistrationTxResult
@@ -62,7 +65,8 @@ class RegistrationService(
     
     suspend fun startRegistration(
         request: RegisterUserRequest,
-        locale: Locale
+        locale: Locale,
+        context: AuthRequestContext
     ): AppResult<SimpleResponse> {
 
         val email = request.email
@@ -78,7 +82,7 @@ class RegistrationService(
             dbExecutor.tx {
                 val alreadyRegistered = userRepository.isEmailAlreadyRegistered(email)
                 if (alreadyRegistered) {
-                    logger.warn("⚠️ Registration attempt for already existing user: $email")
+                    logger.authEvent(AuthLogSeverity.WARN, "auth.registration.start.failed", context, "rejected", "email_already_registered", statusCode = HttpStatusCode.Conflict.value)
                     return@tx false
                 }
 
@@ -95,16 +99,16 @@ class RegistrationService(
                 true
             }
         }.getOrElse { error ->
-            logger.error("🔥 startRegistration DB error for email=$email (responding success anyway)", error)
+            logger.authEvent(AuthLogSeverity.ERROR, "auth.registration.start.failed", context, "failed", "db_error", throwable = error)
             false
         }
 
         if (shouldSendEmail) {
             runCatching {
                 emailService.sendRegistrationEmail(email, verificationCode, locale)
-                logger.info("✅ Sent registration verification code to $email")
+                logger.authEvent(AuthLogSeverity.INFO, "auth.registration.start.success", context, "success")
             }.onFailure { error ->
-                logger.error("📧 Failed to send registration email to $email", error)
+                logger.authEvent(AuthLogSeverity.ERROR, "auth.registration.start.failed", context, "failed", "email_send_failed", throwable = error)
             }
         }
 
@@ -122,12 +126,13 @@ class RegistrationService(
         request: CompleteRegistrationRequest,
         jwtConfig: JWTConfig,
         locale: Locale,
-        deviceInfo: String?
+        deviceInfo: String?,
+        context: AuthRequestContext
     ): AppResult<AuthResponse> {
         val email = request.email.trim()
 
         if (deviceInfo.isNullOrBlank()) {
-            logger.error("❌ completeRegistration - Missing device info")
+            logger.authEvent(AuthLogSeverity.WARN, "auth.registration.complete.failed", context, "rejected", "missing_device_info", statusCode = HttpStatusCode.BadRequest.value)
             return locale.createError(
                 StringResourcesKey.AUTH_DEVICE_INFO_REQUIRED_TITLE,
                 StringResourcesKey.AUTH_DEVICE_INFO_REQUIRED_DESCRIPTION,
@@ -194,7 +199,7 @@ class RegistrationService(
                 RegistrationTxResult(savedUser, deviceId, userId)
             }
         }.getOrElse { error ->
-            logger.error("❌ completeRegistration failed", error)
+            logger.authEvent(AuthLogSeverity.ERROR, "auth.registration.complete.failed", context, "failed", "db_error", throwable = error)
 
             return when (error) {
                 is CompleteRegistrationAbort -> when (error.reason) {
@@ -225,18 +230,23 @@ class RegistrationService(
 
         val (savedUser, deviceId, userId) = txResult
 
-        return authenticatedResponseGenerator.generate(
+        val result = authenticatedResponseGenerator.generate(
             locale = locale,
             userId = userId,
             deviceId = deviceId,
             userRole = savedUser.role,
             jwtConfig = jwtConfig
         )
+        if (result is AppResult.Success) {
+            logger.authEvent(AuthLogSeverity.INFO, "auth.registration.complete.success", context, "success", userId = userId, deviceId = deviceId)
+        }
+        return result
     }
 
     suspend fun resendRegistrationCode(
         request: ResendRegistrationCodeRequest,
-        locale: Locale
+        locale: Locale,
+        context: AuthRequestContext
     ): AppResult<SimpleResponse> {
 
         val email = request.email
@@ -279,7 +289,7 @@ class RegistrationService(
                 ResendRegistrationCodeDecision.SendEmail
             }
         }.getOrElse { error ->
-            logger.error("🔥 resendRegistrationCode DB error for email=$email", error)
+            logger.authEvent(AuthLogSeverity.ERROR, "auth.registration.resend.failed", context, "failed", "db_error", throwable = error)
             return locale.createError(
                 StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -303,7 +313,7 @@ class RegistrationService(
             }
 
             ResendRegistrationCodeDecision.DbUpdateFailed -> {
-                logger.error("Failed to update pending registration code for email: $email")
+                logger.authEvent(AuthLogSeverity.ERROR, "auth.registration.resend.failed", context, "failed", "db_error")
                 return locale.createError(
                     StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                     StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
@@ -316,9 +326,9 @@ class RegistrationService(
                     runCatching {
                         registrationVerifyAttemptRepository.deleteSafe(email)
                     }.onFailure { error ->
-                        logger.warn("⚠️ Failed to clear registration verify attempts after resend | email=$email", error)
+                        logger.authEvent(AuthLogSeverity.WARN, "auth.registration.resend.failed", context, "failed", "cleanup_failed", throwable = error)
                     }
-                    logger.info("✅ Resent registration verification code to $email")
+                    logger.authEvent(AuthLogSeverity.INFO, "auth.registration.resend.success", context, "success")
 
                     AppResult.Success(
                         SimpleResponse(
@@ -328,7 +338,7 @@ class RegistrationService(
                         )
                     )
                 }.getOrElse { error ->
-                    logger.error("📧 Failed to resend registration email to $email", error)
+                    logger.authEvent(AuthLogSeverity.ERROR, "auth.registration.resend.failed", context, "failed", "email_send_failed", throwable = error)
                     locale.createError(
                         StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                         StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY

@@ -16,6 +16,9 @@ import com.devapplab.model.user.response.UserHomeResponse
 import com.devapplab.model.user.response.OrganizerListItem
 import com.devapplab.model.user.response.UserResponse
 import com.devapplab.model.payment.PaymentHistoryItem
+import com.devapplab.observability.AppRequestContext
+import com.devapplab.observability.appRejected
+import com.devapplab.observability.appSuccess
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.payment.PaymentServiceFactory
 import com.devapplab.utils.StringResourcesKey
@@ -39,10 +42,27 @@ class UserService(
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    suspend fun getUserById(userId: UUID?, locale: Locale): AppResult<UserResponse> {
-        userId ?: return locale.createError(status = HttpStatusCode.NotFound)
+    suspend fun getUserById(userId: UUID?, locale: Locale, context: AppRequestContext): AppResult<UserResponse> {
+        userId ?: run {
+            logger.appRejected(
+                event = "user.profile.load_failed",
+                context = context,
+                reason = "missing_user_id",
+                statusCode = HttpStatusCode.NotFound.value
+            )
+            return locale.createError(status = HttpStatusCode.NotFound)
+        }
         val userBaseInfo: UserBaseInfo = dbExecutor.tx { userRepository.getUserById(userId) }
-            ?: return locale.createError(status = HttpStatusCode.NotFound)
+            ?: run {
+                logger.appRejected(
+                    event = "user.profile.load_failed",
+                    context = context,
+                    reason = "user_not_found",
+                    userId = userId,
+                    statusCode = HttpStatusCode.NotFound.value
+                )
+                return locale.createError(status = HttpStatusCode.NotFound)
+            }
 
         // Generate signed URL for profile pic if exists
         val profilePicUrl = userBaseInfo.profilePic?.let { fileName ->
@@ -50,23 +70,45 @@ class UserService(
             imageService.getImageUrl(publicId)
         }.orEmpty()
 
+        logger.appSuccess(
+            event = "user.profile.loaded",
+            context = context,
+            userId = userId,
+            statusCode = HttpStatusCode.OK.value
+        )
         return AppResult.Success(userBaseInfo.toUserResponse(profilePicUrl))
     }
 
     suspend fun uploadProfilePic(
         userId: UUID,
         multiPartData: MultiPartData,
-        locale: Locale
+        locale: Locale,
+        context: AppRequestContext
     ): AppResult<String> {
-        
         val currentUser = dbExecutor.tx { userRepository.getUserById(userId) }
-            ?: return locale.createError(status = HttpStatusCode.NotFound)
+            ?: run {
+                logger.appRejected(
+                    event = "user.profile_picture.upload_failed",
+                    context = context,
+                    reason = "user_not_found",
+                    userId = userId,
+                    statusCode = HttpStatusCode.NotFound.value
+                )
+                return locale.createError(status = HttpStatusCode.NotFound)
+            }
 
         val path = "${Constants.BASE_USER_STORAGE_PATH}/$userId"
-        
+
         // Save new image
         val savedImages = imageService.saveImages(multiPartData, path)
         if (savedImages.isEmpty()) {
+            logger.appRejected(
+                event = "user.profile_picture.upload_failed",
+                context = context,
+                reason = "no_image_uploaded",
+                userId = userId,
+                statusCode = HttpStatusCode.BadRequest.value
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
@@ -78,11 +120,18 @@ class UserService(
         val updated = userRepository.updateProfilePic(userId, newImageName)
 
         if (!updated) {
-             // Rollback: delete uploaded image if DB update fails
-             val publicId = "${Constants.BASE_USER_STORAGE_PATH}/$userId/$newImageName"
-             imageService.deleteImages(publicId)
-             
-             return locale.createError(
+            // Rollback: delete uploaded image if DB update fails
+            val publicId = "${Constants.BASE_USER_STORAGE_PATH}/$userId/$newImageName"
+            imageService.deleteImages(publicId)
+
+            logger.appRejected(
+                event = "user.profile_picture.upload_failed",
+                context = context,
+                reason = "profile_update_failed",
+                userId = userId,
+                statusCode = HttpStatusCode.InternalServerError.value
+            )
+            return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
                 status = HttpStatusCode.InternalServerError
@@ -95,55 +144,114 @@ class UserService(
             imageService.deleteImages(oldPublicId)
         }
 
+        logger.appSuccess(
+            event = "user.profile_picture.uploaded",
+            context = context,
+            userId = userId,
+            statusCode = HttpStatusCode.OK.value
+        )
         return AppResult.Success(
             data = locale.getString(StringResourcesKey.IMAGE_UPLOAD_SUCCESS_MESSAGE),
             appStatus = HttpStatusCode.OK
         )
     }
 
-    suspend fun getOrganizers(): AppResult<List<OrganizerListItem>> {
+    suspend fun getOrganizers(context: AppRequestContext): AppResult<List<OrganizerListItem>> {
         val organizers = dbExecutor.tx { userRepository.getOrganizers() }
+        logger.appSuccess(
+            event = "admin.organizers.listed",
+            context = context,
+            statusCode = HttpStatusCode.OK.value,
+            extra = mapOf("count" to organizers.size)
+        )
         return AppResult.Success(data = organizers, appStatus = HttpStatusCode.OK)
     }
 
-    suspend fun getPaymentHistory(userId: UUID, provider: com.devapplab.model.payment.PaymentProvider = com.devapplab.model.payment.PaymentProvider.STRIPE): AppResult<List<PaymentHistoryItem>> {
-        logger.info("💳 [MATCH_TRACE] getPaymentHistory START | userId=$userId")
-
+    suspend fun getPaymentHistory(
+        userId: UUID,
+        provider: com.devapplab.model.payment.PaymentProvider = com.devapplab.model.payment.PaymentProvider.STRIPE,
+        context: AppRequestContext
+    ): AppResult<List<PaymentHistoryItem>> {
         val stripeCustomerId = userRepository.getPaymentProfile(userId, provider)
         if (stripeCustomerId.isNullOrBlank()) {
-            logger.info("ℹ️ [MATCH_TRACE] getPaymentHistory | No Stripe customer found for user | userId=$userId")
+            logger.appSuccess(
+                event = "payment.history.loaded",
+                context = context,
+                userId = userId,
+                statusCode = HttpStatusCode.OK.value,
+                extra = mapOf("count" to 0, "provider" to provider.name)
+            )
             return AppResult.Success(emptyList())
         }
 
         val paymentService = paymentServiceFactory.getService(provider)
         val history = paymentService.getPaymentHistory(stripeCustomerId, daysBack = 30)
 
-        logger.info("🏁 [MATCH_TRACE] getPaymentHistory END | userId=$userId | count=${history.size}")
+        logger.appSuccess(
+            event = "payment.history.loaded",
+            context = context,
+            userId = userId,
+            statusCode = HttpStatusCode.OK.value,
+            extra = mapOf("count" to history.size, "provider" to provider.name)
+        )
         return AppResult.Success(data = history, appStatus = HttpStatusCode.OK)
     }
 
-    suspend fun updateName(userId: UUID, name: String, lastName: String, locale: Locale): AppResult<Unit> {
+    suspend fun updateName(userId: UUID, name: String, lastName: String, locale: Locale, context: AppRequestContext): AppResult<Unit> {
         val updated = dbExecutor.tx { userRepository.updateNameTx(userId, name.trim(), lastName.trim()) }
         return if (updated) {
+            logger.appSuccess(
+                event = "user.profile.name.updated",
+                context = context,
+                userId = userId,
+                statusCode = HttpStatusCode.OK.value
+            )
             AppResult.Success(data = Unit, appStatus = HttpStatusCode.OK)
         } else {
+            logger.appRejected(
+                event = "user.profile.name.update_failed",
+                context = context,
+                reason = "user_not_found",
+                userId = userId,
+                statusCode = HttpStatusCode.NotFound.value
+            )
             locale.createError(status = HttpStatusCode.NotFound)
         }
     }
 
-    suspend fun updateCountry(userId: UUID, countryCode: String, locale: Locale): AppResult<Unit> {
+    suspend fun updateCountry(userId: UUID, countryCode: String, locale: Locale, context: AppRequestContext): AppResult<Unit> {
         val updated = dbExecutor.tx { userRepository.updateCountryTx(userId, countryCode.trim()) }
         return if (updated) {
+            logger.appSuccess(
+                event = "user.profile.country.updated",
+                context = context,
+                userId = userId,
+                statusCode = HttpStatusCode.OK.value
+            )
             AppResult.Success(data = Unit, appStatus = HttpStatusCode.OK)
         } else {
+            logger.appRejected(
+                event = "user.profile.country.update_failed",
+                context = context,
+                reason = "user_not_found",
+                userId = userId,
+                statusCode = HttpStatusCode.NotFound.value
+            )
             locale.createError(status = HttpStatusCode.NotFound)
         }
     }
 
-    suspend fun updateGender(userId: UUID, gender: String, locale: Locale): AppResult<Unit> {
+    suspend fun updateGender(userId: UUID, gender: String, locale: Locale, context: AppRequestContext): AppResult<Unit> {
         val genderEnum = try {
             Gender.valueOf(gender.uppercase())
         } catch (_: IllegalArgumentException) {
+            logger.appRejected(
+                event = "user.profile.gender.update_failed",
+                context = context,
+                reason = "invalid_gender",
+                userId = userId,
+                statusCode = HttpStatusCode.BadRequest.value
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.USER_PROFILE_GENDER_INVALID,
                 descriptionKey = StringResourcesKey.USER_PROFILE_GENDER_INVALID,
@@ -153,16 +261,36 @@ class UserService(
 
         val updated = dbExecutor.tx { userRepository.updateGenderTx(userId, genderEnum) }
         return if (updated) {
+            logger.appSuccess(
+                event = "user.profile.gender.updated",
+                context = context,
+                userId = userId,
+                statusCode = HttpStatusCode.OK.value
+            )
             AppResult.Success(data = Unit, appStatus = HttpStatusCode.OK)
         } else {
+            logger.appRejected(
+                event = "user.profile.gender.update_failed",
+                context = context,
+                reason = "user_not_found",
+                userId = userId,
+                statusCode = HttpStatusCode.NotFound.value
+            )
             locale.createError(status = HttpStatusCode.NotFound)
         }
     }
 
-    suspend fun updatePosition(userId: UUID, position: String, locale: Locale): AppResult<Unit> {
+    suspend fun updatePosition(userId: UUID, position: String, locale: Locale, context: AppRequestContext): AppResult<Unit> {
         val positionEnum = try {
             PlayerPosition.valueOf(position.uppercase())
         } catch (_: IllegalArgumentException) {
+            logger.appRejected(
+                event = "user.profile.position.update_failed",
+                context = context,
+                reason = "invalid_position",
+                userId = userId,
+                statusCode = HttpStatusCode.BadRequest.value
+            )
             return locale.createError(
                 titleKey = StringResourcesKey.USER_PROFILE_POSITION_INVALID,
                 descriptionKey = StringResourcesKey.USER_PROFILE_POSITION_INVALID,
@@ -172,17 +300,47 @@ class UserService(
 
         val updated = dbExecutor.tx { userRepository.updatePositionTx(userId, positionEnum) }
         return if (updated) {
+            logger.appSuccess(
+                event = "user.profile.position.updated",
+                context = context,
+                userId = userId,
+                statusCode = HttpStatusCode.OK.value
+            )
             AppResult.Success(data = Unit, appStatus = HttpStatusCode.OK)
         } else {
+            logger.appRejected(
+                event = "user.profile.position.update_failed",
+                context = context,
+                reason = "user_not_found",
+                userId = userId,
+                statusCode = HttpStatusCode.NotFound.value
+            )
             locale.createError(status = HttpStatusCode.NotFound)
         }
     }
 
-    suspend fun getHome(userId: UUID?, locale: Locale): AppResult<UserHomeResponse> {
-        userId ?: return locale.createError(status = HttpStatusCode.NotFound)
+    suspend fun getHome(userId: UUID?, locale: Locale, context: AppRequestContext): AppResult<UserHomeResponse> {
+        userId ?: run {
+            logger.appRejected(
+                event = "user.home.load_failed",
+                context = context,
+                reason = "missing_user_id",
+                statusCode = HttpStatusCode.NotFound.value
+            )
+            return locale.createError(status = HttpStatusCode.NotFound)
+        }
 
         val user = dbExecutor.tx { userRepository.getHomeProfileById(userId) }
-            ?: return locale.createError(status = HttpStatusCode.NotFound)
+            ?: run {
+                logger.appRejected(
+                    event = "user.home.load_failed",
+                    context = context,
+                    reason = "user_not_found",
+                    userId = userId,
+                    statusCode = HttpStatusCode.NotFound.value
+                )
+                return locale.createError(status = HttpStatusCode.NotFound)
+            }
 
         val (suggestedMatches, lastMatch, winStats) = coroutineScope {
             val suggestedDeferred = async {
@@ -234,6 +392,16 @@ class UserService(
             )
         }
 
+        logger.appSuccess(
+            event = "user.home.loaded",
+            context = context,
+            userId = userId,
+            statusCode = HttpStatusCode.OK.value,
+            extra = mapOf(
+                "suggestedMatchesCount" to suggestedResponse.size,
+                "hasLastMatch" to (lastMatchResponse != null)
+            )
+        )
         return AppResult.Success(
             data = UserHomeResponse(
                 profile = HomeProfileSection(
