@@ -373,6 +373,7 @@ Obtains a new access token using a refresh token.
 *   **Description:** Provides a new `accessToken`. If the refresh token is near expiration, it will be rotated (a new `refreshToken` will be returned). **Note:** This endpoint does NOT return a new `firebaseToken`, as the Firebase SDK handles its own session refresh.
 *   **Preferred source of truth:** the backend now resolves `userId + deviceId` from the `X-Refresh-Token` itself.
 *   **Final contract for this phase:** the request body no longer carries `userId` or `deviceId`. Session ownership is derived only from the refresh token.
+*   **Refresh token lifecycle model:** refresh token persistence now tracks explicit `status` and `statusReason` values instead of relying only on `revoked=true/false`.
 
 #### Validation Rules
 
@@ -407,6 +408,7 @@ Obtains a new access token using a refresh token.
 - the backend now derives session ownership from the refresh token hash stored in DB
 - clients should send `X-Refresh-Token` plus an empty JSON body
 - refresh token reuse detection is now enabled for revoked or stale tokens on the same device
+- refresh token lifecycle is explicitly modeled with states like `ACTIVE`, `ROTATED`, `REVOKED`, `REUSE_DETECTED`, and `EXPIRED`
 
 #### Client Migration Notes
 

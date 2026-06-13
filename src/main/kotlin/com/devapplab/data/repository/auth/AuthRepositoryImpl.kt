@@ -5,6 +5,7 @@ import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.auth.RefreshTokenPayload
+import com.devapplab.model.auth.RefreshTokenStatusReason
 import java.util.*
 
 class AuthRepositoryImpl(
@@ -31,16 +32,24 @@ class AuthRepositoryImpl(
 
     override fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload) {
         deviceRepository.changeDeviceLastUsed(deviceId)
-        refreshTokenRepository.saveToken(
+        val tokenId = refreshTokenRepository.saveToken(
             userId = userId,
             deviceId = deviceId,
             token = newPayload.hashedToken,
             expiresAt = newPayload.expiresAt
         )
-        refreshTokenRepository.revokeToken(deviceId)
+        refreshTokenRepository.markPreviousActiveTokensAsRotated(
+            deviceId = deviceId,
+            currentTokenId = tokenId,
+            changedAt = System.currentTimeMillis()
+        )
     }
 
     override fun revokeRefreshToken(deviceId: UUID): Boolean {
-        return refreshTokenRepository.revokeCurrentToken(deviceId)
+        return refreshTokenRepository.revokeActiveTokens(
+            deviceId = deviceId,
+            reason = RefreshTokenStatusReason.SIGN_OUT,
+            changedAt = System.currentTimeMillis()
+        )
     }
 }

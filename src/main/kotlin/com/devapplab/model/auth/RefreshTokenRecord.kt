@@ -11,5 +11,8 @@ data class RefreshTokenRecord(
     val createdAt: Long,
     val ipAddress: String?,
     val userAgent: String?,
-    val revoked: Boolean
+    val revoked: Boolean,
+    val status: RefreshTokenStatus,
+    val statusReason: RefreshTokenStatusReason?,
+    val revokedAt: Long?
 )

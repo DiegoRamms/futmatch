@@ -45,6 +45,7 @@ Important current backend behavior:
 - `signOut` and `/device/fcm-token` are JWT-first and still keep temporary fallback for old access JWTs without `device_identifier`
 - `refresh` no longer depends on `userId/deviceId` in the request body
 - `refresh` now uses `X-Refresh-Token` as the primary credential
+- refresh token persistence now tracks explicit `status` and `statusReason` lifecycle metadata
 
 When touching auth or session code, keep docs aligned.
 
