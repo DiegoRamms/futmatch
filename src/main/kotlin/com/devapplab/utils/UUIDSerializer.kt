@@ -1,6 +1,7 @@
 package com.devapplab.utils
 
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -18,6 +19,28 @@ object UUIDSerializer : KSerializer<UUID> {
 
     override fun serialize(encoder: Encoder, value: UUID) {
         encoder.encodeString(value.toString())
+    }
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+object NullableUUIDSerializer : KSerializer<UUID?> {
+    override val descriptor = PrimitiveSerialDescriptor("NullableUUID", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): UUID? {
+        if (!decoder.decodeNotNullMark()) {
+            return decoder.decodeNull()
+        }
+
+        val value = decoder.decodeString()
+        return if (value.isBlank()) null else UUID.fromString(value)
+    }
+
+    override fun serialize(encoder: Encoder, value: UUID?) {
+        if (value == null) {
+            encoder.encodeNull()
+        } else {
+            encoder.encodeString(value.toString())
+        }
     }
 }
 

@@ -99,11 +99,14 @@ private suspend fun respondJWTError(call: ApplicationCall) {
 }
 
 fun ApplicationCall.getIdentifier(claimType: ClaimType): UUID {
+    return getOptionalIdentifier(claimType) ?: throw InvalidTokenException("Token Error")
+}
+
+fun ApplicationCall.getOptionalIdentifier(claimType: ClaimType): UUID? {
     val principal = principal<JWTPrincipal>()
-    val uuid = principal?.payload?.getClaim(claimType.value)?.asString()?.let {
-        UUID.fromString(it)
+    return principal?.payload?.getClaim(claimType.value)?.asString()?.let { value ->
+        runCatching { UUID.fromString(value) }.getOrNull()
     }
-    return uuid ?: throw InvalidTokenException("Token Error")
 }
 
 fun ApplicationCall.getRole(): UserRole {

@@ -353,6 +353,16 @@ Temporary legacy request still accepted:
 
 ## 3. Session Management
 
+### 3.0 Access JWT Claims
+
+Newly issued access JWTs now include:
+
+- `user_identifier`
+- `user_role`
+- `device_identifier`
+
+During the migration window, older access JWTs without `device_identifier` are still accepted. Endpoints already migrated to JWT device resolution will fall back to deprecated request-body `deviceId` support for those older tokens and will log a deprecation warning.
+
 ### 3.1 Refresh Token
 
 Obtains a new access token using a refresh token.
@@ -361,6 +371,7 @@ Obtains a new access token using a refresh token.
 *   **Path:** `/auth/refresh`
 *   **Headers:** Requires `X-Refresh-Token: <refresh_token>`
 *   **Description:** Provides a new `accessToken`. If the refresh token is near expiration, it will be rotated (a new `refreshToken` will be returned). **Note:** This endpoint does NOT return a new `firebaseToken`, as the Firebase SDK handles its own session refresh.
+*   **Migration Note:** `refresh` is intentionally not part of the JWT `deviceId` migration yet. It still requires `userId + deviceId` in the request body for now. These IDs must not be removed from the client yet. Refresh hardening will happen in a later phase.
 
 #### Validation Rules
 
@@ -394,6 +405,12 @@ Obtains a new access token using a refresh token.
 }
 ```
 
+#### Current Status
+
+- `refresh` still requires `userId + deviceId` in the request body
+- `refresh` is not migrated to JWT-based device resolution yet
+- these IDs must remain in the client contract until the dedicated refresh-hardening phase is implemented
+
 ### 3.2 Sign Out
 
 Invalidates the session for a specific device.
@@ -401,19 +418,26 @@ Invalidates the session for a specific device.
 *   **Method:** `POST`
 *   **Path:** `/auth/signOut`
 *   **Headers:** Requires `Authorization: Bearer <access_token>`
-*   **Note:** The `deviceId` must belong to the authenticated user.
+*   **Preferred source of truth:** `deviceId` is now read from the access JWT claim `device_identifier`.
+*   **Temporary compatibility:** if an older access JWT does not contain `device_identifier`, the backend still accepts `deviceId` in the request body and logs a deprecation warning.
+*   **Note:** The resolved `deviceId` must belong to the authenticated user.
 
 #### Validation Rules
 
 | Field | Type | Required | Validation Rules |
 | :--- | :--- | :--- | :--- |
-| `deviceId` | UUID | Yes | Valid non-empty UUID. |
+| `deviceId` | UUID | No | Deprecated fallback for older access JWTs without `device_identifier`. If present, it must be a valid non-empty UUID. |
 
 #### Example Request:
 ```json
 {
     "deviceId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1"
 }
+```
+
+#### Preferred Request After JWT Migration:
+```json
+{}
 ```
 
 #### Example Success Response:

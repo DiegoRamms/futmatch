@@ -1,6 +1,7 @@
 package com.devapplab.features.auth
 
 import com.devapplab.config.getIdentifier
+import com.devapplab.config.getOptionalIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.request.*
@@ -16,6 +17,7 @@ import com.devapplab.service.auth.SignInService
 import com.devapplab.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
+import org.slf4j.LoggerFactory
 import java.util.*
 
 class AuthController(
@@ -24,6 +26,7 @@ class AuthController(
     private val passwordResetService: PasswordResetService,
     private val authTokenManagementService: AuthTokenManagementService
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
     suspend fun startRegistration(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
@@ -81,7 +84,21 @@ class AuthController(
         val locale: Locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<SignOutRequest>()
-        val result = signInService.signOut(locale, userId, request.deviceId)
+        val deviceIdFromJwt = call.getOptionalIdentifier(ClaimType.DEVICE_IDENTIFIER)
+        val resolvedDeviceId = if (deviceIdFromJwt != null) {
+            deviceIdFromJwt
+        } else {
+            // TODO: Remove legacy signOut deviceId fallback once old access JWTs have expired from all clients.
+            val legacyDeviceId = request.deviceId
+                ?: throw InvalidTokenException("Missing device identifier for sign out")
+            logger.warn(
+                "Deprecated legacy signOut payload used because access JWT has no device_identifier claim. userId={} deviceId={}",
+                userId,
+                legacyDeviceId
+            )
+            legacyDeviceId
+        }
+        val result = signInService.signOut(locale, userId, resolvedDeviceId)
         call.respond(result)
     }
 

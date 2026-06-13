@@ -7,13 +7,29 @@ import com.devapplab.model.device.UpdateFcmTokenRequest
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.getString
+import io.ktor.http.HttpStatusCode
+import java.util.UUID
 import java.util.Locale
 
 class DeviceService(private val deviceRepository: DeviceRepository) {
 
-    suspend fun updateFcmToken(request: UpdateFcmTokenRequest, locale: Locale): AppResult<SimpleResponse> {
+    suspend fun updateFcmToken(
+        request: UpdateFcmTokenRequest,
+        locale: Locale,
+        userId: UUID,
+        deviceId: UUID
+    ): AppResult<SimpleResponse> {
+        val isValidDeviceForUser = deviceRepository.isValidDeviceIdForUser(deviceId, userId)
+        if (!isValidDeviceForUser) {
+            return locale.createError(
+                titleKey = StringResourcesKey.AUTH_DEVICE_ID_INVALID,
+                descriptionKey = StringResourcesKey.AUTH_DEVICE_ID_INVALID,
+                status = HttpStatusCode.Forbidden
+            )
+        }
+
         val updated = deviceRepository.updateDeviceFcmToken(
-            deviceId = request.deviceId,
+            deviceId = deviceId,
             platform = request.platform,
             fcmToken = request.fcmToken,
             deviceInfo = request.deviceInfo,

@@ -54,7 +54,7 @@ class AuthenticatedResponseGenerator(
         }
 
         // 2. Generate JWT Access Token
-        val claimConfig = ClaimConfig(userId, userRole)
+        val claimConfig = ClaimConfig(userId, userRole, deviceId)
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
         
         // 3. Generate Refresh Token

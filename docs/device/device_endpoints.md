@@ -25,6 +25,9 @@ Updates the Firebase Cloud Messaging (FCM) token and other device information fo
 *   **Path:** `/device/fcm-token`
 *   **Auth:** Requires a valid JWT Token in the `Authorization` header.
 *   **Description:** Updates the FCM token, platform, and device details. This is used to ensure the server has the latest push notification token for the device.
+*   **Preferred source of truth:** `deviceId` is now read from the access JWT claim `device_identifier`.
+*   **Temporary compatibility:** if an older access JWT does not contain `device_identifier`, the backend still accepts `deviceId` in the request body and logs a deprecation warning.
+*   **Security note:** the resolved `deviceId` must belong to the authenticated user.
 
 ### Validation Rules
 
@@ -32,7 +35,7 @@ Updates the Firebase Cloud Messaging (FCM) token and other device information fo
 
 | Field | Type | Required | Validation Rules |
 | :--- | :--- | :--- | :--- |
-| `deviceId` | UUID | Yes | • Must be a valid UUID.<br>• Must not be the empty UUID (`00000000-0000-0000-0000-000000000000`). |
+| `deviceId` | UUID | No | Deprecated fallback for older access JWTs without `device_identifier`.<br>• If present, must be a valid UUID.<br>• Must not be the empty UUID (`00000000-0000-0000-0000-000000000000`). |
 | `platform` | Enum | Yes | • Must be one of: `ANDROID`, `IOS`. |
 | `fcmToken` | String | Yes | • Must not be empty or blank. |
 | `deviceInfo` | String | Yes | • Must not be empty or blank. |
@@ -40,6 +43,18 @@ Updates the Firebase Cloud Messaging (FCM) token and other device information fo
 | `osVersion` | String | Yes | *(No explicit validation, but required)* |
 
 ### Example Request
+
+```json
+{
+  "platform": "ANDROID",
+  "fcmToken": "fcm_token_example_12345",
+  "deviceInfo": "Pixel 8 / Android 15",
+  "appVersion": "1.0.0",
+  "osVersion": "15"
+}
+```
+
+### Deprecated Legacy Request Example
 
 ```json
 {

@@ -80,7 +80,7 @@ class AuthTokenManagementService(
             return locale.respondInvalidRefreshTokenError()
         }
 
-        val claimConfig = ClaimConfig(tokenUserId, userRole)
+        val claimConfig = ClaimConfig(tokenUserId, userRole, deviceId)
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
 
         val now = System.currentTimeMillis()
