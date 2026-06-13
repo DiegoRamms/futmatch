@@ -1,13 +1,13 @@
 package com.devapplab.model.auth.response
 
-import com.devapplab.utils.UUIDSerializer
+import com.devapplab.utils.NullableUUIDSerializer
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
 @Serializable
 data class RefreshJWTRequest(
-    @Serializable(with = UUIDSerializer::class)
-    val userId: UUID,
-    @Serializable(with = UUIDSerializer::class)
-    val deviceId: UUID,
+    @Serializable(with = NullableUUIDSerializer::class)
+    val userId: UUID? = null,
+    @Serializable(with = NullableUUIDSerializer::class)
+    val deviceId: UUID? = null,
 )

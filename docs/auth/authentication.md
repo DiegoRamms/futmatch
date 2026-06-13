@@ -371,16 +371,23 @@ Obtains a new access token using a refresh token.
 *   **Path:** `/auth/refresh`
 *   **Headers:** Requires `X-Refresh-Token: <refresh_token>`
 *   **Description:** Provides a new `accessToken`. If the refresh token is near expiration, it will be rotated (a new `refreshToken` will be returned). **Note:** This endpoint does NOT return a new `firebaseToken`, as the Firebase SDK handles its own session refresh.
-*   **Migration Note:** `refresh` is intentionally not part of the JWT `deviceId` migration yet. It still requires `userId + deviceId` in the request body for now. These IDs must not be removed from the client yet. Refresh hardening will happen in a later phase.
+*   **Preferred source of truth:** the backend now resolves `userId + deviceId` from the `X-Refresh-Token` itself.
+*   **Temporary compatibility:** older clients may still send `userId + deviceId` in the request body. That payload is now deprecated, is used only for compatibility and mismatch detection, and will generate deprecation warnings in backend logs.
+*   **Migration Note:** this is the first refresh-hardening phase. The request body IDs must not be removed from legacy clients until migration is complete, but new clients should stop sending them.
 
 #### Validation Rules
 
 | Field | Type | Required | Validation Rules |
 | :--- | :--- | :--- | :--- |
-| `userId` | UUID | Yes | Valid non-empty UUID. |
-| `deviceId` | UUID | Yes | Valid non-empty UUID. |
+| `userId` | UUID | No | Deprecated legacy field. If present, must be a valid non-empty UUID and must match the refresh token owner. |
+| `deviceId` | UUID | No | Deprecated legacy field. If present, must be a valid non-empty UUID and must match the refresh token device. |
 
-#### Example Request Body:
+#### Preferred Request Body:
+```json
+{}
+```
+
+#### Deprecated Legacy Request Body:
 ```json
 {
     "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
@@ -407,9 +414,21 @@ Obtains a new access token using a refresh token.
 
 #### Current Status
 
-- `refresh` still requires `userId + deviceId` in the request body
-- `refresh` is not migrated to JWT-based device resolution yet
-- these IDs must remain in the client contract until the dedicated refresh-hardening phase is implemented
+- the backend now derives session ownership from the refresh token hash stored in DB
+- new clients should send `X-Refresh-Token` plus an empty JSON body
+- legacy `userId + deviceId` request payloads are still accepted temporarily
+- if a legacy payload is present and does not match the refresh token owner, the request is rejected
+- refresh token reuse detection is now enabled for revoked or stale tokens on the same device
+
+#### Client Migration Notes
+
+1. Keep sending the `X-Refresh-Token` header exactly as before.
+2. Stop relying on `userId` and `deviceId` in the request body for new client versions.
+3. Send `{}` as the refresh body in new client versions.
+4. Expect the same success response contract:
+   - `REFRESHED_JWT`
+   - `REFRESHED_BOTH_TOKENS`
+5. If the backend returns refresh-token-invalid, clear the session and force full login.
 
 ### 3.2 Sign Out
 

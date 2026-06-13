@@ -49,6 +49,24 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
             .singleOrNull()
     }
 
+    override fun findByTokenHash(tokenHash: String): RefreshTokenRecord? {
+        return RefreshTokenTable.selectAll()
+            .where { RefreshTokenTable.token eq tokenHash }
+            .orderBy(RefreshTokenTable.createdAt, SortOrder.DESC)
+            .limit(1)
+            .mapNotNull { it.toRefreshTokenRecord() }
+            .singleOrNull()
+    }
+
+    override fun findActiveByDeviceId(deviceId: UUID): RefreshTokenRecord? {
+        return RefreshTokenTable.selectAll()
+            .where { (RefreshTokenTable.deviceId eq deviceId) and (RefreshTokenTable.revoked eq false) }
+            .orderBy(RefreshTokenTable.createdAt, SortOrder.DESC)
+            .limit(1)
+            .mapNotNull { it.toRefreshTokenRecord() }
+            .singleOrNull()
+    }
+
     override fun revokeToken(deviceId: UUID): Boolean {
         val lastTokenId = RefreshTokenTable
             .selectAll()
