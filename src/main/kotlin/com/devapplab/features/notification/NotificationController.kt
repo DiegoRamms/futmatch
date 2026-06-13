@@ -2,6 +2,7 @@ package com.devapplab.features.notification
 
 import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
+import com.devapplab.observability.requestContext
 import com.devapplab.service.notification.NotificationService
 import com.devapplab.utils.retrieveLocale
 import com.devapplab.utils.respond
@@ -20,7 +21,8 @@ class NotificationController(private val notificationService: NotificationServic
             userId,
             limit.coerceIn(1, 100),
             offset.coerceAtLeast(0),
-            locale
+            locale,
+            call.requestContext()
         )
         call.respond(result)
     }
@@ -30,7 +32,7 @@ class NotificationController(private val notificationService: NotificationServic
         val locale = call.retrieveLocale()
         val notificationId = UUID.fromString(call.parameters["notificationId"] ?: "")
 
-        val result = notificationService.deleteNotification(notificationId, userId, locale)
+        val result = notificationService.deleteNotification(notificationId, userId, locale, call.requestContext())
         call.respond(result)
     }
 }

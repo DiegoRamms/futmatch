@@ -8,6 +8,10 @@ import com.devapplab.model.match.RefundStatus
 import com.devapplab.model.notification.NotificationResponse
 import com.devapplab.model.notification.NotificationType
 import com.devapplab.model.notification.mapper.toResponseList
+import com.devapplab.observability.AppRequestContext
+import com.devapplab.observability.appFailure
+import com.devapplab.observability.appRejected
+import com.devapplab.observability.appSuccess
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.getString
@@ -365,12 +369,19 @@ class NotificationServiceImp(
         }
     }
 
-    override suspend fun getUserNotifications(userId: UUID, limit: Int, offset: Int, locale: Locale): AppResult<List<NotificationResponse>> {
+    override suspend fun getUserNotifications(userId: UUID, limit: Int, offset: Int, locale: Locale, context: AppRequestContext): AppResult<List<NotificationResponse>> {
         return try {
             val notifications = notificationRepository.getUserNotifications(userId, limit, offset)
             AppResult.Success(notifications.toResponseList())
         } catch (e: Exception) {
-            logger.error("Failed to retrieve notifications for user $userId", e)
+            logger.appFailure(
+                event = "notification.list.load_failed",
+                context = context,
+                reason = "notification_query_failed",
+                userId = userId,
+                statusCode = HttpStatusCode.InternalServerError.value,
+                throwable = e
+            )
             locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
@@ -379,10 +390,18 @@ class NotificationServiceImp(
         }
     }
 
-    override suspend fun deleteNotification(notificationId: UUID, userId: UUID, locale: Locale): AppResult<Boolean> {
+    override suspend fun deleteNotification(notificationId: UUID, userId: UUID, locale: Locale, context: AppRequestContext): AppResult<Boolean> {
         return try {
             val notification = notificationRepository.getNotificationById(notificationId)
             if (notification == null || notification.userId != userId) {
+                logger.appRejected(
+                    event = "notification.delete_failed",
+                    context = context,
+                    reason = "notification_not_found",
+                    userId = userId,
+                    statusCode = HttpStatusCode.NotFound.value,
+                    extra = mapOf("notificationId" to notificationId)
+                )
                 return locale.createError(
                     titleKey = StringResourcesKey.NOT_FOUND_TITLE,
                     descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
@@ -391,9 +410,35 @@ class NotificationServiceImp(
             }
 
             val deleted = notificationRepository.deleteNotification(notificationId)
+            if (deleted) {
+                logger.appSuccess(
+                    event = "notification.deleted",
+                    context = context,
+                    userId = userId,
+                    statusCode = HttpStatusCode.OK.value,
+                    extra = mapOf("notificationId" to notificationId)
+                )
+            } else {
+                logger.appRejected(
+                    event = "notification.delete_failed",
+                    context = context,
+                    reason = "notification_delete_failed",
+                    userId = userId,
+                    statusCode = HttpStatusCode.BadRequest.value,
+                    extra = mapOf("notificationId" to notificationId)
+                )
+            }
             AppResult.Success(deleted)
         } catch (e: Exception) {
-            logger.error("Failed to delete notification $notificationId for user $userId", e)
+            logger.appFailure(
+                event = "notification.delete_failed",
+                context = context,
+                reason = "notification_delete_exception",
+                userId = userId,
+                statusCode = HttpStatusCode.InternalServerError.value,
+                extra = mapOf("notificationId" to notificationId),
+                throwable = e
+            )
             locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                 descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,

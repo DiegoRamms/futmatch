@@ -2,6 +2,7 @@ package com.devapplab.features.profile
 
 import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
+import com.devapplab.observability.requestContext
 import com.devapplab.service.ProfileService
 import com.devapplab.utils.createError
 import com.devapplab.utils.respond
@@ -16,7 +17,7 @@ class ProfileController(
     suspend fun getMe(call: ApplicationCall) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val result = service.getMyProfile(userId, locale)
+        val result = service.getMyProfile(userId, locale, call.requestContext())
         call.respond(result)
     }
 
@@ -27,7 +28,7 @@ class ProfileController(
                 call.respond(locale.createError(status = HttpStatusCode.BadRequest))
                 return
             }
-        val result = service.getPublicProfile(userId, locale)
+        val result = service.getPublicProfile(userId, locale, call.requestContext())
         call.respond(result)
     }
 }

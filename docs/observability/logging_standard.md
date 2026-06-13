@@ -273,6 +273,8 @@ Do not create one-off event names unless they represent a real new event type.
 
 ### User / Profile
 
+- `profile.me.load_failed`
+- `profile.public.load_failed`
 - `user.home.load_failed`
 - `user.profile.load_failed`
 - `user.profile_picture.uploaded`
@@ -311,6 +313,12 @@ Do not create one-off event names unless they represent a real new event type.
 - `payment.status.recover_failed`
 - `payment.status.validate_failed`
 - `payment.status.poll_failed`
+
+### Notification
+
+- `notification.list.load_failed`
+- `notification.deleted`
+- `notification.delete_failed`
 
 ### Field
 

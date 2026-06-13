@@ -4,6 +4,7 @@ import com.devapplab.config.getIdentifier
 import com.devapplab.config.getOptionalIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.device.UpdateFcmTokenRequest
+import com.devapplab.observability.requestContext
 import com.devapplab.service.device.DeviceService
 import com.devapplab.utils.InvalidTokenException
 import com.devapplab.utils.respond
@@ -19,6 +20,7 @@ class DeviceController(private val deviceService: DeviceService) {
     suspend fun updateFcmToken(call: ApplicationCall) {
         val locale: Locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val context = call.requestContext()
         val request = call.receive<UpdateFcmTokenRequest>()
         val deviceIdFromJwt = call.getOptionalIdentifier(ClaimType.DEVICE_IDENTIFIER)
         val resolvedDeviceId = if (deviceIdFromJwt != null) {
@@ -34,7 +36,7 @@ class DeviceController(private val deviceService: DeviceService) {
             )
             legacyDeviceId
         }
-        val result = deviceService.updateFcmToken(request, locale, userId, resolvedDeviceId)
+        val result = deviceService.updateFcmToken(request, locale, userId, resolvedDeviceId, context)
         call.respond(result)
     }
 }

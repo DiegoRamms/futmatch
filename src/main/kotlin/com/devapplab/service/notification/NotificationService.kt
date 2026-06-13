@@ -3,6 +3,7 @@ package com.devapplab.service.notification
 import com.devapplab.model.AppResult
 import com.devapplab.model.match.RefundStatus
 import com.devapplab.model.notification.NotificationType
+import com.devapplab.observability.AppRequestContext
 import java.util.*
 
 interface NotificationService {
@@ -29,6 +30,6 @@ interface NotificationService {
     suspend fun notifyUser(userId: UUID, title: String, body: String, data: Map<String, String> = emptyMap())
 
     // Retrieve and manage notifications
-    suspend fun getUserNotifications(userId: UUID, limit: Int = 50, offset: Int = 0, locale: Locale): AppResult<List<com.devapplab.model.notification.NotificationResponse>>
-    suspend fun deleteNotification(notificationId: UUID, userId: UUID, locale: Locale): AppResult<Boolean>
+    suspend fun getUserNotifications(userId: UUID, limit: Int = 50, offset: Int = 0, locale: Locale, context: AppRequestContext): AppResult<List<com.devapplab.model.notification.NotificationResponse>>
+    suspend fun deleteNotification(notificationId: UUID, userId: UUID, locale: Locale, context: AppRequestContext): AppResult<Boolean>
 }

@@ -5,6 +5,8 @@ import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.model.AppResult
 import com.devapplab.model.match.HomeLastMatch
+import com.devapplab.observability.AppRequestContext
+import com.devapplab.observability.appRejected
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.response.ProfileLastMatchResponse
 import com.devapplab.model.user.response.ProfileMeResponse
@@ -16,6 +18,7 @@ import com.devapplab.utils.createError
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import org.slf4j.LoggerFactory
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.roundToInt
@@ -26,11 +29,29 @@ class ProfileService(
     private val matchRepository: MatchRepository,
     private val imageService: ImageService
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
-    suspend fun getMyProfile(userId: UUID?, locale: Locale): AppResult<ProfileMeResponse> {
-        userId ?: return locale.createError(status = HttpStatusCode.NotFound)
+    suspend fun getMyProfile(userId: UUID?, locale: Locale, context: AppRequestContext): AppResult<ProfileMeResponse> {
+        userId ?: run {
+            logger.appRejected(
+                event = "profile.me.load_failed",
+                context = context,
+                reason = "missing_user_id",
+                statusCode = HttpStatusCode.NotFound.value
+            )
+            return locale.createError(status = HttpStatusCode.NotFound)
+        }
         val user = dbExecutor.tx { userRepository.getUserById(userId) }
-            ?: return locale.createError(status = HttpStatusCode.NotFound)
+            ?: run {
+                logger.appRejected(
+                    event = "profile.me.load_failed",
+                    context = context,
+                    reason = "user_not_found",
+                    userId = userId,
+                    statusCode = HttpStatusCode.NotFound.value
+                )
+                return locale.createError(status = HttpStatusCode.NotFound)
+            }
 
         val stats = loadStats(userId)
         return AppResult.Success(
@@ -48,10 +69,27 @@ class ProfileService(
         )
     }
 
-    suspend fun getPublicProfile(targetUserId: UUID?, locale: Locale): AppResult<ProfilePublicResponse> {
-        targetUserId ?: return locale.createError(status = HttpStatusCode.NotFound)
+    suspend fun getPublicProfile(targetUserId: UUID?, locale: Locale, context: AppRequestContext): AppResult<ProfilePublicResponse> {
+        targetUserId ?: run {
+            logger.appRejected(
+                event = "profile.public.load_failed",
+                context = context,
+                reason = "missing_target_user_id",
+                statusCode = HttpStatusCode.NotFound.value
+            )
+            return locale.createError(status = HttpStatusCode.NotFound)
+        }
         val user = dbExecutor.tx { userRepository.getUserById(targetUserId) }
-            ?: return locale.createError(status = HttpStatusCode.NotFound)
+            ?: run {
+                logger.appRejected(
+                    event = "profile.public.load_failed",
+                    context = context,
+                    reason = "user_not_found",
+                    userId = targetUserId,
+                    statusCode = HttpStatusCode.NotFound.value
+                )
+                return locale.createError(status = HttpStatusCode.NotFound)
+            }
 
         val (stats, lastMatch) = coroutineScope {
             val statsDeferred = async { loadStats(targetUserId) }
