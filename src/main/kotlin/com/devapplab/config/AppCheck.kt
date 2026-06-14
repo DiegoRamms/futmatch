@@ -6,17 +6,26 @@ import com.devapplab.service.appcheck.FirebaseAppCheckService
 import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.request.header
 import io.ktor.server.request.path
+import io.ktor.server.routing.RouteSelector
+import io.ktor.server.routing.RouteSelectorEvaluation
+import io.ktor.server.routing.RoutingResolveContext
 import io.ktor.server.routing.Route
 
 private const val FIREBASE_APP_CHECK_HEADER = "X-Firebase-AppCheck"
+private val appCheckScopedSelector = object : RouteSelector() {
+    override suspend fun evaluate(context: RoutingResolveContext, segmentIndex: Int): RouteSelectorEvaluation {
+        return RouteSelectorEvaluation.Transparent
+    }
+}
 
 fun Route.appCheck(
     appCheckService: FirebaseAppCheckService,
     appCheckConfig: AppCheckConfig,
     build: Route.() -> Unit
 ) {
-    requireAppCheck(appCheckService, appCheckConfig)
-    build()
+    val scopedRoute = createChild(appCheckScopedSelector)
+    scopedRoute.requireAppCheck(appCheckService, appCheckConfig)
+    scopedRoute.build()
 }
 
 fun Route.requireAppCheck(
