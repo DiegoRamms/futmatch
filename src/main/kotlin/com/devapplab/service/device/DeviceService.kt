@@ -1,5 +1,6 @@
 package com.devapplab.service.device
 
+import com.devapplab.config.dbQuery
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.auth.response.SimpleResponse
@@ -25,7 +26,9 @@ class DeviceService(private val deviceRepository: DeviceRepository) {
         deviceId: UUID,
         context: AppRequestContext
     ): AppResult<SimpleResponse> {
-        val isValidDeviceForUser = deviceRepository.isValidDeviceIdForUser(deviceId, userId)
+        val isValidDeviceForUser = dbQuery {
+            deviceRepository.isValidDeviceIdForUser(deviceId, userId)
+        }
         if (!isValidDeviceForUser) {
             logger.appRejected(
                 event = "device.fcm_token.update_failed",
