@@ -36,29 +36,25 @@ fun Route.requireAppCheck(
         onCall { call ->
             val appCheckToken = call.request.header(FIREBASE_APP_CHECK_HEADER)
             val requestId = call.request.header("X-Request-Id")
-            val headerNames = call.request.headers.names().sorted().joinToString(",")
             when (val result = appCheckService.verify(appCheckToken)) {
                 AppCheckVerificationResult.Disabled -> Unit
                 is AppCheckVerificationResult.Valid -> {
-                    call.application.environment.log.info(
-                        "Firebase App Check verified for path={}, requestId={}, headerPresent={}, tokenLength={}, appId={}",
+                    call.application.environment.log.debug(
+                        "Firebase App Check verified for path={}, requestId={}, appId={}",
                         call.request.path(),
                         requestId,
-                        appCheckToken != null,
-                        appCheckToken?.length ?: 0,
                         result.appId
                     )
                 }
 
                 AppCheckVerificationResult.Missing -> {
                     call.application.environment.log.warn(
-                        "Firebase App Check token missing for path={}, requestId={}, headerPresent={}, tokenLength={}, enforce={}, headers={}",
+                        "Firebase App Check token missing for path={}, requestId={}, headerPresent={}, tokenLength={}, enforce={}",
                         call.request.path(),
                         requestId,
                         appCheckToken != null,
                         appCheckToken?.length ?: 0,
-                        appCheckConfig.enforce,
-                        headerNames
+                        appCheckConfig.enforce
                     )
                     if (appCheckConfig.enforce) {
                         throw InvalidAppCheckException("missing_app_check_token")
@@ -67,14 +63,13 @@ fun Route.requireAppCheck(
 
                 is AppCheckVerificationResult.Invalid -> {
                     call.application.environment.log.warn(
-                        "Firebase App Check token invalid for path={}, requestId={}, headerPresent={}, tokenLength={}, reason={}, enforce={}, headers={}",
+                        "Firebase App Check token invalid for path={}, requestId={}, headerPresent={}, tokenLength={}, reason={}, enforce={}",
                         call.request.path(),
                         requestId,
                         appCheckToken != null,
                         appCheckToken?.length ?: 0,
                         result.reason,
-                        appCheckConfig.enforce,
-                        headerNames
+                        appCheckConfig.enforce
                     )
                     if (appCheckConfig.enforce) {
                         throw InvalidAppCheckException(result.reason)
