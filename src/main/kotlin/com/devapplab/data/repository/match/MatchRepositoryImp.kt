@@ -331,7 +331,8 @@ class MatchRepositoryImp : MatchRepository {
             val now = System.currentTimeMillis()
             val visiblePastMatchesCutoff = now - 4.days.inWholeMilliseconds
             
-            val userMatchRows = (MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
+            val userMatchRows = ((MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
+                .leftJoin(MatchResultsTable, { MatchTable.id }, { MatchResultsTable.matchId }))
                 .leftJoin(LocationsTable)
                 .selectAll()
                 .where { 
@@ -449,6 +450,8 @@ class MatchRepositoryImp : MatchRepository {
                     fieldExtraInfo = row[FieldTable.extraInfo],
                     fieldDescription = row[FieldTable.description],
                     fieldRules = row[FieldTable.rules],
+                    teamAScore = row.getOrNull(MatchResultsTable.teamAScore),
+                    teamBScore = row.getOrNull(MatchResultsTable.teamBScore),
                     fieldImages = currentFieldImages,
                     players = players,
                     discounts = discounts

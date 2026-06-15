@@ -36,6 +36,8 @@ data class MatchWithField(
     val fieldExtraInfo: String?, // From FieldTable
     val fieldDescription: String, // From FieldTable
     val fieldRules: String, // From FieldTable
+    val teamAScore: Int? = null,
+    val teamBScore: Int? = null,
     val fieldImages: List<FieldImageBaseInfo> = emptyList(), // All images for the field
     val players: List<MatchPlayerInfo>, // From MatchPlayersTable and UserTable
     val discounts: List<Discount> // From MatchDiscountsTable and DiscountsTable

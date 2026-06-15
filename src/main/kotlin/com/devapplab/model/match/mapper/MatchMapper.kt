@@ -73,6 +73,11 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
     val teams = buildTeamSummary()
     val location = buildLocation()
     val availableSpots = this.maxPlayers - this.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }.size
+    val scores = if (this.status == MatchStatus.COMPLETED) {
+        this.teamAScore to this.teamBScore
+    } else {
+        null to null
+    }
 
     return MatchSummaryResponse(
         id = this.matchId,
@@ -85,6 +90,8 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
         priceInCents = prices.finalPriceInCents,
         genderType = this.genderType,
         status = this.status,
+        teamAScore = scores.first,
+        teamBScore = scores.second,
         maxPlayers = this.maxPlayers,
         availableSpots = if (availableSpots < 0) 0 else availableSpots,
         teams = teams,
