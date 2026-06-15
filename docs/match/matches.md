@@ -780,12 +780,6 @@ Matches are returned based on the following rules:
 
 After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appear in the response.
 
-### Score Fields
-
-- `teamAScore` and `teamBScore` are included only when `status = COMPLETED`.
-- For `SCHEDULED`, `IN_PROGRESS`, or `CANCELED` matches, both fields are `null`.
-- Scores are available only after an admin/organizer completes the match and saves the final result.
-
 ### Success Response
 
 ```json
@@ -810,8 +804,6 @@ After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appea
             "priceInCents": 500,
             "genderType": "MIXED",
             "status": "SCHEDULED",
-            "teamAScore": null,
-            "teamBScore": null,
             "maxPlayers": 14,
             "availableSpots": 4,
             "teams": {
@@ -852,17 +844,6 @@ After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appea
             }
         }
     ]
-}
-```
-
-Example for a completed match:
-
-```json
-{
-    "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
-    "status": "COMPLETED",
-    "teamAScore": 4,
-    "teamBScore": 2
 }
 ```
 
@@ -923,6 +904,8 @@ Gets complete details of a specific match.
         "priceInCents": 500,
         "genderType": "MIXED",
         "status": "SCHEDULED",
+        "teamAScore": null,
+        "teamBScore": null,
         "maxPlayers": 14,
         "availableSpots": 4,
         "teams": {
@@ -968,6 +951,23 @@ Gets complete details of a specific match.
         "description": "Partido amistoso semanal",
         "rules": "No se permiten tacos de metal"
     }
+}
+```
+
+### Score Fields
+
+- `teamAScore` and `teamBScore` are returned only when `status = COMPLETED`.
+- For `SCHEDULED`, `IN_PROGRESS`, or `CANCELED` matches, both fields are `null`.
+- Scores come from the final result saved by an admin/organizer when completing the match.
+
+Example for a completed match:
+
+```json
+{
+    "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+    "status": "COMPLETED",
+    "teamAScore": 4,
+    "teamBScore": 2
 }
 ```
 

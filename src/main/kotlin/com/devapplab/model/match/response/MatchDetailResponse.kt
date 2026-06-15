@@ -22,6 +22,8 @@ data class MatchDetailResponse(
     val priceInCents: Long, // Final price
     val genderType: GenderType,
     val status: MatchStatus,
+    val teamAScore: Int? = null,
+    val teamBScore: Int? = null,
     val maxPlayers: Int,
     val availableSpots: Int,
     val teams: TeamSummaryResponse,

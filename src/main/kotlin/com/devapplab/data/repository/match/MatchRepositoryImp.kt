@@ -331,8 +331,7 @@ class MatchRepositoryImp : MatchRepository {
             val now = System.currentTimeMillis()
             val visiblePastMatchesCutoff = now - 4.days.inWholeMilliseconds
             
-            val userMatchRows = ((MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
-                .leftJoin(MatchResultsTable, { MatchTable.id }, { MatchResultsTable.matchId }))
+            val userMatchRows = (MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
                 .leftJoin(LocationsTable)
                 .selectAll()
                 .where { 
@@ -450,8 +449,6 @@ class MatchRepositoryImp : MatchRepository {
                     fieldExtraInfo = row[FieldTable.extraInfo],
                     fieldDescription = row[FieldTable.description],
                     fieldRules = row[FieldTable.rules],
-                    teamAScore = row.getOrNull(MatchResultsTable.teamAScore),
-                    teamBScore = row.getOrNull(MatchResultsTable.teamBScore),
                     fieldImages = currentFieldImages,
                     players = players,
                     discounts = discounts
@@ -462,7 +459,8 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun getMatchById(matchId: UUID): MatchWithField? {
         return dbQuery {
-            val matchFieldLocationRow = (MatchTable innerJoin FieldTable)
+            val matchFieldLocationRow = ((MatchTable innerJoin FieldTable)
+                .leftJoin(MatchResultsTable, { MatchTable.id }, { MatchResultsTable.matchId }))
                 .leftJoin(LocationsTable)
                 .selectAll()
                 .where { MatchTable.id eq matchId }
@@ -556,6 +554,8 @@ class MatchRepositoryImp : MatchRepository {
                 fieldExtraInfo = matchFieldLocationRow[FieldTable.extraInfo],
                 fieldDescription = matchFieldLocationRow[FieldTable.description],
                 fieldRules = matchFieldLocationRow[FieldTable.rules],
+                teamAScore = matchFieldLocationRow.getOrNull(MatchResultsTable.teamAScore),
+                teamBScore = matchFieldLocationRow.getOrNull(MatchResultsTable.teamBScore),
                 fieldImages = currentFieldImages,
                 players = players,
                 discounts = discounts
