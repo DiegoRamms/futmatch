@@ -136,6 +136,40 @@ class PaymentRepositoryImp : PaymentRepository {
         }
     }
 
+    override suspend fun getLatestPaymentForPlayer(matchId: UUID, userId: UUID): PaymentInfo? {
+        return dbQuery {
+            MatchPlayerPaymentsTable
+                .join(
+                    otherTable = MatchPlayersTable,
+                    joinType = JoinType.INNER,
+                    additionalConstraint = { MatchPlayerPaymentsTable.matchPlayerId eq MatchPlayersTable.id }
+                )
+                .select(
+                    MatchPlayerPaymentsTable.id,
+                    MatchPlayerPaymentsTable.providerPaymentId,
+                    MatchPlayerPaymentsTable.clientSecret,
+                    MatchPlayerPaymentsTable.status,
+                    MatchPlayerPaymentsTable.provider
+                )
+                .where {
+                    (MatchPlayersTable.matchId eq matchId) and
+                            (MatchPlayersTable.userId eq userId)
+                }
+                .orderBy(MatchPlayerPaymentsTable.createdAt, SortOrder.DESC)
+                .limit(1)
+                .map { row ->
+                    PaymentInfo(
+                        paymentId = row[MatchPlayerPaymentsTable.id],
+                        providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
+                        clientSecret = row[MatchPlayerPaymentsTable.clientSecret],
+                        status = row[MatchPlayerPaymentsTable.status],
+                        provider = row[MatchPlayerPaymentsTable.provider]
+                    )
+                }
+                .singleOrNull()
+        }
+    }
+
     override suspend fun getActivePaymentByMatchPlayerId(matchPlayerId: UUID): PaymentInfo? {
         return dbQuery {
             MatchPlayerPaymentsTable

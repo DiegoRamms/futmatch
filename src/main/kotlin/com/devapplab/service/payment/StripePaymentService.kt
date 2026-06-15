@@ -376,21 +376,21 @@ class StripePaymentService(
             )
         }
 
-        // 1. Find active payment for this user and match
-        val activePayment = paymentRepository.getActivePaymentForPlayer(matchUuid, userId) ?: return locale.createError(
+        // Polling must keep working after the webhook transitions the payment to a final state.
+        val latestPayment = paymentRepository.getLatestPaymentForPlayer(matchUuid, userId) ?: return locale.createError(
             titleKey = StringResourcesKey.PAYMENT_NOT_FOUND_TITLE,
             descriptionKey = StringResourcesKey.PAYMENT_NOT_FOUND_DESCRIPTION,
             status = HttpStatusCode.NotFound,
             errorCode = ErrorCode.NOT_FOUND
         )
 
-        val providerPaymentId = activePayment.providerPaymentId ?: return AppResult.Success(
+        val providerPaymentId = latestPayment.providerPaymentId ?: return AppResult.Success(
             PaymentStatusResponse(
-                paymentId = activePayment.paymentId.toString(),
+                paymentId = latestPayment.paymentId.toString(),
                 providerPaymentId = null,
-                clientSecret = activePayment.clientSecret,
-                status = activePayment.status,
-                provider = activePayment.provider
+                clientSecret = latestPayment.clientSecret,
+                status = latestPayment.status,
+                provider = latestPayment.provider
             )
         )
 
@@ -407,11 +407,11 @@ class StripePaymentService(
             }
         } catch (e: Exception) {
             logger.error("🔥 Failed to retrieve Stripe PaymentIntent status. paymentId={}", providerPaymentId, e)
-            activePayment.status
+            latestPayment.status
         }
 
         // 3. Update local DB if status changed
-        if (stripeStatus != activePayment.status) {
+        if (stripeStatus != latestPayment.status) {
             paymentRepository.updatePaymentStatus(providerPaymentId, stripeStatus)
 
             val matchPlayerId = paymentRepository.getMatchPlayerIdByPaymentId(providerPaymentId)
@@ -424,11 +424,11 @@ class StripePaymentService(
 
         return AppResult.Success(
             PaymentStatusResponse(
-                paymentId = activePayment.paymentId.toString(),
+                paymentId = latestPayment.paymentId.toString(),
                 providerPaymentId = providerPaymentId,
-                clientSecret = activePayment.clientSecret,
+                clientSecret = latestPayment.clientSecret,
                 status = stripeStatus,
-                provider = activePayment.provider
+                provider = latestPayment.provider
             )
         )
     }
@@ -488,7 +488,7 @@ class StripePaymentService(
                 // No active payment yet: report as in-progress (CREATED) instead of null.
                 // A nullable type argument on the generic AppResult wrapper breaks kotlinx
                 // serializer resolution at the respond site (falls back to PolymorphicSerializer(Any)).
-                val status = result.data?.status ?: PaymentAttemptStatus.CREATED
+                val status = result.data.status
                 AppResult.Success(
                     PaymentPollingStatusResponse(
                         status = status,

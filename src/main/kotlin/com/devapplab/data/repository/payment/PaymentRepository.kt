@@ -32,6 +32,7 @@ interface PaymentRepository {
     ): List<PendingPaymentInfo>
 
     suspend fun getActivePaymentForPlayer(matchId: UUID, userId: UUID): PaymentInfo?
+    suspend fun getLatestPaymentForPlayer(matchId: UUID, userId: UUID): PaymentInfo?
 
     suspend fun getActivePaymentByMatchPlayerId(matchPlayerId: UUID): PaymentInfo?
 
