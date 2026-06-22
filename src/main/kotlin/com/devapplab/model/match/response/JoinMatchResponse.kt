@@ -1,6 +1,7 @@
 package com.devapplab.model.match.response
 
 import com.devapplab.model.payment.PaymentProvider
+import com.devapplab.model.payment.PaymentAttemptStatus
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -13,5 +14,7 @@ data class JoinMatchResponse(
     val customer: String?,
     val customerSessionClientSecret: String?,
     val publishableKey: String?,
-    val reservationTtlMs: Long
+    val reservationTtlMs: Long,
+    val reusedExistingPayment: Boolean = false,
+    val existingPaymentStatus: PaymentAttemptStatus? = null
 )

@@ -327,25 +327,27 @@ class MatchService(
         val fieldName = match.fieldName
 
         val playersWithPayments = paymentRepository.getMatchPlayersWithPayments(matchUuid)
-        logger.info("📊 [MATCH_TRACE] cancelMatch | Found ${playersWithPayments.size} players in match | matchId=$matchUuid")
+        val paymentsByUser = playersWithPayments.groupBy { it.userId }
+        logger.info("📊 [MATCH_TRACE] cancelMatch | Found ${paymentsByUser.size} players in match | matchId=$matchUuid")
 
         var playersRemoved = 0
         var paymentsCancelled = 0
         var refundsIssued = 0
         val refundFailures = mutableListOf<RefundFailureInfo>()
 
-        for (player in playersWithPayments) {
-            logger.info("🔄 [MATCH_TRACE] cancelMatch | Processing player | userId=${player.userId} | playerStatus=${player.playerStatus} | paymentStatus=${player.paymentStatus}")
+        for ((userId, paymentRows) in paymentsByUser) {
+            val player = paymentRows.first()
+            logger.info("🔄 [MATCH_TRACE] cancelMatch | Processing player | userId=${player.userId} | playerStatus=${player.playerStatus} | paymentCount=${paymentRows.size}")
 
             when (player.playerStatus) {
                 MatchPlayerStatus.RESERVED -> {
-                    logger.info("🗑️ [MATCH_TRACE] cancelMatch | Player is RESERVED, removing from match | userId=${player.userId}")
+                    logger.info("🗑️ [MATCH_TRACE] cancelMatch | Player is RESERVED, removing from match | userId=$userId")
                     matchRepository.updatePlayerStatus(player.matchPlayerId, MatchPlayerStatus.CANCELED)
                     playersRemoved++
 
                     val userLocale = Locale.forLanguageTag(player.locale.ifEmpty { LocaleTag.LAN_TAG_MX.value })
                     notificationService.sendMatchCanceledNotification(
-                        userId = player.userId,
+                        userId = userId,
                         matchId = matchUuid,
                         fieldName = fieldName,
                         locale = userLocale,
@@ -355,105 +357,93 @@ class MatchService(
                 }
 
                 MatchPlayerStatus.JOINED -> {
-                    val paymentId = player.paymentId
-                    val providerPaymentId = player.providerPaymentId
-                    val provider = player.provider
+                    val userLocale = Locale.forLanguageTag(player.locale.ifEmpty { LocaleTag.LAN_TAG_MX.value })
+                    var notificationRefundStatus: RefundStatus
+                    var hadRefundFailure = false
+                    var hadSuccessfulRefund = false
 
-                    when (player.paymentStatus) {
-                        PaymentAttemptStatus.SUCCEEDED -> {
-                            if (paymentId == null || providerPaymentId == null || provider == null) {
-                                logger.warn("⚠️ [MATCH_TRACE] cancelMatch | Cannot refund - missing payment info | userId=${player.userId}")
-                            } else {
-                                logger.info("💰 [MATCH_TRACE] cancelMatch | Player has SUCCEEDED payment, initiating refund | userId=${player.userId} | paymentId=$providerPaymentId")
-                                
-                                val paymentService = paymentServiceFactory.getService(provider)
-                                val amountInCents = player.amount?.multiply(BigDecimal(100))?.toLong()
+                    val succeededPayments = paymentRows.filter {
+                        it.paymentStatus == PaymentAttemptStatus.SUCCEEDED &&
+                            it.paymentId != null &&
+                            it.providerPaymentId != null &&
+                            it.provider != null
+                    }
 
-                                val refunded = paymentService.refundPayment(providerPaymentId, amountInCents)
+                    val cancelablePayments = paymentRows.filter {
+                        it.paymentStatus == PaymentAttemptStatus.AUTHORIZED ||
+                            it.paymentStatus == PaymentAttemptStatus.CREATED
+                    }
 
-                                if (refunded) {
-                                    paymentRepository.updatePaymentStatus(providerPaymentId, PaymentAttemptStatus.REFUNDED)
-                                    refundsIssued++
-                                    logger.info("✅ [MATCH_TRACE] cancelMatch | Refund successful | userId=${player.userId} | paymentId=$providerPaymentId")
+                    for (payment in succeededPayments) {
+                        val paymentId = payment.paymentId ?: continue
+                        val providerPaymentId = payment.providerPaymentId ?: continue
+                        val provider = payment.provider ?: continue
 
-                                    val userLocale = Locale.forLanguageTag(player.locale.ifEmpty { LocaleTag.LAN_TAG_MX.value })
-                                    notificationService.sendMatchCanceledNotification(
-                                        userId = player.userId,
-                                        matchId = matchUuid,
-                                        fieldName = fieldName,
-                                        locale = userLocale,
-                                        refundStatus = RefundStatus.REFUNDED
-                                    )
-                                } else {
-                                    logger.error("❌ [MATCH_TRACE] cancelMatch | Refund failed, recording failure | userId=${player.userId} | paymentId=$providerPaymentId")
+                        logger.info("💰 [MATCH_TRACE] cancelMatch | Refunding succeeded payment | userId=$userId | paymentId=$providerPaymentId")
 
-                                    val errorMsg = "Refund failed in Stripe"
-                                    val failureId = refundFailureRepository.createFailure(
-                                        matchId = matchUuid,
-                                        userId = player.userId,
-                                        paymentId = paymentId,
-                                        providerPaymentId = providerPaymentId,
-                                        errorMessage = errorMsg
-                                    )
-                                    refundFailures.add(RefundFailureInfo(
-                                        failureId = failureId,
-                                        userId = player.userId,
-                                        paymentId = paymentId,
-                                        errorMessage = errorMsg
-                                    ))
+                        val paymentService = paymentServiceFactory.getService(provider)
+                        val amountInCents = payment.amount?.multiply(BigDecimal(100))?.toLong()
+                        val refunded = paymentService.refundPayment(providerPaymentId, amountInCents)
 
-                                    val userLocale = Locale.forLanguageTag(player.locale.ifEmpty { LocaleTag.LAN_TAG_MX.value })
-                                    notificationService.sendMatchCanceledNotification(
-                                        userId = player.userId,
-                                        matchId = matchUuid,
-                                        fieldName = fieldName,
-                                        locale = userLocale,
-                                        refundStatus = RefundStatus.FAILED
-                                    )
-                                }
-                                logger.info("📱 [MATCH_TRACE] cancelMatch | Notification sent to player | userId=${player.userId}")
-                            }
-                        }
-
-                        PaymentAttemptStatus.AUTHORIZED, PaymentAttemptStatus.CREATED -> {
-                            if (providerPaymentId != null && provider != null) {
-                                logger.info("🚫 [MATCH_TRACE] cancelMatch | Player has AUTHORIZED/CREATED payment, canceling | userId=${player.userId} | paymentId=$providerPaymentId")
-                                
-                                val paymentService = paymentServiceFactory.getService(provider)
-                                val canceled = paymentService.cancelPayment(providerPaymentId)
-
-                                if (canceled) {
-                                    paymentRepository.updatePaymentStatus(providerPaymentId, PaymentAttemptStatus.CANCELED)
-                                    paymentsCancelled++
-                                    logger.info("✅ [MATCH_TRACE] cancelMatch | Payment cancelled | userId=${player.userId} | paymentId=$providerPaymentId")
-                                } else {
-                                    logger.error("❌ [MATCH_TRACE] cancelMatch | Payment cancel failed | userId=${player.userId} | paymentId=$providerPaymentId")
-                                }
-                            }
-
-                            val userLocale = Locale.forLanguageTag(player.locale.ifEmpty { LocaleTag.LAN_TAG_MX.value })
-                            notificationService.sendMatchCanceledNotification(
-                                userId = player.userId,
+                        if (refunded) {
+                            paymentRepository.updatePaymentStatus(providerPaymentId, PaymentAttemptStatus.REFUNDED)
+                            refundsIssued++
+                            hadSuccessfulRefund = true
+                        } else {
+                            logger.error("❌ [MATCH_TRACE] cancelMatch | Refund failed, recording failure | userId=$userId | paymentId=$providerPaymentId")
+                            val errorMsg = "Refund failed in Stripe"
+                            val failureId = refundFailureRepository.createFailure(
                                 matchId = matchUuid,
-                                fieldName = fieldName,
-                                locale = userLocale,
-                                refundStatus = RefundStatus.NO_CHARGE
+                                userId = userId,
+                                paymentId = paymentId,
+                                providerPaymentId = providerPaymentId,
+                                errorMessage = errorMsg
                             )
-                            logger.info("📱 [MATCH_TRACE] cancelMatch | Notification sent to cancelled payment player | userId=${player.userId}")
-                        }
-
-                        else -> {
-                            logger.info("ℹ️ [MATCH_TRACE] cancelMatch | Player has payment status ${player.paymentStatus}, sending notification | userId=${player.userId}")
-                            val userLocale = Locale.forLanguageTag(player.locale.ifEmpty { LocaleTag.LAN_TAG_MX.value })
-                            notificationService.sendMatchCanceledNotification(
-                                userId = player.userId,
-                                matchId = matchUuid,
-                                fieldName = fieldName,
-                                locale = userLocale,
-                                refundStatus = RefundStatus.NO_CHARGE
+                            refundFailures.add(
+                                RefundFailureInfo(
+                                    failureId = failureId,
+                                    userId = userId,
+                                    paymentId = paymentId,
+                                    errorMessage = errorMsg
+                                )
                             )
+                            hadRefundFailure = true
                         }
                     }
+
+                    for (payment in cancelablePayments) {
+                        val providerPaymentId = payment.providerPaymentId
+                        val provider = payment.provider
+                        if (providerPaymentId == null || provider == null) {
+                            continue
+                        }
+
+                        logger.info("🚫 [MATCH_TRACE] cancelMatch | Canceling active payment | userId=$userId | paymentId=$providerPaymentId")
+                        val paymentService = paymentServiceFactory.getService(provider)
+                        val canceled = paymentService.cancelPayment(providerPaymentId)
+
+                        if (canceled) {
+                            paymentRepository.updatePaymentStatus(providerPaymentId, PaymentAttemptStatus.CANCELED)
+                            paymentsCancelled++
+                        } else {
+                            logger.error("❌ [MATCH_TRACE] cancelMatch | Payment cancel failed | userId=$userId | paymentId=$providerPaymentId")
+                        }
+                    }
+
+                    notificationRefundStatus = when {
+                        hadRefundFailure -> RefundStatus.FAILED
+                        hadSuccessfulRefund -> RefundStatus.REFUNDED
+                        else -> RefundStatus.NO_CHARGE
+                    }
+
+                    notificationService.sendMatchCanceledNotification(
+                        userId = userId,
+                        matchId = matchUuid,
+                        fieldName = fieldName,
+                        locale = userLocale,
+                        refundStatus = notificationRefundStatus
+                    )
+                    logger.info("📱 [MATCH_TRACE] cancelMatch | Notification sent to joined player | userId=$userId")
                 }
 
                 else -> {
@@ -472,7 +462,7 @@ class MatchService(
 
         val result = MatchCancelResult(
             canceled = canceled,
-            totalPlayers = playersWithPayments.size,
+            totalPlayers = paymentsByUser.size,
             playersRemoved = playersRemoved,
             paymentsCancelled = paymentsCancelled,
             refundsIssued = refundsIssued,
@@ -480,16 +470,16 @@ class MatchService(
         )
 
         logger.appSuccess(
-            event = "match.canceled",
-            context = context,
-            statusCode = HttpStatusCode.OK.value,
-            extra = mapOf(
-                "matchId" to matchUuid,
-                "canceled" to canceled,
-                "totalPlayers" to playersWithPayments.size,
-                "playersRemoved" to playersRemoved,
-                "paymentsCancelled" to paymentsCancelled,
-                "refundsIssued" to refundsIssued,
+                event = "match.canceled",
+                context = context,
+                statusCode = HttpStatusCode.OK.value,
+                extra = mapOf(
+                    "matchId" to matchUuid,
+                    "canceled" to canceled,
+                    "totalPlayers" to paymentsByUser.size,
+                    "playersRemoved" to playersRemoved,
+                    "paymentsCancelled" to paymentsCancelled,
+                    "refundsIssued" to refundsIssued,
                 "refundFailuresCount" to refundFailures.size
             )
         )
@@ -711,14 +701,9 @@ class MatchService(
         val joined = matchRepository.addPlayerToMatch(matchId, userId, teamToJoin)
 
         if (joined) {
-            // 1. Notify that a spot is reserved (Optimistic update for other users)
-            notifyMatchUpdate(matchId)
-
             val totalDiscount = calculateTotalDiscount(match.matchPrice, match.discounts)
             val finalPrice = match.matchPrice - totalDiscount
             val amountInCents = (finalPrice * BigDecimal(100)).toLong()
-
-            val paymentService = paymentServiceFactory.getService(paymentProvider)
             val matchPlayerId = matchRepository.getMatchPlayerId(matchId, userId)
                 ?: throw IllegalStateException("Match player not found after join")
 
@@ -728,6 +713,47 @@ class MatchService(
                 PaymentCaptureMethod.AUTOMATIC
             }
 
+            if (timeUntilMatch <= CAPTURE_METHOD_THRESHOLD.inWholeMilliseconds) {
+                val confirmedPayment = paymentRepository.getLatestConfirmedPaymentForPlayer(matchId, userId)
+                if (confirmedPayment != null) {
+                    matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
+                    notifyMatchUpdate(matchId)
+
+                    logger.appSuccess(
+                        event = "match.join_reused_payment",
+                        context = context,
+                        userId = userId,
+                        statusCode = HttpStatusCode.OK.value,
+                        extra = mapOf(
+                            "matchId" to matchId,
+                            "team" to teamToJoin.name,
+                            "provider" to confirmedPayment.provider.name,
+                            "paymentStatus" to confirmedPayment.status.name
+                        )
+                    )
+
+                    return AppResult.Success(
+                        JoinMatchResponse(
+                            clientSecret = null,
+                            paymentId = confirmedPayment.providerPaymentId,
+                            provider = confirmedPayment.provider,
+                            amountInCents = amountInCents,
+                            currency = "mxn",
+                            customer = null,
+                            customerSessionClientSecret = null,
+                            publishableKey = null,
+                            reservationTtlMs = RESERVATION_TTL.inWholeMilliseconds,
+                            reusedExistingPayment = true,
+                            existingPaymentStatus = confirmedPayment.status
+                        )
+                    )
+                }
+            }
+
+            // 1. Notify that a spot is reserved (Optimistic update for other users)
+            notifyMatchUpdate(matchId)
+
+            val paymentService = paymentServiceFactory.getService(paymentProvider)
             val storedCustomerId = userRepository.getPaymentProfile(userId, paymentProvider)
             val resolvedCustomerId = storedCustomerId ?: billingService.getOrCreateCustomer(userId, paymentProvider)
 
@@ -781,7 +807,9 @@ class MatchService(
                             customer = paymentResult.data.customer,
                             customerSessionClientSecret = paymentResult.data.customerSessionClientSecret,
                             publishableKey = paymentResult.data.publishableKey,
-                            reservationTtlMs = RESERVATION_TTL.inWholeMilliseconds
+                            reservationTtlMs = RESERVATION_TTL.inWholeMilliseconds,
+                            reusedExistingPayment = false,
+                            existingPaymentStatus = null
                         )
                     )
 
@@ -877,12 +905,30 @@ class MatchService(
             )
         }
 
+        val timeUntilMatch = match.dateTime - System.currentTimeMillis()
+        val preserveConfirmedPayment = if (timeUntilMatch <= CAPTURE_METHOD_THRESHOLD.inWholeMilliseconds) {
+            paymentRepository.getLatestConfirmedPaymentForPlayer(matchId, userId) != null
+        } else {
+            false
+        }
+
         // Check for active payment to cancel
         val activePayment = paymentRepository.getActivePaymentForPlayer(matchId, userId)
         if (activePayment != null) {
-            logger.info("💳 [MATCH_TRACE] leaveMatch | Found active payment to cancel | userId=$userId | matchId=$matchId | paymentId=${activePayment.paymentId}")
-            cancelActivePayment(activePayment)
-            logger.info("✅ [MATCH_TRACE] leaveMatch | Payment cancelled | userId=$userId | matchId=$matchId")
+            if (preserveConfirmedPayment && activePayment.status in setOf(
+                    PaymentAttemptStatus.AUTHORIZED,
+                    PaymentAttemptStatus.SUCCEEDED
+                )
+            ) {
+                logger.info("ℹ️ [MATCH_TRACE] leaveMatch | Preserving confirmed payment on leave | userId=$userId | matchId=$matchId | paymentId=${activePayment.paymentId}")
+            } else if (preserveConfirmedPayment && activePayment.status == PaymentAttemptStatus.CREATED) {
+                logger.info("💳 [MATCH_TRACE] leaveMatch | Cancelling non-confirmed duplicate payment while preserving confirmed one | userId=$userId | matchId=$matchId | paymentId=${activePayment.paymentId}")
+                cancelActivePayment(activePayment)
+            } else if (!preserveConfirmedPayment) {
+                logger.info("💳 [MATCH_TRACE] leaveMatch | Found active payment to cancel | userId=$userId | matchId=$matchId | paymentId=${activePayment.paymentId}")
+                cancelActivePayment(activePayment)
+                logger.info("✅ [MATCH_TRACE] leaveMatch | Payment cancelled | userId=$userId | matchId=$matchId")
+            }
         }
 
         val left = matchRepository.removePlayerFromMatch(matchId, userId)
