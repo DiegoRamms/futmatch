@@ -326,6 +326,22 @@ class MatchService(
 
         val fieldName = match.fieldName
 
+        if (match.status == MatchStatus.COMPLETED) {
+            logger.appRejected(
+                event = "match.cancel_failed",
+                context = context,
+                reason = "match_already_completed",
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("matchId" to matchUuid)
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_ALREADY_COMPLETED_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_ALREADY_COMPLETED
+            )
+        }
+
         val playersWithPayments = paymentRepository.getMatchPlayersWithPayments(matchUuid)
         val paymentsByUser = playersWithPayments.groupBy { it.userId }
         logger.info("📊 [MATCH_TRACE] cancelMatch | Found ${paymentsByUser.size} players in match | matchId=$matchUuid")
