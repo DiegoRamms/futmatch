@@ -6,6 +6,7 @@ import com.devapplab.model.match.CompleteMatchRequest
 import com.devapplab.model.match.mapper.toMatch
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.request.JoinMatchRequest
+import com.devapplab.model.match.request.RebalanceMatchTeamsRequest
 import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.observability.requestContext
 import com.devapplab.utils.respond
@@ -153,6 +154,14 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val request = call.receive<CompleteMatchRequest>()
         val locale = call.retrieveLocale()
         val result = matchService.completeMatch(matchId, userId, request, locale)
+        call.respond(result)
+    }
+
+    suspend fun rebalanceMatchTeams(call: ApplicationCall) {
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't rebalance match teams")
+        val request = call.receive<RebalanceMatchTeamsRequest>()
+        val locale = call.retrieveLocale()
+        val result = matchService.rebalanceMatchTeams(matchId, request, locale, call.requestContext())
         call.respond(result)
     }
 

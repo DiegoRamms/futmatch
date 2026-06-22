@@ -18,6 +18,7 @@ import com.devapplab.model.match.*
 import com.devapplab.model.match.mapper.toMatchDetailResponse
 import com.devapplab.model.match.mapper.toMatchSummaryResponse
 import com.devapplab.model.match.mapper.toResponse
+import com.devapplab.model.match.request.RebalanceMatchTeamsRequest
 import com.devapplab.model.match.response.*
 import com.devapplab.model.notification.NotificationType
 import com.devapplab.model.payment.*
@@ -551,6 +552,119 @@ class MatchService(
             extra = mapOf("matchId" to matchId, "fieldId" to updatedMatch.fieldId)
         )
         return AppResult.Success(response)
+    }
+
+    suspend fun rebalanceMatchTeams(
+        matchId: UUID,
+        request: RebalanceMatchTeamsRequest,
+        locale: Locale,
+        context: AppRequestContext
+    ): AppResult<Boolean> {
+        val match = matchRepository.getMatchById(matchId)
+            ?: run {
+                logger.appRejected(
+                    event = "match.rebalance_failed",
+                    context = context,
+                    reason = "match_not_found",
+                    statusCode = HttpStatusCode.NotFound.value,
+                    extra = mapOf("matchId" to matchId)
+                )
+                return locale.createError(
+                    titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                    descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                    status = HttpStatusCode.NotFound,
+                    errorCode = ErrorCode.NOT_FOUND
+                )
+            }
+
+        if (match.status != MatchStatus.SCHEDULED) {
+            logger.appRejected(
+                event = "match.rebalance_failed",
+                context = context,
+                reason = "match_not_scheduled",
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf("matchId" to matchId, "status" to match.status.name)
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_NOT_SCHEDULED_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_NOT_SCHEDULED_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_NOT_SCHEDULED
+            )
+        }
+
+        val activePlayers = match.players.filter {
+            it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED
+        }
+        val activePlayerIds = activePlayers.map { it.userId }.toSet()
+        val requestedIds = request.players.map { it.userId }.toSet()
+
+        if (!activePlayerIds.containsAll(requestedIds)) {
+            logger.appRejected(
+                event = "match.rebalance_failed",
+                context = context,
+                reason = "invalid_players",
+                statusCode = HttpStatusCode.BadRequest.value,
+                extra = mapOf("matchId" to matchId, "requestedPlayers" to requestedIds)
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_INVALID_REBALANCE_PLAYERS_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_INVALID_REBALANCE_PLAYERS_DESCRIPTION,
+                status = HttpStatusCode.BadRequest,
+                errorCode = ErrorCode.MATCH_INVALID_REBALANCE_PLAYERS
+            )
+        }
+
+        val assignments = request.players.associate { it.userId to it.team }
+        val teamCounts = activePlayers.groupingBy { assignments[it.userId] ?: it.team }.eachCount()
+        val maxPerTeam = match.maxPlayers / 2
+
+        if ((teamCounts[TeamType.A] ?: 0) > maxPerTeam || (teamCounts[TeamType.B] ?: 0) > maxPerTeam) {
+            logger.appRejected(
+                event = "match.rebalance_failed",
+                context = context,
+                reason = "team_limit_reached",
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf(
+                    "matchId" to matchId,
+                    "teamACount" to (teamCounts[TeamType.A] ?: 0),
+                    "teamBCount" to (teamCounts[TeamType.B] ?: 0),
+                    "maxPerTeam" to maxPerTeam
+                )
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_REBALANCE_TEAM_LIMIT_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_REBALANCE_TEAM_LIMIT_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_REBALANCE_TEAM_LIMIT
+            )
+        }
+
+        val updated = matchRepository.updatePlayerTeams(matchId, assignments)
+        if (!updated) {
+            logger.appRejected(
+                event = "match.rebalance_failed",
+                context = context,
+                reason = "update_failed",
+                statusCode = HttpStatusCode.InternalServerError.value,
+                extra = mapOf("matchId" to matchId, "assignmentsCount" to assignments.size)
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError,
+                errorCode = ErrorCode.GENERAL_ERROR
+            )
+        }
+
+        notifyMatchUpdate(matchId)
+        logger.appSuccess(
+            event = "match.rebalanced",
+            context = context,
+            statusCode = HttpStatusCode.OK.value,
+            extra = mapOf("matchId" to matchId, "assignmentsCount" to assignments.size)
+        )
+        return AppResult.Success(true)
     }
 
     suspend fun joinMatch(

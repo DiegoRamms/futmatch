@@ -17,6 +17,7 @@ import com.devapplab.model.field.request.UpdateFieldRequest
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.CompleteMatchRequest
+import com.devapplab.model.match.request.RebalanceMatchTeamsRequest
 import com.devapplab.model.match.request.UpdateMatchRequest
 import com.devapplab.model.mfa.MfaCodeRequest
 import com.devapplab.model.mfa.MfaCodeVerificationRequest
@@ -75,6 +76,10 @@ fun Application.configureRequestValidation() {
         }
 
         validate<CompleteMatchRequest> { request ->
+            request.validate()
+        }
+
+        validate<RebalanceMatchTeamsRequest> { request ->
             request.validate()
         }
 

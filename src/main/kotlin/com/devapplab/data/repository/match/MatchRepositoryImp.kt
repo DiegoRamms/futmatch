@@ -707,6 +707,29 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun updatePlayerTeams(matchId: UUID, assignments: Map<UUID, TeamType>): Boolean {
+        return dbQuery {
+            if (assignments.isEmpty()) return@dbQuery false
+
+            val updatedRows = assignments.entries.count { (userId, team) ->
+                MatchPlayersTable.update({
+                    (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId)
+                }) {
+                    it[this.team] = team
+                } > 0
+            }
+
+            if (updatedRows == assignments.size) {
+                MatchTable.update({ MatchTable.id eq matchId }) {
+                    it[updatedAt] = System.currentTimeMillis()
+                }
+                true
+            } else {
+                false
+            }
+        }
+    }
+
     override suspend fun getExpiredReservations(expirationTime: Long): List<ExpiredReservation> {
         return dbQuery {
             (MatchPlayersTable innerJoin UserTable)

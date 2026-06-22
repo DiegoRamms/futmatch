@@ -249,9 +249,11 @@ Cancels a scheduled match. This endpoint handles payment refunds and cancellatio
 
 **Behavior:**
 - `RESERVED` players: Removed from match, notification sent (no charge).
-- `JOINED` + `AUTHORIZED/CREATED` payments: Payment cancelled in Stripe.
-- `JOINED` + `SUCCEEDED` payments: Refund initiated via Stripe. If refund fails, it's recorded for retry.
-- All enrolled players receive a push notification about the cancellation.
+- `JOINED` + `AUTHORIZED/CREATED` payments: Active payments are cancelled in Stripe.
+- `JOINED` + `SUCCEEDED` payments: Refund is initiated for each successful captured payment associated with the active player. If refund fails, it is recorded for retry.
+- Historical `CANCELED` and `REFUNDED` payments are ignored.
+- Active players receive a single cancellation push notification based on the effective refund outcome for that user.
+- Completed matches cannot be canceled.
 
 -   **Method:** `PATCH`
 -   **Path:** `/match/admin/cancel/{matchId}`
@@ -309,10 +311,75 @@ curl --location --request PATCH '{{base_url}}/match/admin/cancel/{matchId}' \
 | `JOINED` | `SUCCEEDED` (refund success) | "Match canceled. Refund initiated." |
 | `JOINED` | `SUCCEEDED` (refund failed) | "Match canceled. Contact support for refund." |
 | `JOINED` | `AUTHORIZED/CREATED` | "Match canceled. Charge released." |
+| `JOINED` | no actionable payment | "Match canceled. No charge was made." |
+
+### Error Codes
+
+| Code | Description |
+|:-----|:------------|
+| `MATCH_NOT_FOUND` | The specified match does not exist. |
+| `MATCH_ALREADY_COMPLETED` | The match was already completed and can no longer be canceled. |
 
 ---
 
-## 5. Get Matches by Field
+## 5. Rebalance Match Teams
+
+Allows an `ADMIN` or `ORGANIZER` to rebalance players between teams for drag-and-drop team leveling.
+
+-   **Method:** `POST`
+-   **Path:** `/match/admin/{matchId}/rebalance-teams`
+-   **Required Role:** `ADMIN` or `ORGANIZER`
+
+### Path Parameters
+-   `matchId` (UUID): The ID of the match to rebalance.
+
+### Request Body
+
+```json
+{
+    "players": [
+        {
+            "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+            "team": "A"
+        },
+        {
+            "userId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+            "team": "B"
+        }
+    ]
+}
+```
+
+### Behavior
+
+- Supports swapping two players between teams by sending two reassignment items.
+- Supports moving a single player into an available spot on the other team by sending one reassignment item.
+- Only active players (`JOINED` or `RESERVED`) can be reassigned.
+- Only `SCHEDULED` matches can be rebalanced.
+- The resulting assignment cannot exceed `maxPlayers / 2` on either team.
+- On success, both DB and Firestore match projections are updated.
+
+### Success Response
+
+```json
+{
+    "status": "success",
+    "data": true
+}
+```
+
+### Error Codes
+
+| Code | Description |
+|:-----|:------------|
+| `MATCH_NOT_FOUND` | The specified match does not exist. |
+| `MATCH_NOT_SCHEDULED` | Only scheduled matches can be rebalanced. |
+| `MATCH_INVALID_REBALANCE_PLAYERS` | One or more requested players are not active in the match. |
+| `MATCH_REBALANCE_TEAM_LIMIT` | The requested rebalance would exceed the per-team limit. |
+
+---
+
+## 6. Get Matches by Field
 
 Gets a list of matches associated with a specific field.
 
@@ -378,7 +445,7 @@ Gets a list of matches associated with a specific field.
 
 ---
 
-## 6. Get All Matches
+## 7. Get All Matches
 
 Gets a list of all available matches.
 
@@ -438,7 +505,7 @@ Gets a list of all available matches.
 
 ---
 
-## 7. Get Matches for Players
+## 8. Get Matches for Players
 
 Gets a list of available matches for players, optionally filtered by location.
 
@@ -524,7 +591,7 @@ Gets a list of available matches for players, optionally filtered by location.
 
 ---
 
-## 7.1 Get Matches for Players (V2 - Versioned Cache)
+## 8.1 Get Matches for Players (V2 - Versioned Cache)
 
 Returns public matches with version control to avoid downloading the full list when nothing changed.
 
@@ -755,7 +822,7 @@ sequenceDiagram
 
 ---
 
-## 8. Get My Matches (User's Enrolled Matches)
+## 9. Get My Matches (User's Enrolled Matches)
 
 Gets a list of matches where the authenticated user is enrolled (status: `RESERVED` or `JOINED`).
 
@@ -864,7 +931,7 @@ missingTeamB = spotsPerTeam - teams.teamB.playerCount
 
 ---
 
-## 9. Get Match Detail
+## 10. Get Match Detail
 
 Gets complete details of a specific match.
 
@@ -988,7 +1055,7 @@ missingTeamB = spotsPerTeam - firestoreTeamBPlayers.size
 
 ---
 
-## 10. Join Match
+## 11. Join Match
 
 Allows a user to join a match. This will reserve a spot and initiate the payment flow.
 
@@ -1073,14 +1140,70 @@ Recommended supporting copy in client:
         "customer": "cus_123456789",
         "customerSessionClientSecret": "ek_test_123456",
         "publishableKey": "pk_test_123456789",
-        "reservationTtlMs": 300000
+        "reservationTtlMs": 300000,
+        "reusedExistingPayment": false,
+        "existingPaymentStatus": null
     }
 }
 ```
 
+### Reused Confirmed Payment Response
+
+When the match starts within the final 6 hours and the same user already has a confirmed payment for that match (`AUTHORIZED` or `SUCCEEDED`), the backend reuses that payment instead of creating a new `PaymentIntent`.
+
+```json
+{
+    "status": "success",
+    "data": {
+        "clientSecret": null,
+        "paymentId": "pi_123456789",
+        "provider": "STRIPE",
+        "amountInCents": 500,
+        "currency": "mxn",
+        "customer": null,
+        "customerSessionClientSecret": null,
+        "publishableKey": null,
+        "reservationTtlMs": 300000,
+        "reusedExistingPayment": true,
+        "existingPaymentStatus": "SUCCEEDED"
+    }
+}
+```
+
+### 6-Hour Payment Reuse Rule
+
+- More than 6 hours before match start:
+  - payment flow is created with manual capture
+  - if the user leaves, active `CREATED`/`AUTHORIZED` payments are canceled
+  - rejoining later creates a new payment
+- 6 hours or less before match start:
+  - if the user already has a confirmed payment (`AUTHORIZED` or `SUCCEEDED`) for the same match, `join` reuses it
+  - no additional charge is created
+  - the response returns `reusedExistingPayment = true`
+
+### Client Handling for Join Success
+
+The mobile client must branch on `reusedExistingPayment` after a successful `join` response.
+
+- `reusedExistingPayment = false`
+  - Continue the existing Stripe flow.
+  - Use `clientSecret`, `customerSessionClientSecret`, and `publishableKey` as usual.
+- `reusedExistingPayment = true`
+  - Do not open Stripe checkout / PaymentSheet.
+  - Treat the join as completed immediately.
+  - Refresh match detail / enrolled state locally.
+  - Optionally show an informational success message such as: `Ya tenías este partido pagado. Te volvimos a unir sin hacer un nuevo cobro.`
+
+### Client Interpretation Notes
+
+- The client must not try to infer reuse from local timers or previous app state. The backend response is the source of truth.
+- `existingPaymentStatus` is informational (`AUTHORIZED` or `SUCCEEDED`) and may be used for analytics, logging, or UI copy.
+- `clientSecret` may be `null` when `reusedExistingPayment = true`. This is expected and must not be treated as an error.
+- Before the final 6-hour window, the client should still expect a normal payment flow on rejoin because earlier active payments are canceled on leave.
+
 ---
 
-## 11. Leave Match
+## 12. Leave Match
 
 Allows a user to leave a match they previously joined.
 
@@ -1100,9 +1223,18 @@ Allows a user to leave a match they previously joined.
 }
 ```
 
+### Leave Payment Behavior
+
+- More than 6 hours before match start:
+  - active `CREATED` or `AUTHORIZED` payments are canceled when the user leaves
+- 6 hours or less before match start:
+  - confirmed payments (`AUTHORIZED` or `SUCCEEDED`) are preserved for that user/match
+  - if the user rejoins during this window, the confirmed payment is reused
+  - no refund is issued on voluntary leave
+
 ---
 
-## 12. Match Detail Stream (SSE)
+## 13. Match Detail Stream (SSE)
 
 Establishes a persistent **Server-Sent Events (SSE)** connection to receive real-time updates about a match.
 
@@ -1216,7 +1348,7 @@ All responses that include field information return a `fieldImages` array with t
 
 ---
 
-## 13. Get Failed Refunds
+## 14. Get Failed Refunds
 
 Gets a list of all failed refund attempts from match cancellations.
 
@@ -1266,7 +1398,7 @@ curl --location '{{base_url}}/match/admin/failed-refunds' \
 
 ---
 
-## 14. Retry Failed Refund
+## 15. Retry Failed Refund
 
 Retries a failed refund. Maximum 5 attempts allowed.
 
@@ -1319,7 +1451,7 @@ curl --location --request POST '{{base_url}}/match/admin/failed-refunds/{failure
 
 ---
 
-## 15. Resolve Failed Refund Manually
+## 16. Resolve Failed Refund Manually
 
 Marks a failed refund as resolved (used when resolved outside the app, e.g., manual refund in Stripe dashboard).
 
@@ -1354,7 +1486,7 @@ curl --location --request POST '{{base_url}}/match/admin/failed-refunds/{failure
 
 ---
 
-## 16. Demo Matches (Testing)
+## 17. Demo Matches (Testing)
 
 This endpoint returns sample matches with different statuses for UI testing purposes.
 
