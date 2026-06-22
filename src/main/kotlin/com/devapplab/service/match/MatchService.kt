@@ -1,6 +1,7 @@
 package com.devapplab.service.match
 
 import com.devapplab.data.repository.discount.DiscountRepository
+import com.devapplab.data.repository.FieldRepository
 import com.devapplab.data.repository.match.MatchRefundFailureRepository
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.payment.PaymentInfo
@@ -50,6 +51,7 @@ import kotlin.time.Duration.Companion.minutes
 
 class MatchService(
     private val matchRepository: MatchRepository,
+    private val fieldRepository: FieldRepository,
     private val discountRepository: DiscountRepository,
     private val matchPlayerRealtimeService: MatchPlayerRealtimeService,
     private val matchUpdateBus: MatchUpdateBus,
@@ -80,6 +82,48 @@ class MatchService(
     }
 
     suspend fun create(match: Match, locale: Locale, context: AppRequestContext): AppResult<MatchResponse> {
+        val field = fieldRepository.getFieldById(match.fieldId)
+            ?: run {
+                logger.appRejected(
+                    event = "match.create_failed",
+                    context = context,
+                    reason = "field_not_found",
+                    userId = match.adminId,
+                    statusCode = HttpStatusCode.NotFound.value,
+                    extra = mapOf("fieldId" to match.fieldId)
+                )
+                return locale.createError(
+                    titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                    descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                    status = HttpStatusCode.NotFound,
+                    errorCode = ErrorCode.NOT_FOUND
+                )
+            }
+
+        val totalProjectedRevenue = match.matchPrice.multiply(match.maxPlayers.toBigDecimal())
+        if (totalProjectedRevenue < field.price) {
+            logger.appRejected(
+                event = "match.create_failed",
+                context = context,
+                reason = "match_price_below_field_cost",
+                userId = match.adminId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf(
+                    "fieldId" to match.fieldId,
+                    "fieldCost" to field.price.toPlainString(),
+                    "matchPricePerPlayer" to match.matchPrice.toPlainString(),
+                    "maxPlayers" to match.maxPlayers,
+                    "totalProjectedRevenue" to totalProjectedRevenue.toPlainString()
+                )
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_PRICE_BELOW_FIELD_COST_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_PRICE_BELOW_FIELD_COST_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_PRICE_BELOW_FIELD_COST
+            )
+        }
+
         if (isMatchOverlapping(match)) {
             logger.appRejected(
                 event = "match.create_failed",
