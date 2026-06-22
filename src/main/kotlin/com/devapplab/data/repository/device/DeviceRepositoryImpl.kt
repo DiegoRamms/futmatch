@@ -64,6 +64,14 @@ class DeviceRepositoryImpl : DeviceRepository {
     ): Boolean {
         val now = System.currentTimeMillis()
         return dbQuery {
+            DeviceTable.update({
+                (DeviceTable.fcmToken eq fcmToken) and
+                    (DeviceTable.id neq deviceId)
+            }) {
+                it[this.fcmToken] = null
+                it[this.pushTokenUpdatedAt] = now
+            }
+
             DeviceTable.update({ DeviceTable.id eq deviceId }) {
                 it[this.platform] = platform
                 it[this.fcmToken] = fcmToken
@@ -83,6 +91,7 @@ class DeviceRepositoryImpl : DeviceRepository {
                         (DeviceTable.isActive eq true) and
                         (DeviceTable.fcmToken neq null)
             }.mapNotNull { it[DeviceTable.fcmToken] }
+                .distinct()
         }
 
     override suspend fun invalidateFcmToken(fcmToken: String): Boolean =

@@ -285,7 +285,7 @@ class NotificationServiceImp(
         body: String,
         data: Map<String, String>
     ) {
-        val tokens = deviceRepository.getActiveFcmTokensByUserId(userId)
+        val tokens = deviceRepository.getActiveFcmTokensByUserId(userId).distinct()
         if (tokens.isEmpty()) {
             logger.info("No active FCM tokens found for user $userId")
             return
