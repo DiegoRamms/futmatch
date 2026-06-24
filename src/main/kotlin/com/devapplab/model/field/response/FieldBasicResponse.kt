@@ -8,5 +8,6 @@ import java.util.*
 data class FieldBasicResponse(
     @Serializable(with = UUIDSerializer::class)
     val id: UUID,
-    val name: String
+    val name: String,
+    val priceInCents: Long
 )

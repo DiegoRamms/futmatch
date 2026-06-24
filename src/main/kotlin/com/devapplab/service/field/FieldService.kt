@@ -18,6 +18,7 @@ import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.http.content.*
 import org.slf4j.LoggerFactory
+import java.math.BigDecimal
 import java.util.*
 
 class FieldService(
@@ -470,7 +471,13 @@ class FieldService(
 
     suspend fun getAllFieldBasics(): AppResult<List<FieldBasicResponse>> {
         val fields = fieldRepository.getAllFieldBasics()
-            .map { FieldBasicResponse(id = it.id, name = it.name) }
+            .map {
+                FieldBasicResponse(
+                    id = it.id,
+                    name = it.name,
+                    priceInCents = it.price.multiply(BigDecimal(100)).longValueExact()
+                )
+            }
         return AppResult.Success(fields)
     }
 }
