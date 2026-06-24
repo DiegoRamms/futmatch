@@ -202,6 +202,20 @@ class MatchService(
         return AppResult.Success(matches)
     }
 
+    suspend fun getMatchesBySupervisorId(supervisorId: UUID): AppResult<List<MatchWithFieldResponse>> {
+        val matches = matchRepository.getMatchesBySupervisorId(supervisorId).map { match ->
+            val response = match.toResponse()
+
+            val resolvedImages = response.fieldImages.map { image ->
+                val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${response.fieldId}/${image.imagePath}"
+                image.copy(imagePath = imageService.getImageUrl(publicId))
+            }
+
+            response.copy(fieldImages = resolvedImages)
+        }
+        return AppResult.Success(matches)
+    }
+
     suspend fun getAllMatches(): AppResult<List<MatchWithFieldResponse>> {
         val matches = matchRepository.getAllMatches().map { match ->
             val response = match.toResponse()
@@ -319,7 +333,10 @@ class MatchService(
             image.copy(imagePath = imageService.getImageUrl(publicId))
         }
 
-        val responseWithImages = matchDetailResponse.copy(fieldImages = resolvedImages)
+        val responseWithImages = matchDetailResponse.copy(
+            fieldImages = resolvedImages,
+            teams = resolveAvatarUrls(matchDetailResponse.teams)
+        )
 
         return AppResult.Success(responseWithImages)
     }
@@ -334,7 +351,10 @@ class MatchService(
                 image.copy(imagePath = imageService.getImageUrl(publicId))
             }
 
-            val responseWithImages = matchDetailResponse.copy(fieldImages = resolvedImages)
+            val responseWithImages = matchDetailResponse.copy(
+                fieldImages = resolvedImages,
+                teams = resolveAvatarUrls(matchDetailResponse.teams)
+            )
 
             val response = AppResult.Success(responseWithImages)
             Json.encodeToString(response)

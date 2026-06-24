@@ -1027,6 +1027,12 @@ Gets complete details of a specific match.
 - For `SCHEDULED`, `IN_PROGRESS`, or `CANCELED` matches, both fields are `null`.
 - Scores come from the final result saved by an admin/organizer when completing the match.
 
+### Team Snapshot Contract
+
+- For `SCHEDULED` and `IN_PROGRESS`, detail consumers should continue using the realtime player source for live roster rendering.
+- For `CANCELED` and `COMPLETED`, the backend now returns `teams` populated directly in the detail response.
+- In final states, clients should treat the backend `teams` snapshot as the source of truth and do not need to query Firestore for players.
+
 Example for a completed match:
 
 ```json
@@ -1052,6 +1058,8 @@ spotsPerTeam = maxPlayers / 2
 missingTeamA = spotsPerTeam - firestoreTeamAPlayers.size
 missingTeamB = spotsPerTeam - firestoreTeamBPlayers.size
 ```
+
+For final states (`CANCELED`, `COMPLETED`), the frontend can skip Firestore player loading and render the `teams` object returned by backend.
 
 ---
 

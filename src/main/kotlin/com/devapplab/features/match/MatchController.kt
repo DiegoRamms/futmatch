@@ -40,6 +40,12 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(result)
     }
 
+    suspend fun getOrganizerMatches(call: ApplicationCall) {
+        val organizerId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val result = matchService.getMatchesBySupervisorId(organizerId)
+        call.respond(result)
+    }
+
     suspend fun getPlayerMatches(call: ApplicationCall) {
         val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()
         val lon = call.request.queryParameters["lon"]?.toDoubleOrNull()

@@ -106,6 +106,45 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun getMatchesBySupervisorId(supervisorId: UUID): List<MatchWithFieldBaseInfo> {
+        return dbQuery {
+            val rows = (MatchTable innerJoin FieldTable)
+                .leftJoin(LocationsTable)
+                .selectAll()
+                .where { MatchTable.supervisorId eq supervisorId }
+                .toList()
+
+            if (rows.isEmpty()) return@dbQuery emptyList()
+
+            val matchIds = rows.map { it[MatchTable.id] }.distinct()
+            val fieldIds = rows.map { it[FieldTable.id] }.distinct()
+            val enrolledPlayersByMatch = getEnrolledPlayersCountByMatchId(matchIds)
+            val allFieldImages = FieldImagesTable
+                .selectAll()
+                .where { FieldImagesTable.fieldId inList fieldIds }
+                .groupBy { it[FieldImagesTable.fieldId] }
+                .mapValues { (_, resultRows) ->
+                    resultRows.map { row ->
+                        FieldImageBaseInfo(
+                            id = row[FieldImagesTable.id],
+                            fieldId = row[FieldImagesTable.fieldId],
+                            imagePath = row[FieldImagesTable.key],
+                            position = row[FieldImagesTable.position]
+                        )
+                    }
+                }
+
+            rows.map { row ->
+                val id = row[FieldTable.id]
+                val matchId = row[MatchTable.id]
+                row.toMatchWithFieldBaseInfo(
+                    fieldImages = allFieldImages[id] ?: emptyList(),
+                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0
+                )
+            }
+        }
+    }
+
     override suspend fun getMatchTimeSlotsByFieldId(fieldId: UUID): List<MatchTimeSlot> {
         return dbQuery {
             MatchTable

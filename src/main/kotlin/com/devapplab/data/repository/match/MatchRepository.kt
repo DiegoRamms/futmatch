@@ -6,6 +6,7 @@ import java.util.*
 interface MatchRepository {
     suspend fun create(match: Match): MatchBaseInfo
     suspend fun getMatchesByFieldId(fieldId: UUID): List<MatchWithFieldBaseInfo>
+    suspend fun getMatchesBySupervisorId(supervisorId: UUID): List<MatchWithFieldBaseInfo>
     suspend fun getMatchTimeSlotsByFieldId(fieldId: UUID): List<MatchTimeSlot>
     suspend fun getAllMatches(): List<MatchWithFieldBaseInfo>
     suspend fun getUpcomingMatches(): List<MatchWithFieldBaseInfo>

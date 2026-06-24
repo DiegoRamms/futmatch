@@ -107,6 +107,11 @@ fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
         teamA = TeamPlayersSummary(0, emptyList()),
         teamB = TeamPlayersSummary(0, emptyList())
     )
+    val teams = if (this.status == MatchStatus.CANCELED || this.status == MatchStatus.COMPLETED) {
+        buildTeamSummary()
+    } else {
+        emptyTeams
+    }
 
     return MatchDetailResponse(
         id = this.matchId,
@@ -123,7 +128,7 @@ fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
         teamBScore = scores.second,
         maxPlayers = this.maxPlayers,
         availableSpots = if (availableSpots < 0) 0 else availableSpots,
-        teams = emptyTeams,
+        teams = teams,
         location = location,
         footwearType = this.fieldFootwearType,
         fieldType = this.fieldType,
