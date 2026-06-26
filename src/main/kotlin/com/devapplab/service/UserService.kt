@@ -20,6 +20,7 @@ import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.image.ImageService
+import com.devapplab.service.match.MatchVisibilityRules
 import com.devapplab.service.payment.PaymentServiceFactory
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
@@ -303,7 +304,7 @@ class UserService(
             return locale.createError(status = HttpStatusCode.NotFound)
         }
 
-        val user = dbExecutor.tx { userRepository.getHomeProfileById(userId) }
+        val user = dbExecutor.tx { userRepository.getUserById(userId) }
             ?: run {
                 logger.appRejected(
                     event = "user.home.load_failed",
@@ -317,7 +318,7 @@ class UserService(
 
         val (suggestedMatches, lastMatch, winStats) = coroutineScope {
             val suggestedDeferred = async {
-                matchRepository.getHomeSuggestedMatches(userId = userId, limit = HOME_SUGGESTED_MATCHES_LIMIT)
+                matchRepository.getHomeSuggestedMatches(userId = userId, limit = HOME_SUGGESTED_MATCHES_FETCH_LIMIT)
             }
             val lastMatchDeferred = async { matchRepository.getHomeLastMatch(userId) }
             val winStatsDeferred = async { matchRepository.getHomeWinStats(userId) }
@@ -338,7 +339,17 @@ class UserService(
             imageService.getImageUrl("${Constants.BASE_USER_STORAGE_PATH}/${user.id}/$fileName")
         }
 
-        val suggestedResponse = suggestedMatches.map { item ->
+        val suggestedResponse = suggestedMatches
+            .filter { item ->
+                MatchVisibilityRules.isVisibleFor(
+                    userGender = user.gender,
+                    userLevel = user.level,
+                    matchGenderType = item.genderType,
+                    matchLevel = item.playerLevel
+                )
+            }
+            .take(HOME_SUGGESTED_MATCHES_LIMIT)
+            .map { item ->
             val imageUrl = item.fieldImageKey?.let { imageKey ->
                 imageService.getImageUrl("${Constants.BASE_FIELD_STORAGE_PATH}/${item.fieldId}/$imageKey")
             }
@@ -382,5 +393,6 @@ class UserService(
 
     private companion object {
         const val HOME_SUGGESTED_MATCHES_LIMIT = 4
+        const val HOME_SUGGESTED_MATCHES_FETCH_LIMIT = 12
     }
 }

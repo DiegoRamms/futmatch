@@ -1078,6 +1078,8 @@ class MatchRepositoryImp : MatchRepository {
                     MatchTable.dateTime,
                     MatchTable.dateTimeEnd,
                     MatchTable.matchPrice,
+                    MatchTable.genderType,
+                    MatchTable.playerLevel,
                     FieldTable.name,
                     LocationsTable.cityCode
                 )
@@ -1103,6 +1105,8 @@ class MatchRepositoryImp : MatchRepository {
                     startTime = row[MatchTable.dateTime],
                     endTime = row[MatchTable.dateTimeEnd],
                     price = row[MatchTable.matchPrice],
+                    genderType = row[MatchTable.genderType],
+                    playerLevel = row[MatchTable.playerLevel],
                     cityCode = row.getOrNull(LocationsTable.cityCode),
                     fieldImageKey = imageKeysByField[fieldId]
                 )

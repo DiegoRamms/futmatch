@@ -1,5 +1,6 @@
 package com.devapplab.model.match
 
+import com.devapplab.model.user.PlayerLevel
 import java.math.BigDecimal
 import java.util.UUID
 
@@ -10,6 +11,8 @@ data class HomeSuggestedMatch(
     val startTime: Long,
     val endTime: Long,
     val price: BigDecimal,
+    val genderType: GenderType,
+    val playerLevel: PlayerLevel,
     val cityCode: String?,
     val fieldImageKey: String?
 )
