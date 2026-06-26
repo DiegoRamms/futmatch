@@ -511,7 +511,28 @@ Gets a list of available matches for players, optionally filtered by location.
 
 -   **Method:** `GET`
 -   **Path:** `/match/matches`
--   **Required Role:** Public (or Authenticated)
+-   **Required Role:** `PLAYER`, `ADMIN`, or `ORGANIZER`
+
+### Short Explanation
+
+This endpoint returns the public regional match list already filtered by the authenticated user's visibility rules:
+- Backend reads the authenticated user's `gender` and `level`.
+- Backend filters regional public matches by `genderType` and `playerLevel`.
+- Backend sorts the visible list by time and optional distance.
+
+### Visibility Rules
+
+- Gender:
+  - `MALE` sees `MIXED` and `MALE_ONLY`
+  - `FEMALE` sees `MIXED` and `FEMALE_ONLY`
+  - `OTHER` sees only `MIXED`
+- Level:
+  - `ANY` matches are visible to everyone
+  - Visibility is hierarchical ascending:
+    - `BEGINNER` sees `ANY` and `BEGINNER`
+    - `INTERMEDIATE` sees `ANY`, `BEGINNER`, `INTERMEDIATE`
+    - `ADVANCED` sees `ANY`, `BEGINNER`, `INTERMEDIATE`, `ADVANCED`
+    - `PROFESSIONAL` sees all levels
 
 ### Query Parameters
 -   `lat` (Double, Optional): Latitude for proximity search.
@@ -546,6 +567,7 @@ Gets a list of available matches for players, optionally filtered by location.
             "totalDiscountInCents": 0,
             "priceInCents": 500,
             "genderType": "MIXED",
+            "playerLevel": "INTERMEDIATE",
             "status": "SCHEDULED",
             "availableSpots": 4,
             "teams": {
@@ -597,16 +619,29 @@ Returns public matches with version control to avoid downloading the full list w
 
 -   **Method:** `GET`
 -   **Path:** `/match/matches/v2`
--   **Required Role:** Public (or Authenticated)
+-   **Required Role:** `PLAYER`, `ADMIN`, or `ORGANIZER`
 
 ### Short Explanation
 
 This endpoint is optimized for app refresh:
 - Client sends `sinceVersion` (last local version).
-- Backend compares against regional cache version.
+- Backend compares against the current visible version for the authenticated user.
 - If version is unchanged: returns lightweight payload (`hasChanges=false`) without list.
 - If version changed: returns full list and new version.
-- The full list includes team/player data (`teams.teamA.players`, `teams.teamB.players`), fixed capacity (`maxPlayers`) and the current snapshot (`availableSpots`).
+- The full list includes team/player data (`teams.teamA.players`, `teams.teamB.players`), fixed capacity (`maxPlayers`), current snapshot (`availableSpots`), and match visibility metadata (`genderType`, `playerLevel`).
+
+The visible version is derived from:
+- regional cache version
+- authenticated user's current `gender`
+- authenticated user's current `level`
+
+This means `currentVersion` is an opaque version for the authenticated user's visible list. Clients must persist and resend it exactly as received.
+
+### Visibility Rules
+
+- The same visibility rules described in section `8. Get Matches for Players` apply.
+- Backend reads the authenticated user's current profile on every request.
+- If the user's `gender` or `level` changes, the visible version changes even if the regional cache version stays the same.
 
 ### Query Parameters
 -   `sinceVersion` (Long, Optional): Client local version.
@@ -624,7 +659,7 @@ This endpoint is optimized for app refresh:
     "status": "success",
     "data": {
         "region": "MX:CDMX",
-        "currentVersion": 10,
+        "currentVersion": 2595,
         "hasChanges": false,
         "matches": null
     }
@@ -638,7 +673,7 @@ This endpoint is optimized for app refresh:
     "status": "success",
     "data": {
         "region": "MX:CDMX",
-        "currentVersion": 11,
+        "currentVersion": 2596,
         "hasChanges": true,
         "matches": [
             {
@@ -658,6 +693,7 @@ This endpoint is optimized for app refresh:
                 "totalDiscountInCents": 0,
                 "priceInCents": 500,
                 "genderType": "MIXED",
+                "playerLevel": "INTERMEDIATE",
                 "status": "SCHEDULED",
                 "maxPlayers": 14,
                 "availableSpots": 4,
@@ -720,7 +756,7 @@ missingTeamB = spotsPerTeam - teams.teamB.playerCount
 
 ### Invalidation Rules
 
-Regional version/cache is invalidated on:
+Regional cache/version is invalidated on:
 - `create match`
 - `update match`
 - `cancel match`
@@ -744,14 +780,19 @@ Topic format:
 Push data payload:
 - `type=matches_updated`
 - `region=MX:CDMX`
-- `version=<currentVersion>`
+- `version=<regionalVersion>`
+
+Important:
+- Push `version` is the regional version only.
+- Response `currentVersion` from `/match/matches/v2` is the visible version for the authenticated user.
+- Clients must not overwrite local `currentVersion` with push `version`.
 
 ### Client Integration Flow
 
 1. On app open (or screen open), call `GET /match/matches/v2?sinceVersion=<localVersion>`.
 2. If `hasChanges=false`, keep current UI list.
 3. If `hasChanges=true`, replace full list and persist `currentVersion`.
-4. On regional push (`matches_updated`), call V2 again with current `sinceVersion`.
+4. On regional push (`matches_updated`), call V2 again with current local `sinceVersion`.
 5. Keep swipe-to-refresh as manual fallback.
 
 ### ASCII Flow

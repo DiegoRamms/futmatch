@@ -6,6 +6,7 @@ import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.user.Gender
+import com.devapplab.model.user.PlayerLevel
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -22,6 +23,7 @@ data class MatchSummaryResponse(
     val totalDiscountInCents: Long,
     val priceInCents: Long, // Final price
     val genderType: GenderType,
+    val playerLevel: PlayerLevel,
     val status: MatchStatus,
     val maxPlayers: Int,
     val availableSpots: Int,

@@ -2,6 +2,7 @@ package com.devapplab.service.match
 
 import com.devapplab.data.repository.discount.DiscountRepository
 import com.devapplab.data.repository.FieldRepository
+import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.match.MatchRefundFailureRepository
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.payment.PaymentInfo
@@ -23,6 +24,9 @@ import com.devapplab.model.match.request.RebalanceMatchTeamsRequest
 import com.devapplab.model.match.response.*
 import com.devapplab.model.notification.NotificationType
 import com.devapplab.model.payment.*
+import com.devapplab.model.user.Gender
+import com.devapplab.model.user.PlayerLevel
+import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
@@ -59,6 +63,7 @@ class MatchService(
     private val paymentServiceFactory: PaymentServiceFactory,
     private val paymentRepository: PaymentRepository,
     private val userRepository: UserRepository,
+    private val dbExecutor: DbExecutor,
     private val notificationService: NotificationService,
     private val billingService: BillingService,
     private val refundFailureRepository: MatchRefundFailureRepository,
@@ -230,42 +235,74 @@ class MatchService(
         return AppResult.Success(matches)
     }
 
-    suspend fun getPlayerMatches(userLat: Double?, userLon: Double?): AppResult<List<MatchSummaryResponse>> {
+    suspend fun getPlayerMatches(
+        userId: UUID,
+        userLat: Double?,
+        userLon: Double?,
+        locale: Locale,
+        context: AppRequestContext
+    ): AppResult<List<MatchSummaryResponse>> {
+        val user = dbExecutor.tx { userRepository.getUserById(userId) }
+            ?: run {
+                logger.appRejected(
+                    event = "match.public.list_failed",
+                    context = context,
+                    reason = "user_not_found",
+                    userId = userId,
+                    statusCode = HttpStatusCode.NotFound.value
+                )
+                return locale.createError(status = HttpStatusCode.NotFound)
+            }
         val snapshot = publicMatchesCacheService.getOrBuild(DEFAULT_PUBLIC_REGION) {
             buildPublicMatchesPayload()
         }
-        val matches = sortPublicMatches(snapshot.matches, userLat, userLon)
+        val matches = getVisiblePublicMatches(snapshot.matches, user, userLat, userLon)
         return AppResult.Success(matches)
     }
 
     suspend fun getPlayerMatchesV2(
+        userId: UUID,
         userLat: Double?,
         userLon: Double?,
         sinceVersion: Long?,
         countryCode: String?,
-        stateCode: String?
+        stateCode: String?,
+        locale: Locale,
+        context: AppRequestContext
     ): AppResult<PublicMatchesV2Response> {
+        val user = dbExecutor.tx { userRepository.getUserById(userId) }
+            ?: run {
+                logger.appRejected(
+                    event = "match.public.list_v2_failed",
+                    context = context,
+                    reason = "user_not_found",
+                    userId = userId,
+                    statusCode = HttpStatusCode.NotFound.value
+                )
+                return locale.createError(status = HttpStatusCode.NotFound)
+            }
         val region = resolvePublicRegion(countryCode, stateCode)
         val snapshot = publicMatchesCacheService.getOrBuild(region) {
             buildPublicMatchesPayload()
         }
+        val effectiveVersion = buildVisibilityAwareVersion(snapshot.version, user)
 
-        if (sinceVersion != null && sinceVersion == snapshot.version) {
+        if (sinceVersion != null && sinceVersion == effectiveVersion) {
             return AppResult.Success(
                 PublicMatchesV2Response(
                     region = region,
-                    currentVersion = snapshot.version,
+                    currentVersion = effectiveVersion,
                     hasChanges = false,
                     matches = null
                 )
             )
         }
 
-        val matches = sortPublicMatches(snapshot.matches, userLat, userLon)
+        val matches = getVisiblePublicMatches(snapshot.matches, user, userLat, userLon)
         return AppResult.Success(
             PublicMatchesV2Response(
                 region = region,
-                currentVersion = snapshot.version,
+                currentVersion = effectiveVersion,
                 hasChanges = true,
                 matches = matches
             )
@@ -1364,6 +1401,24 @@ class MatchService(
         }
     }
 
+    private fun getVisiblePublicMatches(
+        matches: List<MatchSummaryResponse>,
+        user: UserBaseInfo,
+        userLat: Double?,
+        userLon: Double?
+    ): List<MatchSummaryResponse> {
+        val visibleMatches = matches.filter { summary ->
+            MatchVisibilityRules.isVisibleFor(
+                userGender = user.gender,
+                userLevel = user.level,
+                matchGenderType = summary.genderType,
+                matchLevel = summary.playerLevel
+            )
+        }
+
+        return sortPublicMatches(visibleMatches, userLat, userLon)
+    }
+
     private fun sortPublicMatches(
         matches: List<MatchSummaryResponse>,
         userLat: Double?,
@@ -1408,6 +1463,27 @@ class MatchService(
             state
         }
     }
+
+    private fun buildVisibilityAwareVersion(regionVersion: Long, user: UserBaseInfo): Long {
+        val visibilitySignature = (user.gender.visibilityCode shl 4) or user.level.visibilityCode
+        return (regionVersion shl 8) or visibilitySignature.toLong()
+    }
+
+    private val Gender.visibilityCode: Int
+        get() = when (this) {
+            Gender.MALE -> 1
+            Gender.FEMALE -> 2
+            Gender.OTHER -> 3
+        }
+
+    private val PlayerLevel.visibilityCode: Int
+        get() = when (this) {
+            PlayerLevel.ANY -> 0
+            PlayerLevel.BEGINNER -> 1
+            PlayerLevel.INTERMEDIATE -> 2
+            PlayerLevel.ADVANCED -> 3
+            PlayerLevel.PROFESSIONAL -> 4
+        }
 
     fun streamMatchDetail(locale: Locale, matchId: UUID): Flow<String> = flow {
         var last: String? = null

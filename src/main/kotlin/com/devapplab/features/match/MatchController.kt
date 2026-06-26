@@ -47,13 +47,17 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
     }
 
     suspend fun getPlayerMatches(call: ApplicationCall) {
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val locale = call.retrieveLocale()
         val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()
         val lon = call.request.queryParameters["lon"]?.toDoubleOrNull()
-        val result = matchService.getPlayerMatches(lat, lon)
+        val result = matchService.getPlayerMatches(userId, lat, lon, locale, call.requestContext())
         call.respond(result)
     }
 
     suspend fun getPlayerMatchesV2(call: ApplicationCall) {
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val locale = call.retrieveLocale()
         val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()
         val lon = call.request.queryParameters["lon"]?.toDoubleOrNull()
         val sinceVersion = call.request.queryParameters["sinceVersion"]?.toLongOrNull()
@@ -61,11 +65,14 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val stateCode = call.request.queryParameters["stateCode"]
 
         val result = matchService.getPlayerMatchesV2(
+            userId = userId,
             userLat = lat,
             userLon = lon,
             sinceVersion = sinceVersion,
             countryCode = countryCode,
-            stateCode = stateCode
+            stateCode = stateCode,
+            locale = locale,
+            context = call.requestContext()
         )
         call.respond(result)
     }

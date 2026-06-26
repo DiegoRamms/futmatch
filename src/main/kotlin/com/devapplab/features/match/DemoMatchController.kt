@@ -10,6 +10,7 @@ import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.match.response.*
 import com.devapplab.model.user.Gender
+import com.devapplab.model.user.PlayerLevel
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.respond
@@ -37,6 +38,7 @@ class DemoMatchController {
                 totalDiscountInCents = 5000,
                 priceInCents = 20000,
                 genderType = GenderType.MALE_ONLY,
+                playerLevel = PlayerLevel.ANY,
                 status = MatchStatus.SCHEDULED,
                 maxPlayers = 10,
                 availableSpots = 2,
@@ -53,6 +55,7 @@ class DemoMatchController {
                 totalDiscountInCents = 5000,
                 priceInCents = 25000,
                 genderType = GenderType.MALE_ONLY,
+                playerLevel = PlayerLevel.ANY,
                 status = MatchStatus.SCHEDULED,
                 maxPlayers = 10,
                 availableSpots = 0,
@@ -69,6 +72,7 @@ class DemoMatchController {
                 totalDiscountInCents = 10000,
                 priceInCents = 25000,
                 genderType = GenderType.MALE_ONLY,
+                playerLevel = PlayerLevel.ANY,
                 status = MatchStatus.COMPLETED,
                 maxPlayers = 10,
                 availableSpots = 10,
@@ -85,6 +89,7 @@ class DemoMatchController {
                 totalDiscountInCents = 0,
                 priceInCents = 25000,
                 genderType = GenderType.MALE_ONLY,
+                playerLevel = PlayerLevel.ANY,
                 status = MatchStatus.CANCELED,
                 maxPlayers = 10,
                 availableSpots = 10,
