@@ -47,7 +47,7 @@ Crea una nueva cancha.
 | Campo          | Tipo   | Requerido | Reglas de Validación                                      |
 | :------------- | :----- | :-------- | :-------------------------------------------------------- |
 | `name`         | String | Sí        | • No debe estar vacío o en blanco.<br>• Longitud máxima: 30 caracteres. |
-| `priceInCents` | Long   | Sí        | • Debe ser un valor mayor que 0.<br>• **Nota:** El valor representa centavos (ej. 1000 = 10.00). |
+| `priceInCents` | Long   | Sí        | • Debe ser un valor mayor que 0.<br>• **Nota:** El valor representa el costo total de la cancha en centavos (ej. 1000 = 10.00). |
 | `capacity`     | Int    | Sí        | • Debe ser un valor mayor que 0.                          |
 | `description`  | String | Sí        | • No debe estar vacío o en blanco.                        |
 | `rules`        | String | Sí        | • No debe estar vacío o en blanco.                        |
@@ -122,7 +122,7 @@ Actualiza la información de una cancha existente.
 | `fieldId`      | UUID   | Sí        | • Debe ser el UUID de la cancha a actualizar.             |
 | `name`         | String | Sí        | • No debe estar vacío o en blanco.<br>• Longitud máxima: 30 caracteres. |
 | `locationId`   | UUID   | No        | • **(Opcional)** El UUID de una ubicación existente.      |
-| `priceInCents` | Long   | Sí        | • Debe ser un valor mayor que 0.<br>• **Nota:** El valor representa centavos (ej. 1000 = 10.00). |
+| `priceInCents` | Long   | Sí        | • Debe ser un valor mayor que 0.<br>• **Nota:** El valor representa el costo total de la cancha en centavos (ej. 1000 = 10.00). |
 | `capacity`     | Int    | Sí        | • Debe ser un valor mayor que 0.                          |
 | `description`  | String | Sí        | • No debe estar vacío o en blanco.                        |
 | `rules`        | String | Sí        | • No debe estar vacío o en blanco.                        |

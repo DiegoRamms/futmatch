@@ -13,7 +13,7 @@ object FieldTable : Table("fields") {
     val id = javaUUID("id").autoGenerate().uniqueIndex()
     val name = varchar("name", FIELD_NAME_MAX_LENGTH).uniqueIndex()
     val locationId = javaUUID("location_id").references(LocationsTable.id).nullable()
-    val pricePerPlayer = decimal("price_per_player", 10, 2)
+    val fieldCost = decimal("field_cost", 10, 2)
     val capacity = integer("capacity")
     val adminId = javaUUID("admin_id").references(UserTable.id, onDelete = ReferenceOption.CASCADE)
     val description = text("description")

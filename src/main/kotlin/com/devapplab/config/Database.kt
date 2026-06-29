@@ -35,7 +35,9 @@ import org.jetbrains.exposed.v1.core.StdOutSqlLogger
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.migration.jdbc.MigrationUtils
+import org.slf4j.LoggerFactory
 
 fun Application.configureDatabase() {
     val database = Database.connect(
@@ -84,6 +86,8 @@ fun Application.configureDatabase() {
             addLogger(StdOutSqlLogger)
         }
 
+        renameFieldPriceColumnIfNeeded()
+
         val migrationStatements =
             MigrationUtils.statementsRequiredForDatabaseMigration(*allTables)
 
@@ -108,6 +112,32 @@ fun Application.configureDatabase() {
             }
         }
     }
+}
+
+private val databaseMigrationLogger = LoggerFactory.getLogger("DatabaseMigration")
+
+private fun JdbcTransaction.renameFieldPriceColumnIfNeeded() {
+    val hasLegacyColumn = hasColumn(tableName = "fields", columnName = "price_per_player")
+    val hasRenamedColumn = hasColumn(tableName = "fields", columnName = "field_cost")
+
+    if (!hasLegacyColumn || hasRenamedColumn) return
+
+    databaseMigrationLogger.info("Renaming fields.price_per_player to fields.field_cost")
+    exec("ALTER TABLE fields RENAME COLUMN price_per_player TO field_cost")
+}
+
+private fun JdbcTransaction.hasColumn(tableName: String, columnName: String): Boolean {
+    return exec(
+        """
+        SELECT 1
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE LOWER(TABLE_NAME) = LOWER('$tableName')
+          AND LOWER(COLUMN_NAME) = LOWER('$columnName')
+        LIMIT 1
+        """.trimIndent()
+    ) { resultSet ->
+        resultSet.next()
+    } ?: false
 }
 
 suspend fun <T> dbQuery(block: suspend () -> T): T =
