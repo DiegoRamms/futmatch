@@ -252,7 +252,8 @@ Cancels a scheduled match. This endpoint handles payment refunds and cancellatio
 - `JOINED` + `AUTHORIZED/CREATED` payments: Active payments are cancelled in Stripe.
 - `JOINED` + `SUCCEEDED` payments: Refund is initiated for each successful captured payment associated with the active player. If refund fails, it is recorded for retry.
 - Historical `CANCELED` and `REFUNDED` payments are ignored.
-- Active players receive a single cancellation push notification based on the effective refund outcome for that user.
+- Active players receive a single cancellation push notification based on the effective refund outcome for that user. The notification body and metadata include the cancellation reason.
+- The cancellation reason is persisted on the match (`cancel_reason`).
 - Completed matches cannot be canceled.
 
 -   **Method:** `PATCH`
@@ -262,11 +263,29 @@ Cancels a scheduled match. This endpoint handles payment refunds and cancellatio
 ### Path Parameters
 -   `matchId` (UUID): The ID of the match to cancel.
 
+### Request Body
+
+```json
+{
+    "reason": "No se completó el número mínimo de jugadores."
+}
+```
+
+### Request Validation
+
+| Field | Type | Required | Validation Rules |
+|:------|:-----|:---------|:----------------|
+| `reason` | String | Yes | Free text explaining why the match was canceled. Trimmed before validation. Must not be blank and must be 300 characters or less. |
+
 ### cURL
 
 ```bash
 curl --location --request PATCH '{{base_url}}/match/admin/cancel/{matchId}' \
---header 'Authorization: Bearer {{token}}'
+--header 'Authorization: Bearer {{token}}' \
+--header 'Content-Type: application/json' \
+--data '{
+    "reason": "No se completó el número mínimo de jugadores."
+}'
 ```
 
 ### Success Response

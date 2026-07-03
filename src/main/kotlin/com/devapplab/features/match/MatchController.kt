@@ -4,6 +4,7 @@ import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.match.CompleteMatchRequest
 import com.devapplab.model.match.mapper.toMatch
+import com.devapplab.model.match.request.CancelMatchRequest
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.request.JoinMatchRequest
 import com.devapplab.model.match.request.RebalanceMatchTeamsRequest
@@ -129,8 +130,9 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
 
     suspend fun cancelMatch(call: ApplicationCall) {
         val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't cancel match")
+        val request = call.receive<CancelMatchRequest>()
         val locale = call.retrieveLocale()
-        val result = matchService.cancelMatch(matchId, locale, call.requestContext())
+        val result = matchService.cancelMatch(matchId, request.reason.trim(), locale, call.requestContext())
         call.respond(result)
     }
 

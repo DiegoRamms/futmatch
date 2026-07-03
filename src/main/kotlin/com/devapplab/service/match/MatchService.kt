@@ -406,7 +406,7 @@ class MatchService(
         }
     }
 
-    suspend fun cancelMatch(matchUuid: UUID, locale: Locale, context: AppRequestContext): AppResult<MatchCancelResult> {
+    suspend fun cancelMatch(matchUuid: UUID, reason: String, locale: Locale, context: AppRequestContext): AppResult<MatchCancelResult> {
         logger.info("🚫 [MATCH_TRACE] cancelMatch START | matchId=$matchUuid")
 
         val match = matchRepository.getMatchById(matchUuid)
@@ -469,7 +469,8 @@ class MatchService(
                         matchId = matchUuid,
                         fieldName = fieldName,
                         locale = userLocale,
-                        refundStatus = RefundStatus.NO_CHARGE
+                        refundStatus = RefundStatus.NO_CHARGE,
+                        reason = reason
                     )
                     logger.info("📱 [MATCH_TRACE] cancelMatch | Notification sent to reserved player | userId=${player.userId}")
                 }
@@ -559,7 +560,8 @@ class MatchService(
                         matchId = matchUuid,
                         fieldName = fieldName,
                         locale = userLocale,
-                        refundStatus = notificationRefundStatus
+                        refundStatus = notificationRefundStatus,
+                        reason = reason
                     )
                     logger.info("📱 [MATCH_TRACE] cancelMatch | Notification sent to joined player | userId=$userId")
                 }
@@ -570,7 +572,7 @@ class MatchService(
             }
         }
 
-        val canceled = matchRepository.cancelMatch(matchUuid)
+        val canceled = matchRepository.cancelMatch(matchUuid, reason)
         if (canceled) {
             val expireAtMillis = System.currentTimeMillis() + SIGNAL_TTL_AFTER_CANCEL.inWholeMilliseconds
             notifyMatchUpdate(matchUuid, expireAtMillis, sendRegionalPush = true)
@@ -598,7 +600,8 @@ class MatchService(
                     "playersRemoved" to playersRemoved,
                     "paymentsCancelled" to paymentsCancelled,
                     "refundsIssued" to refundsIssued,
-                "refundFailuresCount" to refundFailures.size
+                "refundFailuresCount" to refundFailures.size,
+                "reason" to reason
             )
         )
 

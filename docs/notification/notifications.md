@@ -71,7 +71,7 @@ Current server enum values:
 | `PAYMENT_SUCCEEDED` | Payment captured successfully | `matchId`, `type` |
 | `PAYMENT_FAILED` | Payment attempt fails | `matchId`, `type` |
 | `RESERVATION_EXPIRED` | Reservation TTL expires | `matchId`, `fieldName`, `type` |
-| `MATCH_CANCELED` | Organizer cancels match | `matchId`, `fieldName`, `type`, `refundStatus` |
+| `MATCH_CANCELED` | Organizer cancels match | `matchId`, `fieldName`, `type`, `refundStatus`, `reason` |
 | `MATCH_COMPLETED_WINNER` | Match completed, player is in winning team | `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type` |
 | `MATCH_COMPLETED_WINNER_MVP` | Match completed, player is winner and MVP | `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type` |
 | `MATCH_COMPLETED_LOSER` | Match completed, player is in losing team | `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type` |
@@ -82,6 +82,7 @@ Current server enum values:
 - `type` mirrors the notification type and is useful for generic client handlers.
 - `resultVariant` is used in completed match notifications and matches the enum value.
 - `refundStatus` for `MATCH_CANCELED` can be: `REFUNDED`, `FAILED`, `NO_CHARGE`.
+- `reason` for `MATCH_CANCELED` is the free-text cancellation reason provided by the organizer. It is also appended to the notification body ("Motivo: {reason}"). It is omitted from metadata for refund-recovery notifications, which reuse the `MATCH_CANCELED` type without a reason.
 
 ---
 
@@ -120,10 +121,10 @@ Retrieves the authenticated user's notification history.
       "id": "550e8400-e29b-41d4-a716-446655440101",
       "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
       "title": "Partido cancelado",
-      "body": "Tu partido en Cancha Central ha sido cancelado por el organizador. Se ha iniciado el reembolso de tu pago.",
+      "body": "Tu partido en Cancha Central ha sido cancelado por el organizador. Se ha iniciado el reembolso de tu pago. Motivo: No se completó el número mínimo de jugadores.",
       "notificationType": "MATCH_CANCELED",
       "createdAt": 1715435000000,
-      "metadata": "{\"matchId\":\"d4e5f6a7-b8c9-0123-4567-890abcdef123\",\"fieldName\":\"Cancha Central\",\"type\":\"MATCH_CANCELED\",\"refundStatus\":\"REFUNDED\"}",
+      "metadata": "{\"matchId\":\"d4e5f6a7-b8c9-0123-4567-890abcdef123\",\"fieldName\":\"Cancha Central\",\"type\":\"MATCH_CANCELED\",\"refundStatus\":\"REFUNDED\",\"reason\":\"No se completó el número mínimo de jugadores.\"}",
       "isRead": true
     }
   ]
