@@ -241,6 +241,44 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun getMatchesPendingPaymentWindowWarning(
+        startTimeWindow: Long,
+        endTimeWindow: Long
+    ): List<MatchPaymentWindowWarningInfo> {
+        return dbQuery {
+            (MatchTable innerJoin FieldTable)
+                .select(
+                    MatchTable.id,
+                    MatchTable.supervisorId,
+                    FieldTable.name
+                )
+                .where {
+                    (MatchTable.dateTime greaterEq startTimeWindow) and
+                        (MatchTable.dateTime lessEq endTimeWindow) and
+                        (MatchTable.status eq MatchStatus.SCHEDULED) and
+                        MatchTable.paymentWindowWarningSentAt.isNull()
+                }
+                .map { row ->
+                    MatchPaymentWindowWarningInfo(
+                        matchId = row[MatchTable.id],
+                        fieldName = row[FieldTable.name],
+                        supervisorId = row[MatchTable.supervisorId]
+                    )
+                }
+        }
+    }
+
+    override suspend fun markPaymentWindowWarningSent(matchId: UUID, sentAt: Long): Boolean {
+        return dbQuery {
+            MatchTable.update({
+                (MatchTable.id eq matchId) and MatchTable.paymentWindowWarningSentAt.isNull()
+            }) {
+                it[paymentWindowWarningSentAt] = sentAt
+                it[updatedAt] = sentAt
+            } > 0
+        }
+    }
+
     override suspend fun getPublicMatches(): List<MatchWithField> {
         return dbQuery {
             val now = System.currentTimeMillis()

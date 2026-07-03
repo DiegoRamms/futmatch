@@ -91,6 +91,19 @@ class NotificationServiceImp(
         )
     }
 
+    override suspend fun sendMatchPaymentWindowWarningNotification(userId: UUID, matchId: UUID, locale: Locale) {
+        val matchContext = getMatchContext(matchId, locale)
+        sendAndPersistNotification(
+            userId = userId,
+            locale = locale,
+            notificationType = NotificationType.MATCH_PAYMENT_WINDOW_WARNING,
+            titleKey = StringResourcesKey.NOTIFICATION_MATCH_PAYMENT_WINDOW_WARNING_TITLE,
+            bodyKey = StringResourcesKey.NOTIFICATION_MATCH_PAYMENT_WINDOW_WARNING_BODY,
+            metadata = baseMetadata(matchId, "MATCH_PAYMENT_WINDOW_WARNING", matchContext),
+            bodySuffix = matchContext?.bodySuffix
+        )
+    }
+
     override suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus) {
         try {
             val matchContext = getMatchContext(matchId, locale)

@@ -38,4 +38,9 @@ interface MatchRepository {
     suspend fun getHomeWinStats(userId: UUID): HomeWinStats
     suspend fun getUserMvpCount(userId: UUID): Int
     suspend fun getUserTotalGoals(userId: UUID): Int
+    suspend fun getMatchesPendingPaymentWindowWarning(
+        startTimeWindow: Long,
+        endTimeWindow: Long
+    ): List<MatchPaymentWindowWarningInfo>
+    suspend fun markPaymentWindowWarningSent(matchId: UUID, sentAt: Long): Boolean
 }

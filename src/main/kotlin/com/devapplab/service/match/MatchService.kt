@@ -1267,6 +1267,8 @@ class MatchService(
     }
 
     suspend fun capturePendingPayments() {
+        sendPaymentWindowWarnings()
+
         val now = System.currentTimeMillis()
         val sixHoursInMillis = 6.hours.inWholeMilliseconds
         val endTimeWindow = now + sixHoursInMillis
@@ -1303,6 +1305,59 @@ class MatchService(
             } catch (e: Exception) {
                 logger.error("🔥 Exception capturing payment: paymentId=${paymentInfo.paymentId}", e)
                 handleFailedCapture(paymentInfo)
+            }
+        }
+    }
+
+    private suspend fun sendPaymentWindowWarnings() {
+        val now = System.currentTimeMillis()
+        val sixHoursInMillis = 6.hours.inWholeMilliseconds
+        val warningWindowEnd = now + sixHoursInMillis + 15.minutes.inWholeMilliseconds
+
+        val matches = matchRepository.getMatchesPendingPaymentWindowWarning(
+            startTimeWindow = now + sixHoursInMillis,
+            endTimeWindow = warningWindowEnd
+        )
+
+        if (matches.isEmpty()) {
+            logger.info("✅ No matches pending payment window warning.")
+            return
+        }
+
+        logger.info("🔔 Found ${matches.size} matches pending payment window warning.")
+
+        matches.forEach { matchInfo ->
+            try {
+                val claimed = matchRepository.markPaymentWindowWarningSent(matchInfo.matchId, now)
+                if (!claimed) {
+                    logger.info("ℹ️ Payment window warning already claimed for matchId=${matchInfo.matchId}")
+                    return@forEach
+                }
+
+                val adminIds = userRepository.getActiveAdminIds()
+                val recipientIds = adminIds
+                    .plus(listOfNotNull(matchInfo.supervisorId))
+                    .distinct()
+                val localesByUserId = userRepository.getUserLocalesByIds(recipientIds)
+
+                recipientIds.forEach { userId ->
+                    val localeTag = localesByUserId[userId].orEmpty().ifBlank { LocaleTag.LAN_TAG_MX.value }
+                    val locale = Locale.forLanguageTag(localeTag)
+                    notificationService.sendMatchPaymentWindowWarningNotification(
+                        userId = userId,
+                        matchId = matchInfo.matchId,
+                        locale = locale
+                    )
+                }
+
+                logger.info(
+                    "✅ Payment window warning sent for matchId=${matchInfo.matchId} to recipients=${recipientIds.size}"
+                )
+            } catch (e: Exception) {
+                logger.error(
+                    "❌ Failed to send payment window warning for matchId=${matchInfo.matchId}, field=${matchInfo.fieldName}",
+                    e
+                )
             }
         }
     }

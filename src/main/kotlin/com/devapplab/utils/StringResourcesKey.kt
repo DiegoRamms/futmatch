@@ -195,6 +195,8 @@ enum class StringResourcesKey(val value: String) {
     NOTIFICATION_PAYMENT_FAILED_BODY("notification_payment_failed_body"),
     NOTIFICATION_RESERVATION_EXPIRED_TITLE("notification_reservation_expired_title"),
     NOTIFICATION_RESERVATION_EXPIRED_BODY("notification_reservation_expired_body"),
+    NOTIFICATION_MATCH_PAYMENT_WINDOW_WARNING_TITLE("notification_match_payment_window_warning_title"),
+    NOTIFICATION_MATCH_PAYMENT_WINDOW_WARNING_BODY("notification_match_payment_window_warning_body"),
     NOTIFICATION_MATCH_CANCELED_TITLE("notification_match_canceled_title"),
     NOTIFICATION_MATCH_CANCELED_BODY("notification_match_canceled_body"),
     NOTIFICATION_MATCH_CANCELED_REFUND_TITLE("notification_match_canceled_refund_title"),

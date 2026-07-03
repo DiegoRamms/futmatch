@@ -137,6 +137,25 @@ class UserRepositoryImpl : UserRepository {
         } > 0
     }
 
+    override suspend fun getActiveAdminIds(): List<UUID> = dbQuery {
+        UserTable
+            .select(UserTable.id)
+            .where {
+                (UserTable.role eq UserRole.ADMIN) and
+                    (UserTable.status eq UserStatus.ACTIVE)
+            }
+            .map { row -> row[UserTable.id] }
+    }
+
+    override suspend fun getUserLocalesByIds(userIds: List<UUID>): Map<UUID, String> = dbQuery {
+        if (userIds.isEmpty()) return@dbQuery emptyMap()
+
+        UserTable
+            .select(UserTable.id, UserTable.locale)
+            .where { UserTable.id inList userIds.distinct() }
+            .associate { row -> row[UserTable.id] to row[UserTable.locale] }
+    }
+
     override fun updateNameTx(userId: UUID, name: String, lastName: String): Boolean {
         return UserTable.update({ UserTable.id eq userId }) {
             it[UserTable.name] = name

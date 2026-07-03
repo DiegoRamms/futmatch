@@ -12,6 +12,7 @@ interface NotificationService {
     suspend fun sendPaymentSucceededNotification(userId: UUID, matchId: UUID, locale: Locale)
     suspend fun sendPaymentFailedNotification(userId: UUID, matchId: UUID, locale: Locale)
     suspend fun sendReservationExpiredNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale)
+    suspend fun sendMatchPaymentWindowWarningNotification(userId: UUID, matchId: UUID, locale: Locale)
     suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus)
     suspend fun sendMatchCompletedNotification(
         userId: UUID,
