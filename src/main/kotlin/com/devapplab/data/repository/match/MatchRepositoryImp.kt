@@ -641,10 +641,11 @@ class MatchRepositoryImp : MatchRepository {
     }
 
 
-    override suspend fun cancelMatch(matchId: UUID): Boolean {
+    override suspend fun cancelMatch(matchId: UUID, reason: String): Boolean {
         return dbQuery {
             MatchTable.update({ MatchTable.id eq matchId }) {
                 it[status] = MatchStatus.CANCELED
+                it[cancelReason] = reason
                 it[updatedAt] = System.currentTimeMillis()
             } > 0
         }

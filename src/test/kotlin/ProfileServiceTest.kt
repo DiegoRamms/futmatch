@@ -7,6 +7,7 @@ import com.devapplab.model.match.*
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.*
 import com.devapplab.model.user.response.OrganizerListItem
+import com.devapplab.observability.AppRequestContext
 import com.devapplab.service.ProfileService
 import com.devapplab.service.image.ImageService
 import io.ktor.http.content.*
@@ -16,6 +17,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class ProfileServiceTest {
+
+    private val testContext = AppRequestContext(
+        requestId = "test-request",
+        method = "GET",
+        path = "/profile"
+    )
 
     @Test
     fun `getMyProfile returns success without lastMatch`() = kotlinx.coroutines.runBlocking {
@@ -32,7 +39,7 @@ class ProfileServiceTest {
             imageService = FakeImageService()
         )
 
-        val result = service.getMyProfile(userId, Locale.US)
+        val result = service.getMyProfile(userId, Locale.US, testContext)
         val success = result as AppResult.Success
 
         assertEquals(userId, success.data.id)
@@ -57,7 +64,7 @@ class ProfileServiceTest {
             imageService = FakeImageService()
         )
 
-        val result = service.getPublicProfile(UUID.randomUUID(), Locale.US)
+        val result = service.getPublicProfile(UUID.randomUUID(), Locale.US, testContext)
         val failure = result as AppResult.Failure
         assertEquals(404, failure.status.value)
     }
@@ -77,7 +84,7 @@ class ProfileServiceTest {
             imageService = FakeImageService()
         )
 
-        val result = service.getPublicProfile(userId, Locale.US)
+        val result = service.getPublicProfile(userId, Locale.US, testContext)
         val success = result as AppResult.Success
         assertNull(success.data.lastMatch)
     }
@@ -96,7 +103,7 @@ class ProfileServiceTest {
             imageService = FakeImageService()
         )
 
-        val result = service.getPublicProfile(null, Locale.US)
+        val result = service.getPublicProfile(null, Locale.US, testContext)
         val failure = result as AppResult.Failure
         assertEquals(404, failure.status.value)
     }
@@ -158,6 +165,8 @@ private class FakeUserRepository(
     override suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String? = error("not used")
     override suspend fun upsertPaymentProfile(userId: UUID, provider: PaymentProvider, providerCustomerId: String): Boolean = error("not used")
     override fun getOrganizers(): List<OrganizerListItem> = error("not used")
+    override suspend fun getActiveAdminIds(): List<UUID> = error("not used")
+    override suspend fun getUserLocalesByIds(userIds: List<UUID>): Map<UUID, String> = error("not used")
 }
 
 private class FakeMatchRepository(
@@ -173,10 +182,11 @@ private class FakeMatchRepository(
 
     override suspend fun create(match: Match): MatchBaseInfo = error("not used")
     override suspend fun getMatchesByFieldId(fieldId: UUID): List<MatchWithFieldBaseInfo> = error("not used")
+    override suspend fun getMatchesBySupervisorId(supervisorId: UUID): List<MatchWithFieldBaseInfo> = error("not used")
     override suspend fun getMatchTimeSlotsByFieldId(fieldId: UUID): List<MatchTimeSlot> = error("not used")
     override suspend fun getAllMatches(): List<MatchWithFieldBaseInfo> = error("not used")
     override suspend fun getUpcomingMatches(): List<MatchWithFieldBaseInfo> = error("not used")
-    override suspend fun cancelMatch(matchId: UUID): Boolean = error("not used")
+    override suspend fun cancelMatch(matchId: UUID, reason: String): Boolean = error("not used")
     override suspend fun updateMatch(matchId: UUID, match: Match): Boolean = error("not used")
     override suspend fun getPublicMatches(): List<MatchWithField> = error("not used")
     override suspend fun getUserMatches(userId: UUID): List<MatchWithField> = error("not used")
@@ -186,6 +196,7 @@ private class FakeMatchRepository(
     override suspend fun isUserInMatch(matchId: UUID, userId: UUID): Boolean = error("not used")
     override suspend fun getMatchPlayerId(matchId: UUID, userId: UUID): UUID? = error("not used")
     override suspend fun updatePlayerStatus(matchPlayerId: UUID, status: MatchPlayerStatus): Boolean = error("not used")
+    override suspend fun updatePlayerTeams(matchId: UUID, assignments: Map<UUID, TeamType>): Boolean = error("not used")
     override suspend fun getExpiredReservations(expirationTime: Long): List<ExpiredReservation> = error("not used")
     override suspend fun hasActiveReservation(userId: UUID): Boolean = error("not used")
     override suspend fun setPlayerGoals(matchId: UUID, goals: List<PlayerGoalInput>): Boolean = error("not used")
@@ -199,4 +210,6 @@ private class FakeMatchRepository(
     override suspend fun getMatchPlayerGoals(matchId: UUID): List<MatchPlayerGoal> = error("not used")
     override suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int> = error("not used")
     override suspend fun getHomeSuggestedMatches(userId: UUID, limit: Int): List<HomeSuggestedMatch> = emptyList()
+    override suspend fun getMatchesPendingPaymentWindowWarning(startTimeWindow: Long, endTimeWindow: Long): List<MatchPaymentWindowWarningInfo> = error("not used")
+    override suspend fun markPaymentWindowWarningSent(matchId: UUID, sentAt: Long): Boolean = error("not used")
 }

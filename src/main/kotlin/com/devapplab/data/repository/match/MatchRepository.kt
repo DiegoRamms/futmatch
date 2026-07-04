@@ -10,7 +10,7 @@ interface MatchRepository {
     suspend fun getMatchTimeSlotsByFieldId(fieldId: UUID): List<MatchTimeSlot>
     suspend fun getAllMatches(): List<MatchWithFieldBaseInfo>
     suspend fun getUpcomingMatches(): List<MatchWithFieldBaseInfo>
-    suspend fun cancelMatch(matchId: UUID): Boolean
+    suspend fun cancelMatch(matchId: UUID, reason: String): Boolean
     suspend fun updateMatch(matchId: UUID, match: Match): Boolean
     suspend fun getPublicMatches(): List<MatchWithField>
     suspend fun getUserMatches(userId: UUID): List<MatchWithField>

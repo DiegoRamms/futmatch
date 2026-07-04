@@ -20,6 +20,7 @@ object MatchTable : Table("matches") {
     val minPlayersRequired = integer("min_players_required")
     val matchPrice = decimal("match_price", 10, 2)
     val status = enumerationByName("status", 20, MatchStatus::class)
+    val cancelReason = text("cancel_reason").nullable()
     val playerLevel = enumerationByName("player_level", 20, PlayerLevel::class).default(PlayerLevel.ANY)
     val genderType = enumerationByName("gender_type", 20, GenderType::class).default(GenderType.MIXED)
     val paymentWindowWarningSentAt = long("payment_window_warning_sent_at").nullable()

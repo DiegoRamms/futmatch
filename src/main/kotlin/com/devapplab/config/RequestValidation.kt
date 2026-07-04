@@ -15,6 +15,7 @@ import com.devapplab.model.device.UpdateFcmTokenRequest
 import com.devapplab.model.field.request.CreateFieldRequest
 import com.devapplab.model.field.request.UpdateFieldRequest
 import com.devapplab.model.location.Location
+import com.devapplab.model.match.request.CancelMatchRequest
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.CompleteMatchRequest
 import com.devapplab.model.match.request.RebalanceMatchTeamsRequest
@@ -80,6 +81,10 @@ fun Application.configureRequestValidation() {
         }
 
         validate<RebalanceMatchTeamsRequest> { request ->
+            request.validate()
+        }
+
+        validate<CancelMatchRequest> { request ->
             request.validate()
         }
 

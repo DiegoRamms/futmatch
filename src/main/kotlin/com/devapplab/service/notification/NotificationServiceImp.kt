@@ -104,7 +104,7 @@ class NotificationServiceImp(
         )
     }
 
-    override suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus) {
+    override suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus, reason: String?) {
         try {
             val matchContext = getMatchContext(matchId, locale)
             val title = locale.getString(StringResourcesKey.NOTIFICATION_MATCH_CANCELED_TITLE)
@@ -124,14 +124,20 @@ class NotificationServiceImp(
                     placeholders
                 )
             }
-            val body = appendContext(baseBody, matchContext?.bodySuffix)
+            val reasonSuffix = reason?.let {
+                " " + locale.getString(
+                    StringResourcesKey.NOTIFICATION_MATCH_CANCELED_REASON_SUFFIX,
+                    mapOf("reason" to it)
+                )
+            }.orEmpty()
+            val body = appendContext(baseBody + reasonSuffix, matchContext?.bodySuffix)
 
             val metadataJson = convertMapToJson(
                 baseMetadata(matchId, "MATCH_CANCELED", matchContext) + mapOf(
                     "matchId" to matchId.toString(),
                     "fieldName" to fieldName,
                     "refundStatus" to refundStatus.name
-                )
+                ) + (reason?.let { mapOf("reason" to it) } ?: emptyMap())
             )
 
             val notificationId = notificationRepository.createNotification(

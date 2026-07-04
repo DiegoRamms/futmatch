@@ -149,6 +149,8 @@ enum class StringResourcesKey(val value: String) {
     MATCH_GOALS_EMPTY_ERROR("match_goals_empty_error"),
     MATCH_MULTIPLE_BEST_PLAYER_ERROR("match_multiple_best_player_error"),
     MATCH_INVALID_GOALS_ERROR("match_invalid_goals_error"),
+    MATCH_CANCEL_REASON_REQUIRED_ERROR("match_cancel_reason_required_error"),
+    MATCH_CANCEL_REASON_TOO_LONG_ERROR("match_cancel_reason_too_long_error"),
 
     PASSWORD_UPDATE_SUCCESS_MESSAGE("password_update_success_message"),
     PASSWORD_UPDATE_FAILED_TITLE("password_update_failed_title"),
@@ -203,6 +205,7 @@ enum class StringResourcesKey(val value: String) {
     NOTIFICATION_MATCH_CANCELED_REFUND_BODY("notification_match_canceled_refund_body"),
     NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_TITLE("notification_match_canceled_refund_failed_title"),
     NOTIFICATION_MATCH_CANCELED_REFUND_FAILED_BODY("notification_match_canceled_refund_failed_body"),
+    NOTIFICATION_MATCH_CANCELED_REASON_SUFFIX("notification_match_canceled_reason_suffix"),
     NOTIFICATION_MATCH_COMPLETED_WINNER_TITLE("notification_match_completed_winner_title"),
     NOTIFICATION_MATCH_COMPLETED_WINNER_BODY("notification_match_completed_winner_body"),
     NOTIFICATION_MATCH_COMPLETED_WINNER_MVP_TITLE("notification_match_completed_winner_mvp_title"),
