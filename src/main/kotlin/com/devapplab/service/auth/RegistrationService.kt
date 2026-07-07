@@ -7,6 +7,8 @@ import com.devapplab.data.repository.pending_registrations.PendingRegistrationRe
 import com.devapplab.data.repository.pending_registrations.RegistrationVerifyAttemptRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
+import com.devapplab.model.ErrorCode
+import com.devapplab.model.ErrorResponse
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.request.CompleteRegistrationRequest
 import com.devapplab.model.auth.request.RegisterUserRequest
@@ -23,6 +25,7 @@ import com.devapplab.service.auth.state.CompleteRegistrationFailure
 import com.devapplab.service.auth.state.RegistrationTxResult
 import com.devapplab.service.auth.state.ResendRegistrationCodeDecision
 import com.devapplab.service.email.EmailService
+import com.devapplab.service.email.EmailDomainPolicy
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.utils.MfaUtils
 import com.devapplab.utils.StringResourcesKey
@@ -42,6 +45,7 @@ class RegistrationService(
     private val hashingService: HashingService,
     private val pendingRegistrationRepository: PendingRegistrationRepository,
     private val emailService: EmailService,
+    private val emailDomainPolicy: EmailDomainPolicy,
     private val loginAttemptRepository: LoginAttemptRepository,
     private val registrationVerifyAttemptRepository: RegistrationVerifyAttemptRepository,
     private val authRepository: AuthRepository,
@@ -71,6 +75,18 @@ class RegistrationService(
 
         val email = request.email
         val now = System.currentTimeMillis()
+
+        if (!emailDomainPolicy.isAllowed(email)) {
+            logger.authEvent(
+                AuthLogSeverity.WARN,
+                "auth.registration.start.failed",
+                context,
+                "rejected",
+                emailDomainPolicy.getRejectionReason(email),
+                statusCode = HttpStatusCode.BadRequest.value
+            )
+            return createEmailDomainRejectedError(locale)
+        }
 
         val verificationCode = MfaUtils.generateCode()
         val hashedCode = hashingService.hashOpaqueToken(verificationCode)
@@ -118,6 +134,22 @@ class RegistrationService(
                 message = locale.getString(StringResourcesKey.REGISTRATION_EMAIL_SENT_MESSAGE),
                 resendCodeTimeInSeconds = RegistrationPolicy.RESEND_COOLDOWN.inWholeSeconds
             )
+        )
+    }
+
+    private fun createEmailDomainRejectedError(locale: Locale): AppResult.Failure {
+        val isSpanish = locale.language.equals("es", ignoreCase = true)
+        return AppResult.Failure(
+            errorResponse = ErrorResponse(
+                title = if (isSpanish) "Dominio de correo no permitido" else "Email domain not allowed",
+                message = if (isSpanish) {
+                    "Usa un correo de un proveedor admitido. No aceptamos dominios temporales o desconocidos."
+                } else {
+                    "Use an email from a supported provider. Temporary or unknown domains are not accepted."
+                },
+                errorCode = ErrorCode.AUTH_EMAIL_DOMAIN_NOT_ALLOWED
+            ),
+            appStatus = HttpStatusCode.BadRequest
         )
     }
 

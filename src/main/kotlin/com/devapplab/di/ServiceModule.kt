@@ -16,6 +16,7 @@ import com.devapplab.service.billing.BillingService
 import com.devapplab.service.billing.StripeBillingService
 import com.devapplab.service.clean.CleanupDataService
 import com.devapplab.service.device.DeviceService
+import com.devapplab.service.email.EmailDomainPolicy
 import com.devapplab.service.email.RealEmailServiceTestImp
 import com.devapplab.service.field.FieldService
 import com.devapplab.service.firebase.FirebaseAuthService
@@ -51,6 +52,7 @@ val serviceModule = module {
     singleOf(::RefreshTokenServiceImp) { bind<com.devapplab.service.auth.refresh_token.RefreshTokenService>() }
     singleOf(::LoginMfaChallengeTokenServiceImpl) { bind<com.devapplab.service.auth.mfa.LoginMfaChallengeTokenService>() }
     singleOf(::MfaCodeService)
+    singleOf(::EmailDomainPolicy)
     //singleOf(::EmailServiceImpl) { bind<EmailService>() }
     singleOf(::RealEmailServiceTestImp) { bind<com.devapplab.service.email.EmailService>() }
     singleOf(::FieldService)

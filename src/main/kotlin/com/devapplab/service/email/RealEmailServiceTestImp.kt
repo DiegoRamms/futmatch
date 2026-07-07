@@ -23,13 +23,16 @@ import java.util.Locale
  */
 class RealEmailServiceTestImp(
     private val client: HttpClient,
-    private val emailConfig: EmailConfig
+    private val emailConfig: EmailConfig,
+    private val emailDomainPolicy: EmailDomainPolicy
 ) : EmailService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
 
     override suspend fun sendMfaCodeEmail(to: String, code: String, locale: Locale): Boolean = withContext(Dispatchers.IO) {
+        if (!isAllowedRecipient(to)) return@withContext false
+
         val title = locale.getString(StringResourcesKey.EMAIL_MFA_TITLE)
         val message = locale.getString(StringResourcesKey.EMAIL_MFA_MESSAGE)
         val subject = locale.getString(StringResourcesKey.EMAIL_MFA_SUBJECT)
@@ -54,6 +57,8 @@ class RealEmailServiceTestImp(
     }
 
     override suspend fun sendMfaPasswordResetEmail(to: String, code: String, locale: Locale): Boolean = withContext(Dispatchers.IO) {
+        if (!isAllowedRecipient(to)) return@withContext false
+
         val title = locale.getString(StringResourcesKey.EMAIL_PASSWORD_RESET_TITLE)
         val message = locale.getString(StringResourcesKey.EMAIL_PASSWORD_RESET_MESSAGE)
         val subject = locale.getString(StringResourcesKey.EMAIL_PASSWORD_RESET_SUBJECT)
@@ -78,6 +83,8 @@ class RealEmailServiceTestImp(
     }
 
     override suspend fun sendRegistrationEmail(to: String, code: String, locale: Locale): Boolean = withContext(Dispatchers.IO) {
+        if (!isAllowedRecipient(to)) return@withContext false
+
         val title = locale.getString(StringResourcesKey.EMAIL_REGISTRATION_TITLE)
         val message = locale.getString(StringResourcesKey.EMAIL_REGISTRATION_MESSAGE)
         val subject = locale.getString(StringResourcesKey.EMAIL_REGISTRATION_SUBJECT)
@@ -128,6 +135,15 @@ class RealEmailServiceTestImp(
             logger.error("Failed to send email to $to: ${e.message}", e)
             false
         }
+    }
+
+    private fun isAllowedRecipient(email: String): Boolean {
+        if (emailDomainPolicy.isAllowed(email)) {
+            return true
+        }
+
+        emailDomainPolicy.logRejectedEmail(email)
+        return false
     }
 
 

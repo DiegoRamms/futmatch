@@ -1,11 +1,14 @@
 package com.devapplab.di
 
 import com.devapplab.model.EmailConfig
+import com.devapplab.model.EmailDomainPolicyConfig
 import com.devapplab.model.AppCheckConfig
 import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.StripeConfig
 import com.devapplab.model.WebhookConfig
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
+import com.devapplab.utils.loadDomainResource
+import com.devapplab.utils.toDomainSet
 import io.ktor.server.config.ApplicationConfig
 import org.koin.dsl.module
 
@@ -51,6 +54,23 @@ val configModule = module {
             apiToken = config.property("email.apiToken").getString(),
             fromEmail = "hello@futmatch.mx",
             fromName = "Futmatch"
+        )
+    }
+    single {
+        val config = get<ApplicationConfig>()
+        EmailDomainPolicyConfig(
+            enforceAllowlist = config.propertyOrNull("email.domainPolicy.enforceAllowlist")
+                ?.getString()
+                ?.toBooleanStrictOrNull()
+                ?: false,
+            allowedDomains = loadDomainResource("email_allowed_domains.txt") +
+                config.propertyOrNull("email.domainPolicy.allowedDomains")
+                    ?.getString()
+                    .toDomainSet(),
+            blockedDomains = loadDomainResource("email_blocked_domains.txt") +
+                config.propertyOrNull("email.domainPolicy.blockedDomains")
+                    ?.getString()
+                    .toDomainSet()
         )
     }
     single {
