@@ -6,5 +6,6 @@ data class MatchPricingConfig(
     val maxPricePerPlayerInCents: Long,
     val stripePercentFeeBps: Int,
     val stripeFixedFeeCents: Long,
-    val priceRoundingStepCents: Long
+    val priceRoundingStepCents: Long,
+    val pricingOptionsStepInCents: Long
 )

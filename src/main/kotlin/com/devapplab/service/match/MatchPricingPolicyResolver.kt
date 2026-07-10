@@ -15,6 +15,7 @@ object MatchPricingPolicyResolver {
             stripePercentFeeBps = config.stripePercentFeeBps,
             stripeFixedFeeCents = config.stripeFixedFeeCents,
             priceRoundingStepCents = config.priceRoundingStepCents,
+            pricingOptionsStepInCents = config.pricingOptionsStepInCents,
             usesFieldOverrides = minimumProfitOverrideInCents != null || maxPricePerPlayerOverrideInCents != null
         )
     }

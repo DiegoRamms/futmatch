@@ -19,30 +19,12 @@ object MatchPricingCalculator {
             isRecommended = true
         )
 
-        val minimumSuggestedPrice = roundUpToStep(
-            max(recommendedPrice - (2 * policy.priceRoundingStepCents), policy.priceRoundingStepCents),
-            policy.priceRoundingStepCents
+        val pricingOptions = buildPricingOptions(
+            policy = policy,
+            inputs = inputs,
+            recommendedPrice = recommendedPrice,
+            recommendedOption = recommendedOption
         )
-
-        val pricingOptions = generateSequence(minimumSuggestedPrice) { current ->
-            val next = current + policy.priceRoundingStepCents
-            next.takeIf { it <= policy.maxPricePerPlayerInCents }
-        }
-            .map { price ->
-                calculateOption(
-                    policy = policy,
-                    inputs = inputs,
-                    pricePerPlayerInCents = price,
-                    label = if (price == recommendedPrice) {
-                        FieldPricingOptionLabel.RECOMMENDED
-                    } else {
-                        FieldPricingOptionLabel.SUGGESTED
-                    },
-                    isRecommended = price == recommendedPrice
-                )
-            }
-            .toList()
-            .ifEmpty { listOf(recommendedOption) }
 
         return MatchPricingEstimate(
             recommendedOption = recommendedOption,
@@ -222,6 +204,51 @@ object MatchPricingCalculator {
         return roundUpToStep(low, policy.priceRoundingStepCents)
     }
 
+    private fun buildPricingOptions(
+        policy: MatchPricingPolicy,
+        inputs: MatchPricingInputs,
+        recommendedPrice: Long,
+        recommendedOption: MatchPricingOption
+    ): List<MatchPricingOption> {
+        val minimumSuggestedPrice = roundUpToStep(
+            max(recommendedPrice - (2 * policy.pricingOptionsStepInCents), policy.pricingOptionsStepInCents),
+            policy.pricingOptionsStepInCents
+        )
+
+        val optionPrices = linkedSetOf<Long>()
+
+        generateSequence(minimumSuggestedPrice) { current ->
+            val next = current + policy.pricingOptionsStepInCents
+            next.takeIf { it <= policy.maxPricePerPlayerInCents }
+        }.forEach { optionPrices += it }
+
+        if (policy.maxPricePerPlayerInCents !in optionPrices) {
+            optionPrices += policy.maxPricePerPlayerInCents
+        }
+
+        if (recommendedPrice <= policy.maxPricePerPlayerInCents && recommendedPrice !in optionPrices) {
+            optionPrices += recommendedPrice
+        }
+
+        return optionPrices
+            .toList()
+            .sorted()
+            .map { price ->
+                calculateOption(
+                    policy = policy,
+                    inputs = inputs,
+                    pricePerPlayerInCents = price,
+                    label = if (price == recommendedPrice) {
+                        FieldPricingOptionLabel.RECOMMENDED
+                    } else {
+                        FieldPricingOptionLabel.SUGGESTED
+                    },
+                    isRecommended = price == recommendedPrice
+                )
+            }
+            .ifEmpty { listOf(recommendedOption) }
+    }
+
     private fun targetNetInCents(
         policy: MatchPricingPolicy,
         fieldCostInCents: Long,
@@ -241,6 +268,7 @@ object MatchPricingCalculator {
         require(inputs.fieldCapacity > 0) { "fieldCapacity must be greater than 0" }
         require(inputs.maxPlayers in 1..inputs.fieldCapacity) { "maxPlayers must be between 1 and fieldCapacity" }
         require(policy.priceRoundingStepCents > 0) { "priceRoundingStepCents must be greater than 0" }
+        require(policy.pricingOptionsStepInCents > 0) { "pricingOptionsStepInCents must be greater than 0" }
         require(policy.maxPricePerPlayerInCents >= policy.priceRoundingStepCents) {
             "maxPricePerPlayerInCents must be greater than or equal to priceRoundingStepCents"
         }
@@ -260,6 +288,7 @@ data class MatchPricingPolicy(
     val stripePercentFeeBps: Int,
     val stripeFixedFeeCents: Long,
     val priceRoundingStepCents: Long,
+    val pricingOptionsStepInCents: Long,
     val usesFieldOverrides: Boolean
 )
 

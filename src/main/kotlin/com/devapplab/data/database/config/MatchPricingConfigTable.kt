@@ -10,6 +10,7 @@ object MatchPricingConfigTable : Table("match_pricing_config") {
     val stripePercentFeeBps = integer("stripe_percent_fee_bps")
     val stripeFixedFeeCents = long("stripe_fixed_fee_cents")
     val priceRoundingStepCents = long("price_rounding_step_cents")
+    val pricingOptionsStepInCents = long("pricing_options_step_in_cents").default(1_000L)
     val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
 
     override val primaryKey = PrimaryKey(id)

@@ -6,26 +6,13 @@ import com.devapplab.model.ErrorCode
 import com.devapplab.model.field.Field
 import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.mapper.toResponse
-import com.devapplab.model.field.response.FieldBasicResponse
-import com.devapplab.model.field.response.FieldPricingBreakdownResponse
-import com.devapplab.model.field.response.FieldPricingConstraintsResponse
-import com.devapplab.model.field.response.FieldPricingCustomResponse
-import com.devapplab.model.field.response.FieldPricingEstimateResponse
-import com.devapplab.model.field.response.FieldPricingOperationalInsightsResponse
-import com.devapplab.model.field.response.FieldPricingOptionResponse
-import com.devapplab.model.field.response.FieldResponse
-import com.devapplab.model.field.response.FieldWithImagesResponse
+import com.devapplab.model.field.response.*
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appFailure
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.image.ImageService
-import com.devapplab.service.match.MatchPricingConfigProvider
-import com.devapplab.service.match.MatchPricingCalculator
-import com.devapplab.service.match.MatchPricingInputs
-import com.devapplab.service.match.MatchPricingOption
-import com.devapplab.service.match.MatchPricingPolicy
-import com.devapplab.service.match.MatchPricingPolicyResolver
+import com.devapplab.service.match.*
 import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.http.content.*
@@ -555,7 +542,7 @@ class FieldService(
             constraints = FieldPricingConstraintsResponse(
                 minimumProfitInCents = pricingPolicy.minimumProfitInCents,
                 maxPricePerPlayerInCents = pricingPolicy.maxPricePerPlayerInCents,
-                priceStepInCents = pricingPolicy.priceRoundingStepCents,
+                priceStepInCents = pricingPolicy.pricingOptionsStepInCents,
                 stripePercentFeeBps = pricingPolicy.stripePercentFeeBps,
                 stripeFixedFeeCents = pricingPolicy.stripeFixedFeeCents,
                 futmatchProfitBps = pricingPolicy.futmatchProfitBps,
@@ -643,7 +630,7 @@ class FieldService(
                 constraints = FieldPricingConstraintsResponse(
                     minimumProfitInCents = pricingPolicy.minimumProfitInCents,
                     maxPricePerPlayerInCents = pricingPolicy.maxPricePerPlayerInCents,
-                    priceStepInCents = pricingPolicy.priceRoundingStepCents,
+                    priceStepInCents = pricingPolicy.pricingOptionsStepInCents,
                     stripePercentFeeBps = pricingPolicy.stripePercentFeeBps,
                     stripeFixedFeeCents = pricingPolicy.stripeFixedFeeCents,
                     futmatchProfitBps = pricingPolicy.futmatchProfitBps,

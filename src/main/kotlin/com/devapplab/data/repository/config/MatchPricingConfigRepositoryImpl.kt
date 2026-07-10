@@ -28,6 +28,7 @@ class MatchPricingConfigRepositoryImpl : MatchPricingConfigRepository {
                 it[stripePercentFeeBps] = config.stripePercentFeeBps
                 it[stripeFixedFeeCents] = config.stripeFixedFeeCents
                 it[priceRoundingStepCents] = config.priceRoundingStepCents
+                it[pricingOptionsStepInCents] = config.pricingOptionsStepInCents
                 it[updatedAt] = now
             }
             config
@@ -41,7 +42,8 @@ class MatchPricingConfigRepositoryImpl : MatchPricingConfigRepository {
             maxPricePerPlayerInCents = this[MatchPricingConfigTable.maxPricePerPlayerInCents],
             stripePercentFeeBps = this[MatchPricingConfigTable.stripePercentFeeBps],
             stripeFixedFeeCents = this[MatchPricingConfigTable.stripeFixedFeeCents],
-            priceRoundingStepCents = this[MatchPricingConfigTable.priceRoundingStepCents]
+            priceRoundingStepCents = this[MatchPricingConfigTable.priceRoundingStepCents],
+            pricingOptionsStepInCents = this[MatchPricingConfigTable.pricingOptionsStepInCents]
         )
     }
 
@@ -54,7 +56,8 @@ class MatchPricingConfigRepositoryImpl : MatchPricingConfigRepository {
             maxPricePerPlayerInCents = 22_000L,
             stripePercentFeeBps = 360,
             stripeFixedFeeCents = 300L,
-            priceRoundingStepCents = 100L
+            priceRoundingStepCents = 100L,
+            pricingOptionsStepInCents = 1_000L
         )
     }
 }

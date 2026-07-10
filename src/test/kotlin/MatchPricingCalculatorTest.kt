@@ -17,7 +17,8 @@ class MatchPricingCalculatorTest {
         maxPricePerPlayerInCents = 22_000L,
         stripePercentFeeBps = 360,
         stripeFixedFeeCents = 300L,
-        priceRoundingStepCents = 100L
+        priceRoundingStepCents = 100L,
+        pricingOptionsStepInCents = 1_000L
     )
     private val policy = MatchPricingPolicy(
         futmatchProfitBps = config.futmatchProfitBps,
@@ -26,6 +27,7 @@ class MatchPricingCalculatorTest {
         stripePercentFeeBps = config.stripePercentFeeBps,
         stripeFixedFeeCents = config.stripeFixedFeeCents,
         priceRoundingStepCents = config.priceRoundingStepCents,
+        pricingOptionsStepInCents = config.pricingOptionsStepInCents,
         usesFieldOverrides = false
     )
 
@@ -105,5 +107,43 @@ class MatchPricingCalculatorTest {
         )
 
         assertEquals(null, minimumPlayers)
+    }
+
+    @Test
+    fun `pricing options use configured option step and include exact max price`() {
+        val config = MatchPricingConfig(
+            futmatchProfitBps = 1500,
+            minimumProfitInCents = 30_000L,
+            maxPricePerPlayerInCents = 22_300L,
+            stripePercentFeeBps = 360,
+            stripeFixedFeeCents = 300L,
+            priceRoundingStepCents = 100L,
+            pricingOptionsStepInCents = 1_000L
+        )
+        val policy = MatchPricingPolicy(
+            futmatchProfitBps = config.futmatchProfitBps,
+            minimumProfitInCents = config.minimumProfitInCents,
+            maxPricePerPlayerInCents = config.maxPricePerPlayerInCents,
+            stripePercentFeeBps = config.stripePercentFeeBps,
+            stripeFixedFeeCents = config.stripeFixedFeeCents,
+            priceRoundingStepCents = config.priceRoundingStepCents,
+            pricingOptionsStepInCents = config.pricingOptionsStepInCents,
+            usesFieldOverrides = false
+        )
+
+        val estimate = MatchPricingCalculator.buildPricingEstimate(
+            policy = policy,
+            inputs = MatchPricingInputs(
+                fieldCostInCents = 80_000,
+                organizerFeeInCents = 20_000,
+                fieldCapacity = 14,
+                maxPlayers = 10
+            )
+        )
+
+        val optionPrices = estimate.pricingOptions.map { it.pricePerPlayerInCents }
+        assertTrue(optionPrices.contains(22_300L))
+        assertTrue(optionPrices.any { it % 1_000L != 0L })
+        assertEquals(estimate.recommendedOption.pricePerPlayerInCents, estimate.selectedOption.pricePerPlayerInCents)
     }
 }

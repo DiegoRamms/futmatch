@@ -219,6 +219,8 @@ Returns suggested pricing options, operational insights, the recommended option,
 
 - `fieldId` must exist.
 - `maxPlayers` must be between `1` and `field.capacity`.
+- Suggested `pricingOptions` use the configured UI step.
+- If `maxPricePerPlayerInCents` does not align with that step, the backend still appends the exact max price as the last option.
 
 #### Success Response Example
 
@@ -374,6 +376,7 @@ Calculates a single custom scenario for an explicit price chosen by the admin.
 - `estimatedProfitAtMinimumPlayersInCents`: projected profit if only the minimum start threshold is reached.
 - `estimatedProfitAtFullCapacityInCents`: projected profit if the match fills to the selected `maxPlayers`.
 - `usesFieldOverrides`: tells the client whether global config was overridden by field-specific pricing settings.
+- `priceStepInCents`: UI step for suggested price chips.
 
 ---
 
