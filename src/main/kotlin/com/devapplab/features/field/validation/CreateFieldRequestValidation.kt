@@ -11,6 +11,8 @@ fun CreateFieldRequest.validate(): ValidationResult {
             ValidationResult.Invalid(StringResourcesKey.FIELD_NAME_INVALID_ERROR.value)
         priceInCents <= 0L ->
             ValidationResult.Invalid(StringResourcesKey.FIELD_PRICE_INVALID_ERROR.value)
+        organizerFeeInCents < 0L ->
+            ValidationResult.Invalid(StringResourcesKey.FIELD_PRICE_INVALID_ERROR.value)
 
         capacity <= 0 ->
             ValidationResult.Invalid(StringResourcesKey.FIELD_CAPACITY_INVALID_ERROR.value)

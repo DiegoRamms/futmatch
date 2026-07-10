@@ -15,6 +15,7 @@ import com.devapplab.model.ErrorCode
 import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
+import com.devapplab.model.field.Field
 import com.devapplab.model.firestore.MatchPlayerList
 import com.devapplab.model.match.*
 import com.devapplab.model.match.mapper.toMatchDetailResponse
@@ -68,7 +69,8 @@ class MatchService(
     private val billingService: BillingService,
     private val refundFailureRepository: MatchRefundFailureRepository,
     private val publicMatchesCacheService: PublicMatchesCacheService,
-    private val matchPaymentConfig: MatchPaymentConfig
+    private val matchPaymentConfig: MatchPaymentConfig,
+    private val matchPricingConfigProvider: MatchPricingConfigProvider
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -105,28 +107,11 @@ class MatchService(
                 )
             }
 
-        val totalProjectedRevenue = match.matchPrice.multiply(match.maxPlayers.toBigDecimal())
-        if (totalProjectedRevenue < field.price) {
-            logger.appRejected(
-                event = "match.create_failed",
-                context = context,
-                reason = "match_price_below_field_cost",
-                userId = match.adminId,
-                statusCode = HttpStatusCode.Conflict.value,
-                extra = mapOf(
-                    "fieldId" to match.fieldId,
-                    "fieldCost" to field.price.toPlainString(),
-                    "matchPricePerPlayer" to match.matchPrice.toPlainString(),
-                    "maxPlayers" to match.maxPlayers,
-                    "totalProjectedRevenue" to totalProjectedRevenue.toPlainString()
-                )
-            )
-            return locale.createError(
-                titleKey = StringResourcesKey.MATCH_PRICE_BELOW_FIELD_COST_TITLE,
-                descriptionKey = StringResourcesKey.MATCH_PRICE_BELOW_FIELD_COST_DESCRIPTION,
-                status = HttpStatusCode.Conflict,
-                errorCode = ErrorCode.MATCH_PRICE_BELOW_FIELD_COST
-            )
+        val validatedMatch = when (
+            val validation = validateAndEnrichMatchPricing(field, match, locale, context, "match.create_failed")
+        ) {
+            is MatchPricingValidation.Invalid -> return validation.failure
+            is MatchPricingValidation.Valid -> validation.match
         }
 
         if (isMatchOverlapping(match)) {
@@ -146,7 +131,7 @@ class MatchService(
             )
         }
 
-        val matchCreated = matchRepository.create(match)
+        val matchCreated = matchRepository.create(validatedMatch)
 
         val expireAtMillis = matchCreated.dateTimeEnd + SIGNAL_TTL_AFTER_END.inWholeMilliseconds
         notifyMatchUpdate(matchCreated.id, expireAtMillis, sendRegionalPush = true)
@@ -173,11 +158,138 @@ class MatchService(
         logger.appSuccess(
             event = "match.created",
             context = context,
-            userId = match.adminId,
+            userId = validatedMatch.adminId,
             statusCode = HttpStatusCode.OK.value,
             extra = mapOf("matchId" to matchCreated.id, "fieldId" to matchCreated.fieldId)
         )
         return AppResult.Success(response)
+    }
+
+    private suspend fun validateAndEnrichMatchPricing(
+        field: Field,
+        match: Match,
+        locale: Locale,
+        context: AppRequestContext,
+        event: String
+    ): MatchPricingValidation {
+        if (match.maxPlayers > field.capacity) {
+            logger.appRejected(
+                event = event,
+                context = context,
+                reason = "match_max_players_exceeds_field_capacity",
+                userId = match.adminId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf(
+                    "fieldId" to match.fieldId,
+                    "fieldCapacity" to field.capacity,
+                    "maxPlayers" to match.maxPlayers
+                )
+            )
+            return MatchPricingValidation.Invalid(locale.createError(
+                titleKey = StringResourcesKey.MATCH_FIELD_CAPACITY_EXCEEDED_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_FIELD_CAPACITY_EXCEEDED_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_FIELD_CAPACITY_EXCEEDED
+            ))
+        }
+
+        if (match.minPlayersRequired > match.maxPlayers) {
+            logger.appRejected(
+                event = event,
+                context = context,
+                reason = "match_min_players_exceeds_max_players",
+                userId = match.adminId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf(
+                    "fieldId" to match.fieldId,
+                    "maxPlayers" to match.maxPlayers,
+                    "minPlayersRequired" to match.minPlayersRequired
+                )
+            )
+            return MatchPricingValidation.Invalid(locale.createError(
+                titleKey = StringResourcesKey.MATCH_PRICE_BELOW_PROFIT_TARGET_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_PRICE_BELOW_PROFIT_TARGET_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_PRICE_BELOW_PROFIT_TARGET
+            ))
+        }
+
+        val fieldCostInCents = field.price.multiply(BigDecimal(100)).longValueExact()
+        val organizerFeeInCents = field.organizerFee.multiply(BigDecimal(100)).longValueExact()
+        val pricePerPlayerInCents = match.matchPrice.multiply(BigDecimal(100)).longValueExact()
+        val pricingConfig = matchPricingConfigProvider.get()
+        val pricingPolicy = MatchPricingPolicyResolver.resolve(pricingConfig, field)
+
+        if (pricePerPlayerInCents > pricingPolicy.maxPricePerPlayerInCents) {
+            logger.appRejected(
+                event = event,
+                context = context,
+                reason = "match_price_exceeds_max_price",
+                userId = match.adminId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf(
+                    "fieldId" to match.fieldId,
+                    "matchPricePerPlayerInCents" to pricePerPlayerInCents,
+                    "maxPricePerPlayerInCents" to pricingPolicy.maxPricePerPlayerInCents
+                )
+            )
+            return MatchPricingValidation.Invalid(locale.createError(
+                titleKey = StringResourcesKey.MATCH_PRICE_BELOW_PROFIT_TARGET_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_PRICE_BELOW_PROFIT_TARGET_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_PRICE_BELOW_PROFIT_TARGET
+            ))
+        }
+
+        val calculatedOption = MatchPricingCalculator.calculateCustomPricing(
+            policy = pricingPolicy,
+            inputs = MatchPricingInputs(
+                fieldCostInCents = fieldCostInCents,
+                organizerFeeInCents = organizerFeeInCents,
+                fieldCapacity = field.capacity,
+                maxPlayers = match.maxPlayers
+            ),
+            pricePerPlayerInCents = pricePerPlayerInCents
+        )
+
+        if (!calculatedOption.isViable || match.minPlayersRequired < calculatedOption.minimumPlayersToStart) {
+            logger.appRejected(
+                event = event,
+                context = context,
+                reason = "match_price_below_profit_target",
+                userId = match.adminId,
+                statusCode = HttpStatusCode.Conflict.value,
+                extra = mapOf(
+                    "fieldId" to match.fieldId,
+                    "fieldCostInCents" to fieldCostInCents,
+                    "organizerFeeInCents" to organizerFeeInCents,
+                    "matchPricePerPlayerInCents" to pricePerPlayerInCents,
+                    "maxPlayers" to match.maxPlayers,
+                    "minPlayersRequired" to match.minPlayersRequired,
+                    "minimumPlayersToStart" to calculatedOption.minimumPlayersToStart
+                )
+            )
+            return MatchPricingValidation.Invalid(locale.createError(
+                titleKey = StringResourcesKey.MATCH_PRICE_BELOW_PROFIT_TARGET_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_PRICE_BELOW_PROFIT_TARGET_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_PRICE_BELOW_PROFIT_TARGET
+            ))
+        }
+
+        return MatchPricingValidation.Valid(
+            match.copy(
+                fieldCostInCentsSnapshot = fieldCostInCents,
+                organizerFeeInCentsSnapshot = organizerFeeInCents,
+                minimumProfitInCentsSnapshot = pricingPolicy.minimumProfitInCents,
+                maxPricePerPlayerInCentsSnapshot = pricingPolicy.maxPricePerPlayerInCents,
+                futmatchProfitBpsSnapshot = pricingPolicy.futmatchProfitBps,
+                paymentProviderSnapshot = PaymentProvider.STRIPE,
+                paymentPercentFeeBpsSnapshot = pricingPolicy.stripePercentFeeBps,
+                paymentFixedFeeCentsSnapshot = pricingPolicy.stripeFixedFeeCents,
+                priceRoundingStepCentsSnapshot = pricingPolicy.priceRoundingStepCents
+            )
+        )
     }
 
     private suspend fun isMatchOverlapping(match: Match): Boolean {
@@ -626,7 +738,32 @@ class MatchService(
             )
         }
 
-        matchRepository.updateMatch(matchId, match)
+        val field = fieldRepository.getFieldById(match.fieldId)
+            ?: run {
+                logger.appRejected(
+                    event = "match.update_failed",
+                    context = context,
+                    reason = "field_not_found",
+                    userId = match.adminId,
+                    statusCode = HttpStatusCode.NotFound.value,
+                    extra = mapOf("fieldId" to match.fieldId, "matchId" to matchId)
+                )
+                return locale.createError(
+                    titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                    descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                    status = HttpStatusCode.NotFound,
+                    errorCode = ErrorCode.NOT_FOUND
+                )
+            }
+
+        val validatedMatch = when (
+            val validation = validateAndEnrichMatchPricing(field, match, locale, context, "match.update_failed")
+        ) {
+            is MatchPricingValidation.Invalid -> return validation.failure
+            is MatchPricingValidation.Valid -> validation.match
+        }
+
+        matchRepository.updateMatch(matchId, validatedMatch)
         val updatedMatch = matchRepository.getMatchById(matchId)
             ?: throw IllegalStateException("Match not found after update")
 
@@ -656,6 +793,11 @@ class MatchService(
             extra = mapOf("matchId" to matchId, "fieldId" to updatedMatch.fieldId)
         )
         return AppResult.Success(response)
+    }
+
+    private sealed interface MatchPricingValidation {
+        data class Valid(val match: Match) : MatchPricingValidation
+        data class Invalid(val failure: AppResult.Failure) : MatchPricingValidation
     }
 
     suspend fun rebalanceMatchTeams(

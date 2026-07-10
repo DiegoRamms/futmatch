@@ -8,12 +8,16 @@ import com.devapplab.model.user.FIELD_NAME_MAX_LENGTH
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.java.javaUUID
+import java.math.BigDecimal
 
 object FieldTable : Table("fields") {
     val id = javaUUID("id").autoGenerate().uniqueIndex()
     val name = varchar("name", FIELD_NAME_MAX_LENGTH).uniqueIndex()
     val locationId = javaUUID("location_id").references(LocationsTable.id).nullable()
     val fieldCost = decimal("field_cost", 10, 2)
+    val organizerFee = decimal("organizer_fee", 10, 2).default(BigDecimal("200.00"))
+    val minimumProfitOverrideInCents = long("minimum_profit_override_in_cents").nullable()
+    val maxPricePerPlayerOverrideInCents = long("max_price_per_player_override_in_cents").nullable()
     val capacity = integer("capacity")
     val adminId = javaUUID("admin_id").references(UserTable.id, onDelete = ReferenceOption.CASCADE)
     val description = text("description")

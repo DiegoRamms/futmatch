@@ -65,6 +65,32 @@ Creates a new scheduled match.
 | `genderType` | Enum | No | Must be a valid `GenderType` value (e.g., `MIXED`, `MALE`, `FEMALE`). Default: `MIXED`. |
 | `playerLevel` | Enum | No | Must be a valid `PlayerLevel` value (e.g., `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `ANY`). Default: `ANY`. |
 
+### Pricing Validation
+
+Before a match is created, the backend validates the economic scenario against the selected field and the active pricing policy:
+
+- `maxPlayers` must be less than or equal to the field capacity.
+- `minPlayersRequired` must be less than or equal to `maxPlayers`.
+- `matchPriceInCents` is interpreted as **price per player**, not total match revenue.
+- The selected price must not exceed the active `maxPricePerPlayerInCents`.
+- The selected `minPlayersRequired` must be high enough to satisfy the calculated minimum profitable start threshold for that field, price, and `maxPlayers`.
+
+If any of these rules fail, the request is rejected with `MATCH_PRICE_BELOW_PROFIT_TARGET` or `MATCH_FIELD_CAPACITY_EXCEEDED`.
+
+### Economic Snapshot
+
+When the match is created, the backend stores a pricing snapshot on the match record so future field/config changes do not affect historical analysis. The snapshot currently includes:
+
+- field cost at creation time
+- organizer fee at creation time
+- minimum profit target used
+- maximum price per player used
+- FutMatch profit basis points used
+- payment provider used
+- payment percentage fee used
+- payment fixed fee used
+- pricing rounding step used
+
 ### Success Response
 
 ```json
@@ -134,6 +160,17 @@ Updates an existing match.
 | `genderType` | Enum | Yes | Must be a valid `GenderType` value (e.g., `MIXED`, `MALE`, `FEMALE`). |
 | `playerLevel` | Enum | Yes | Must be a valid `PlayerLevel` value (e.g., `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `ANY`). |
 
+### Pricing Validation
+
+Update uses the same pricing rules as create:
+
+- `maxPlayers <= field.capacity`
+- `minPlayersRequired <= maxPlayers`
+- the custom price must stay within the active pricing cap
+- the selected minimum players must satisfy the calculated profitable threshold
+
+If the update passes validation, the economic snapshot on the match is refreshed using the current field/config values.
+
 ### Success Response
 
 ```json
@@ -155,6 +192,188 @@ Updates an existing match.
     }
 }
 ```
+
+---
+
+## Match Pricing Endpoints
+
+These endpoints are used by admin pricing flows before creating/updating the match. They are **field-scoped** and currently **ADMIN only**.
+
+### A. Pricing Estimate
+
+Returns suggested pricing options, operational insights, the recommended option, and the selected breakdown for a specific field and chosen `maxPlayers`.
+
+- **Method:** `POST`
+- **Path:** `/fields/{fieldId}/pricing-estimate`
+- **Required Role:** `ADMIN`
+
+#### Request Body
+
+```json
+{
+  "maxPlayers": 10
+}
+```
+
+#### Request Rules
+
+- `fieldId` must exist.
+- `maxPlayers` must be between `1` and `field.capacity`.
+
+#### Success Response Example
+
+```json
+{
+  "status": "success",
+  "data": {
+    "fieldId": "2f6a1c1e-7f2f-4f90-9d95-0c1f0d7d1001",
+    "fieldName": "Cancha Centro 14",
+    "fieldCapacity": 14,
+    "maxPlayers": 10,
+    "fieldCostInCents": 80000,
+    "organizerFeeInCents": 20000,
+    "currency": "MXN",
+    "constraints": {
+      "minimumProfitInCents": 30000,
+      "maxPricePerPlayerInCents": 22000,
+      "priceStepInCents": 1000,
+      "stripePercentFeeBps": 360,
+      "stripeFixedFeeCents": 300,
+      "futmatchProfitBps": 1500,
+      "usesFieldOverrides": false
+    },
+    "operationalInsights": {
+      "breakEvenPlayersRequired": 8,
+      "recommendedMinimumPlayersToStart": 10
+    },
+    "recommendedOption": {
+      "pricePerPlayerInCents": 17000,
+      "breakEvenPlayersRequired": 8,
+      "minimumPlayersToStart": 10,
+      "estimatedProfitAtMinimumPlayersInCents": 60880,
+      "estimatedProfitAtFullCapacityInCents": 60880,
+      "isViable": true,
+      "isRecommended": true,
+      "label": "RECOMMENDED",
+      "breakdownAtMinimumPlayersToStart": {
+        "players": 10,
+        "grossRevenueInCents": 170000,
+        "stripeFixedFeeInCents": 3000,
+        "stripePercentFeeInCents": 6120,
+        "totalStripeFeesInCents": 9120,
+        "netRevenueInCents": 160880,
+        "fieldCostInCents": 80000,
+        "organizerFeeInCents": 20000,
+        "targetProfitInCents": 30000,
+        "estimatedProfitInCents": 60880
+      }
+    },
+    "pricingOptions": [],
+    "selectedOption": {
+      "pricePerPlayerInCents": 17000,
+      "breakEvenPlayersRequired": 8,
+      "minimumPlayersToStart": 10,
+      "estimatedProfitAtMinimumPlayersInCents": 60880,
+      "estimatedProfitAtFullCapacityInCents": 60880,
+      "isViable": true,
+      "isRecommended": true,
+      "label": "RECOMMENDED",
+      "breakdownAtMinimumPlayersToStart": {
+        "players": 10,
+        "grossRevenueInCents": 170000,
+        "stripeFixedFeeInCents": 3000,
+        "stripePercentFeeInCents": 6120,
+        "totalStripeFeesInCents": 9120,
+        "netRevenueInCents": 160880,
+        "fieldCostInCents": 80000,
+        "organizerFeeInCents": 20000,
+        "targetProfitInCents": 30000,
+        "estimatedProfitInCents": 60880
+      }
+    }
+  }
+}
+```
+
+> `pricingOptions` normally contains multiple suggested prices. It is shortened in the example above.
+
+### B. Custom Pricing
+
+Calculates a single custom scenario for an explicit price chosen by the admin.
+
+- **Method:** `POST`
+- **Path:** `/fields/{fieldId}/pricing-custom`
+- **Required Role:** `ADMIN`
+
+#### Request Body
+
+```json
+{
+  "maxPlayers": 10,
+  "pricePerPlayerInCents": 14500
+}
+```
+
+#### Request Rules
+
+- `fieldId` must exist.
+- `maxPlayers` must be between `1` and `field.capacity`.
+- `pricePerPlayerInCents` must be greater than `0`.
+
+#### Success Response Example
+
+```json
+{
+  "status": "success",
+  "data": {
+    "fieldId": "2f6a1c1e-7f2f-4f90-9d95-0c1f0d7d1001",
+    "fieldName": "Cancha Centro 14",
+    "fieldCapacity": 14,
+    "maxPlayers": 10,
+    "pricePerPlayerInCents": 14500,
+    "currency": "MXN",
+    "constraints": {
+      "minimumProfitInCents": 30000,
+      "maxPricePerPlayerInCents": 22000,
+      "priceStepInCents": 1000,
+      "stripePercentFeeBps": 360,
+      "stripeFixedFeeCents": 300,
+      "futmatchProfitBps": 1500,
+      "usesFieldOverrides": false
+    },
+    "result": {
+      "pricePerPlayerInCents": 14500,
+      "breakEvenPlayersRequired": 8,
+      "minimumPlayersToStart": 10,
+      "estimatedProfitAtMinimumPlayersInCents": 36780,
+      "estimatedProfitAtFullCapacityInCents": 36780,
+      "isViable": true,
+      "isRecommended": false,
+      "label": "CUSTOM",
+      "breakdownAtMinimumPlayersToStart": {
+        "players": 10,
+        "grossRevenueInCents": 145000,
+        "stripeFixedFeeInCents": 3000,
+        "stripePercentFeeInCents": 5220,
+        "totalStripeFeesInCents": 8220,
+        "netRevenueInCents": 136780,
+        "fieldCostInCents": 80000,
+        "organizerFeeInCents": 20000,
+        "targetProfitInCents": 30000,
+        "estimatedProfitInCents": 36780
+      }
+    }
+  }
+}
+```
+
+### Pricing Semantics
+
+- `breakEvenPlayersRequired`: minimum players needed so the match does not lose money.
+- `minimumPlayersToStart`: minimum players needed to satisfy the active profit target.
+- `estimatedProfitAtMinimumPlayersInCents`: projected profit if only the minimum start threshold is reached.
+- `estimatedProfitAtFullCapacityInCents`: projected profit if the match fills to the selected `maxPlayers`.
+- `usesFieldOverrides`: tells the client whether global config was overridden by field-specific pricing settings.
 
 ---
 

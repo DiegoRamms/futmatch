@@ -8,6 +8,9 @@ import kotlinx.serialization.Serializable
 data class CreateFieldRequest(
     val name: String,
     val priceInCents: Long,
+    val organizerFeeInCents: Long = 20_000,
+    val minimumProfitOverrideInCents: Long? = null,
+    val maxPricePerPlayerOverrideInCents: Long? = null,
     val capacity: Int,
     val description: String,
     val rules: String,

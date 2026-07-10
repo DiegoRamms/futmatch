@@ -33,6 +33,9 @@ class FieldRepositoryImp : FieldRepository {
                 it[name] = field.name
                 it[locationId] = field.locationId
                 it[fieldCost] = field.price
+                it[organizerFee] = field.organizerFee
+                it[minimumProfitOverrideInCents] = field.minimumProfitOverrideInCents
+                it[maxPricePerPlayerOverrideInCents] = field.maxPricePerPlayerOverrideInCents
                 it[capacity] = field.capacity
                 it[adminId] = field.adminId
                 it[description] = field.description
@@ -58,6 +61,9 @@ class FieldRepositoryImp : FieldRepository {
                 it[name] = field.name
                 it[locationId] = field.locationId
                 it[fieldCost] = field.price
+                it[organizerFee] = field.organizerFee
+                it[minimumProfitOverrideInCents] = field.minimumProfitOverrideInCents
+                it[maxPricePerPlayerOverrideInCents] = field.maxPricePerPlayerOverrideInCents
                 it[capacity] = field.capacity
                 it[adminId] = field.adminId
                 it[description] = field.description
@@ -256,6 +262,9 @@ class FieldRepositoryImp : FieldRepository {
             name = this[FieldTable.name],
             locationId = this[FieldTable.locationId],
             price = this[FieldTable.fieldCost],
+            organizerFee = this[FieldTable.organizerFee],
+            minimumProfitOverrideInCents = this[FieldTable.minimumProfitOverrideInCents],
+            maxPricePerPlayerOverrideInCents = this[FieldTable.maxPricePerPlayerOverrideInCents],
             capacity = this[FieldTable.capacity],
             description = this[FieldTable.description],
             rules = this[FieldTable.rules],
@@ -272,6 +281,9 @@ class FieldRepositoryImp : FieldRepository {
         name = this[FieldTable.name],
         locationId = this[FieldTable.locationId],
         price = this[FieldTable.fieldCost],
+        organizerFee = this[FieldTable.organizerFee],
+        minimumProfitOverrideInCents = this[FieldTable.minimumProfitOverrideInCents],
+        maxPricePerPlayerOverrideInCents = this[FieldTable.maxPricePerPlayerOverrideInCents],
         capacity = this[FieldTable.capacity],
         description = this[FieldTable.description],
         rules = this[FieldTable.rules],

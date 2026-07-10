@@ -3,6 +3,8 @@ package com.devapplab.di
 import com.devapplab.data.repository.*
 import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.auth.AuthRepositoryImpl
+import com.devapplab.data.repository.config.MatchPricingConfigRepository
+import com.devapplab.data.repository.config.MatchPricingConfigRepositoryImpl
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.device.DeviceRepositoryImpl
 import com.devapplab.data.repository.discount.DiscountRepository
@@ -63,4 +65,5 @@ val repositoryModule = module {
     singleOf(::PaymentRepositoryImp) { bind<PaymentRepository>() }
     singleOf(::StripeWebhookEventRepositoryImp){ bind<StripeWebhookEventRepository>() }
     singleOf(::NotificationRepositoryImpl) { bind<NotificationRepository>() }
+    singleOf(::MatchPricingConfigRepositoryImpl) { bind<MatchPricingConfigRepository>() }
 }

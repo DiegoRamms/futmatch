@@ -7,6 +7,12 @@ import com.devapplab.model.field.Field
 import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.mapper.toResponse
 import com.devapplab.model.field.response.FieldBasicResponse
+import com.devapplab.model.field.response.FieldPricingBreakdownResponse
+import com.devapplab.model.field.response.FieldPricingConstraintsResponse
+import com.devapplab.model.field.response.FieldPricingCustomResponse
+import com.devapplab.model.field.response.FieldPricingEstimateResponse
+import com.devapplab.model.field.response.FieldPricingOperationalInsightsResponse
+import com.devapplab.model.field.response.FieldPricingOptionResponse
 import com.devapplab.model.field.response.FieldResponse
 import com.devapplab.model.field.response.FieldWithImagesResponse
 import com.devapplab.observability.AppRequestContext
@@ -14,6 +20,12 @@ import com.devapplab.observability.appFailure
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.image.ImageService
+import com.devapplab.service.match.MatchPricingConfigProvider
+import com.devapplab.service.match.MatchPricingCalculator
+import com.devapplab.service.match.MatchPricingInputs
+import com.devapplab.service.match.MatchPricingOption
+import com.devapplab.service.match.MatchPricingPolicy
+import com.devapplab.service.match.MatchPricingPolicyResolver
 import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.http.content.*
@@ -24,6 +36,7 @@ import java.util.*
 class FieldService(
     private val fieldRepository: FieldRepository,
     private val imageService: ImageService,
+    private val matchPricingConfigProvider: MatchPricingConfigProvider,
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -479,5 +492,190 @@ class FieldService(
                 )
             }
         return AppResult.Success(fields)
+    }
+
+    suspend fun getFieldPricingEstimate(
+        locale: Locale,
+        fieldId: UUID,
+        maxPlayers: Int,
+        context: AppRequestContext
+    ): AppResult<FieldPricingEstimateResponse> {
+        val field = fieldRepository.getFieldById(fieldId) ?: run {
+            logger.appRejected(
+                event = "field.pricing_estimate_failed",
+                context = context,
+                reason = "field_not_found",
+                statusCode = HttpStatusCode.NotFound.value,
+                extra = mapOf("fieldId" to fieldId)
+            )
+            return locale.createNotFoundError()
+        }
+
+        if (maxPlayers !in 1..field.capacity) {
+            logger.appRejected(
+                event = "field.pricing_estimate_failed",
+                context = context,
+                reason = "invalid_max_players",
+                statusCode = HttpStatusCode.BadRequest.value,
+                extra = mapOf(
+                    "fieldId" to fieldId,
+                    "maxPlayers" to maxPlayers,
+                    "fieldCapacity" to field.capacity
+                )
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_MAX_PLAYERS_INVALID_ERROR,
+                descriptionKey = StringResourcesKey.MATCH_MAX_PLAYERS_INVALID_ERROR,
+                status = HttpStatusCode.BadRequest
+            )
+        }
+
+        val pricingConfig = matchPricingConfigProvider.get()
+        val fieldCostInCents = field.price.multiply(BigDecimal(100)).longValueExact()
+        val organizerFeeInCents = field.organizerFee.multiply(BigDecimal(100)).longValueExact()
+        val pricingPolicy = MatchPricingPolicyResolver.resolve(pricingConfig, field)
+        val estimate = MatchPricingCalculator.buildPricingEstimate(
+            policy = pricingPolicy,
+            inputs = MatchPricingInputs(
+                fieldCostInCents = fieldCostInCents,
+                organizerFeeInCents = organizerFeeInCents,
+                fieldCapacity = field.capacity,
+                maxPlayers = maxPlayers
+            )
+        )
+
+        val response = FieldPricingEstimateResponse(
+            fieldId = field.id ?: fieldId,
+            fieldName = field.name,
+            fieldCapacity = field.capacity,
+            maxPlayers = maxPlayers,
+            fieldCostInCents = fieldCostInCents,
+            organizerFeeInCents = organizerFeeInCents,
+            currency = "MXN",
+            constraints = FieldPricingConstraintsResponse(
+                minimumProfitInCents = pricingPolicy.minimumProfitInCents,
+                maxPricePerPlayerInCents = pricingPolicy.maxPricePerPlayerInCents,
+                priceStepInCents = pricingPolicy.priceRoundingStepCents,
+                stripePercentFeeBps = pricingPolicy.stripePercentFeeBps,
+                stripeFixedFeeCents = pricingPolicy.stripeFixedFeeCents,
+                futmatchProfitBps = pricingPolicy.futmatchProfitBps,
+                usesFieldOverrides = pricingPolicy.usesFieldOverrides
+            ),
+            operationalInsights = FieldPricingOperationalInsightsResponse(
+                breakEvenPlayersRequired = estimate.operationalInsights.breakEvenPlayersRequired,
+                recommendedMinimumPlayersToStart = estimate.operationalInsights.recommendedMinimumPlayersToStart
+            ),
+            recommendedOption = estimate.recommendedOption.toResponse(),
+            pricingOptions = estimate.pricingOptions.map { it.toResponse() },
+            selectedOption = estimate.selectedOption.toResponse()
+        )
+
+        logger.appSuccess(
+            event = "field.pricing_estimate_created",
+            context = context,
+            statusCode = HttpStatusCode.OK.value,
+            extra = mapOf("fieldId" to fieldId, "maxPlayers" to maxPlayers)
+        )
+        return AppResult.Success(response)
+    }
+
+    suspend fun getFieldCustomPricing(
+        locale: Locale,
+        fieldId: UUID,
+        maxPlayers: Int,
+        pricePerPlayerInCents: Long,
+        context: AppRequestContext
+    ): AppResult<FieldPricingCustomResponse> {
+        val field = fieldRepository.getFieldById(fieldId) ?: run {
+            logger.appRejected(
+                event = "field.pricing_custom_failed",
+                context = context,
+                reason = "field_not_found",
+                statusCode = HttpStatusCode.NotFound.value,
+                extra = mapOf("fieldId" to fieldId)
+            )
+            return locale.createNotFoundError()
+        }
+
+        if (maxPlayers !in 1..field.capacity || pricePerPlayerInCents <= 0) {
+            logger.appRejected(
+                event = "field.pricing_custom_failed",
+                context = context,
+                reason = "invalid_custom_pricing_inputs",
+                statusCode = HttpStatusCode.BadRequest.value,
+                extra = mapOf(
+                    "fieldId" to fieldId,
+                    "maxPlayers" to maxPlayers,
+                    "fieldCapacity" to field.capacity,
+                    "pricePerPlayerInCents" to pricePerPlayerInCents
+                )
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_MAX_PLAYERS_INVALID_ERROR,
+                descriptionKey = StringResourcesKey.MATCH_MAX_PLAYERS_INVALID_ERROR,
+                status = HttpStatusCode.BadRequest
+            )
+        }
+
+        val pricingConfig = matchPricingConfigProvider.get()
+        val pricingPolicy = MatchPricingPolicyResolver.resolve(pricingConfig, field)
+        val fieldCostInCents = field.price.multiply(BigDecimal(100)).longValueExact()
+        val organizerFeeInCents = field.organizerFee.multiply(BigDecimal(100)).longValueExact()
+        val result = MatchPricingCalculator.calculateCustomPricing(
+            policy = pricingPolicy,
+            inputs = MatchPricingInputs(
+                fieldCostInCents = fieldCostInCents,
+                organizerFeeInCents = organizerFeeInCents,
+                fieldCapacity = field.capacity,
+                maxPlayers = maxPlayers
+            ),
+            pricePerPlayerInCents = pricePerPlayerInCents
+        )
+
+        return AppResult.Success(
+            FieldPricingCustomResponse(
+                fieldId = field.id ?: fieldId,
+                fieldName = field.name,
+                fieldCapacity = field.capacity,
+                maxPlayers = maxPlayers,
+                pricePerPlayerInCents = pricePerPlayerInCents,
+                currency = "MXN",
+                constraints = FieldPricingConstraintsResponse(
+                    minimumProfitInCents = pricingPolicy.minimumProfitInCents,
+                    maxPricePerPlayerInCents = pricingPolicy.maxPricePerPlayerInCents,
+                    priceStepInCents = pricingPolicy.priceRoundingStepCents,
+                    stripePercentFeeBps = pricingPolicy.stripePercentFeeBps,
+                    stripeFixedFeeCents = pricingPolicy.stripeFixedFeeCents,
+                    futmatchProfitBps = pricingPolicy.futmatchProfitBps,
+                    usesFieldOverrides = pricingPolicy.usesFieldOverrides
+                ),
+                result = result.toResponse()
+            )
+        )
+    }
+
+    private fun MatchPricingOption.toResponse(): FieldPricingOptionResponse {
+        return FieldPricingOptionResponse(
+            pricePerPlayerInCents = pricePerPlayerInCents,
+            breakEvenPlayersRequired = breakEvenPlayersRequired,
+            minimumPlayersToStart = minimumPlayersToStart,
+            estimatedProfitAtMinimumPlayersInCents = estimatedProfitAtMinimumPlayersInCents,
+            estimatedProfitAtFullCapacityInCents = estimatedProfitAtFullCapacityInCents,
+            isViable = isViable,
+            isRecommended = isRecommended,
+            label = label,
+            breakdownAtMinimumPlayersToStart = FieldPricingBreakdownResponse(
+                players = breakdownAtMinimumPlayersToStart.players,
+                grossRevenueInCents = breakdownAtMinimumPlayersToStart.grossRevenueInCents,
+                stripeFixedFeeInCents = breakdownAtMinimumPlayersToStart.stripeFixedFeeInCents,
+                stripePercentFeeInCents = breakdownAtMinimumPlayersToStart.stripePercentFeeInCents,
+                totalStripeFeesInCents = breakdownAtMinimumPlayersToStart.totalStripeFeesInCents,
+                netRevenueInCents = breakdownAtMinimumPlayersToStart.netRevenueInCents,
+                fieldCostInCents = breakdownAtMinimumPlayersToStart.fieldCostInCents,
+                organizerFeeInCents = breakdownAtMinimumPlayersToStart.organizerFeeInCents,
+                targetProfitInCents = breakdownAtMinimumPlayersToStart.targetProfitInCents,
+                estimatedProfitInCents = breakdownAtMinimumPlayersToStart.estimatedProfitInCents
+            )
+        )
     }
 }

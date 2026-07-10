@@ -5,12 +5,16 @@ import com.devapplab.model.AppResult
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.field.mapper.toField
 import com.devapplab.model.field.request.CreateFieldRequest
+import com.devapplab.model.field.request.FieldPricingCustomRequest
+import com.devapplab.model.field.request.FieldPricingEstimateRequest
 import com.devapplab.model.field.request.UpdateFieldRequest
 import com.devapplab.observability.requestContext
 import com.devapplab.utils.respond
 import com.devapplab.utils.respondRedirect
 import com.devapplab.utils.retrieveLocale
+import com.devapplab.utils.toUUIDOrNull
 import io.ktor.server.application.*
+import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import java.util.*
 
@@ -106,5 +110,34 @@ class FieldController(
     suspend fun getAllFieldBasics(call: ApplicationCall) {
         val fields = fieldService.getAllFieldBasics()
         call.respond(fields)
+    }
+
+    suspend fun getFieldPricingEstimate(call: ApplicationCall) {
+        val locale: Locale = call.retrieveLocale()
+        val fieldId = call.parameters["fieldId"]?.toUUIDOrNull()
+            ?: throw NotFoundException("Can't find field id")
+        val request = call.receive<FieldPricingEstimateRequest>()
+        val result = fieldService.getFieldPricingEstimate(
+            locale = locale,
+            fieldId = fieldId,
+            maxPlayers = request.maxPlayers,
+            context = call.requestContext()
+        )
+        call.respond(result)
+    }
+
+    suspend fun getFieldCustomPricing(call: ApplicationCall) {
+        val locale: Locale = call.retrieveLocale()
+        val fieldId = call.parameters["fieldId"]?.toUUIDOrNull()
+            ?: throw NotFoundException("Can't find field id")
+        val request = call.receive<FieldPricingCustomRequest>()
+        val result = fieldService.getFieldCustomPricing(
+            locale = locale,
+            fieldId = fieldId,
+            maxPlayers = request.maxPlayers,
+            pricePerPlayerInCents = request.pricePerPlayerInCents,
+            context = call.requestContext()
+        )
+        call.respond(result)
     }
 }

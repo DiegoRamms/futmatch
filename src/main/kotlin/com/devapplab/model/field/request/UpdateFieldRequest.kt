@@ -14,6 +14,9 @@ data class UpdateFieldRequest(
     @Serializable(with = UUIDSerializer::class)
     val locationId: UUID? = null,
     val priceInCents: Long,
+    val organizerFeeInCents: Long = 20_000,
+    val minimumProfitOverrideInCents: Long? = null,
+    val maxPricePerPlayerOverrideInCents: Long? = null,
     val capacity: Int,
     val description: String,
     val rules: String,

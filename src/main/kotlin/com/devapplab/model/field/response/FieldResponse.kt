@@ -15,6 +15,9 @@ data class FieldResponse(
     @Serializable(with = UUIDSerializer::class)
     val locationId: UUID?,
     val priceInCents: Long,
+    val organizerFeeInCents: Long,
+    val minimumProfitOverrideInCents: Long? = null,
+    val maxPricePerPlayerOverrideInCents: Long? = null,
     val capacity: Int,
     val description: String,
     val rules: String,

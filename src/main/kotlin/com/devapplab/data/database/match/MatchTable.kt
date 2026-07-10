@@ -4,6 +4,7 @@ import com.devapplab.data.database.field.FieldTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.PlayerLevel
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
@@ -19,6 +20,15 @@ object MatchTable : Table("matches") {
     val maxPlayers = integer("max_players")
     val minPlayersRequired = integer("min_players_required")
     val matchPrice = decimal("match_price", 10, 2)
+    val fieldCostInCentsSnapshot = long("field_cost_in_cents_snapshot").nullable()
+    val organizerFeeInCentsSnapshot = long("organizer_fee_in_cents_snapshot").nullable()
+    val minimumProfitInCentsSnapshot = long("minimum_profit_in_cents_snapshot").nullable()
+    val maxPricePerPlayerInCentsSnapshot = long("max_price_per_player_in_cents_snapshot").nullable()
+    val futmatchProfitBpsSnapshot = integer("futmatch_profit_bps_snapshot").nullable()
+    val paymentProviderSnapshot = enumerationByName("payment_provider_snapshot", 20, PaymentProvider::class).nullable()
+    val paymentPercentFeeBpsSnapshot = integer("payment_percent_fee_bps_snapshot").nullable()
+    val paymentFixedFeeCentsSnapshot = long("payment_fixed_fee_cents_snapshot").nullable()
+    val priceRoundingStepCentsSnapshot = long("price_rounding_step_cents_snapshot").nullable()
     val status = enumerationByName("status", 20, MatchStatus::class)
     val cancelReason = text("cancel_reason").nullable()
     val playerLevel = enumerationByName("player_level", 20, PlayerLevel::class).default(PlayerLevel.ANY)

@@ -26,6 +26,7 @@ import com.devapplab.service.hashing.HashingServiceImpl
 import com.devapplab.service.image.ImageServiceImp
 import com.devapplab.service.location.LocationService
 import com.devapplab.service.match.MatchService
+import com.devapplab.service.match.MatchPricingConfigProvider
 import com.devapplab.service.match.PublicMatchesCacheService
 import com.devapplab.service.notification.NotificationServiceImp
 import com.devapplab.service.password_reset.PasswordResetTokenServiceImpl
@@ -57,6 +58,7 @@ val serviceModule = module {
     singleOf(::RealEmailServiceTestImp) { bind<com.devapplab.service.email.EmailService>() }
     singleOf(::FieldService)
     singleOf(::MatchService)
+    singleOf(::MatchPricingConfigProvider)
     singleOf(::PublicMatchesCacheService)
     singleOf(::LocationService)
     singleOf(::ImageServiceImp) { bind<com.devapplab.service.image.ImageService>() }
