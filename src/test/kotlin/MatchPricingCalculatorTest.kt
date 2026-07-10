@@ -47,6 +47,7 @@ class MatchPricingCalculatorTest {
         assertEquals(300L, config.stripeFixedFeeCents)
         assertTrue(estimate.recommendedOption.breakdownAtMinimumPlayersToStart.totalStripeFeesInCents > 3_000)
         assertTrue(estimate.recommendedOption.breakdownAtMinimumPlayersToStart.netRevenueInCents >= 130_000)
+        assertEquals(10, estimate.recommendedOption.breakdownAtFullCapacity.players)
     }
 
     @Test
@@ -145,5 +146,27 @@ class MatchPricingCalculatorTest {
         assertTrue(optionPrices.contains(22_300L))
         assertTrue(optionPrices.any { it % 1_000L != 0L })
         assertEquals(estimate.recommendedOption.pricePerPlayerInCents, estimate.selectedOption.pricePerPlayerInCents)
+    }
+
+    @Test
+    fun `custom pricing exposes minimum and full breakdown separately`() {
+        val option = MatchPricingCalculator.calculateCustomPricing(
+            policy = policy,
+            inputs = MatchPricingInputs(
+                fieldCostInCents = 100_000,
+                organizerFeeInCents = 20_000,
+                fieldCapacity = 14,
+                maxPlayers = 10
+            ),
+            pricePerPlayerInCents = 2_200_000
+        )
+
+        assertEquals(1, option.minimumPlayersToStart)
+        assertEquals(1, option.breakdownAtMinimumPlayersToStart.players)
+        assertEquals(10, option.breakdownAtFullCapacity.players)
+        assertTrue(
+            option.breakdownAtFullCapacity.estimatedProfitInCents >
+                option.breakdownAtMinimumPlayersToStart.estimatedProfitInCents
+        )
     }
 }

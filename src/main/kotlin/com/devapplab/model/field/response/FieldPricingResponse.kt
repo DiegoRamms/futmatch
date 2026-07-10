@@ -61,7 +61,8 @@ data class FieldPricingOptionResponse(
     val isViable: Boolean,
     val isRecommended: Boolean,
     val label: FieldPricingOptionLabel,
-    val breakdownAtMinimumPlayersToStart: FieldPricingBreakdownResponse
+    val breakdownAtMinimumPlayersToStart: FieldPricingBreakdownResponse,
+    val breakdownAtFullCapacity: FieldPricingBreakdownResponse
 )
 
 @Serializable

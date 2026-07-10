@@ -662,6 +662,18 @@ class FieldService(
                 organizerFeeInCents = breakdownAtMinimumPlayersToStart.organizerFeeInCents,
                 targetProfitInCents = breakdownAtMinimumPlayersToStart.targetProfitInCents,
                 estimatedProfitInCents = breakdownAtMinimumPlayersToStart.estimatedProfitInCents
+            ),
+            breakdownAtFullCapacity = FieldPricingBreakdownResponse(
+                players = breakdownAtFullCapacity.players,
+                grossRevenueInCents = breakdownAtFullCapacity.grossRevenueInCents,
+                stripeFixedFeeInCents = breakdownAtFullCapacity.stripeFixedFeeInCents,
+                stripePercentFeeInCents = breakdownAtFullCapacity.stripePercentFeeInCents,
+                totalStripeFeesInCents = breakdownAtFullCapacity.totalStripeFeesInCents,
+                netRevenueInCents = breakdownAtFullCapacity.netRevenueInCents,
+                fieldCostInCents = breakdownAtFullCapacity.fieldCostInCents,
+                organizerFeeInCents = breakdownAtFullCapacity.organizerFeeInCents,
+                targetProfitInCents = breakdownAtFullCapacity.targetProfitInCents,
+                estimatedProfitInCents = breakdownAtFullCapacity.estimatedProfitInCents
             )
         )
     }

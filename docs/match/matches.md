@@ -268,6 +268,18 @@ Returns suggested pricing options, operational insights, the recommended option,
         "organizerFeeInCents": 20000,
         "targetProfitInCents": 30000,
         "estimatedProfitInCents": 60880
+      },
+      "breakdownAtFullCapacity": {
+        "players": 10,
+        "grossRevenueInCents": 170000,
+        "stripeFixedFeeInCents": 3000,
+        "stripePercentFeeInCents": 6120,
+        "totalStripeFeesInCents": 9120,
+        "netRevenueInCents": 160880,
+        "fieldCostInCents": 80000,
+        "organizerFeeInCents": 20000,
+        "targetProfitInCents": 30000,
+        "estimatedProfitInCents": 60880
       }
     },
     "pricingOptions": [],
@@ -281,6 +293,18 @@ Returns suggested pricing options, operational insights, the recommended option,
       "isRecommended": true,
       "label": "RECOMMENDED",
       "breakdownAtMinimumPlayersToStart": {
+        "players": 10,
+        "grossRevenueInCents": 170000,
+        "stripeFixedFeeInCents": 3000,
+        "stripePercentFeeInCents": 6120,
+        "totalStripeFeesInCents": 9120,
+        "netRevenueInCents": 160880,
+        "fieldCostInCents": 80000,
+        "organizerFeeInCents": 20000,
+        "targetProfitInCents": 30000,
+        "estimatedProfitInCents": 60880
+      },
+      "breakdownAtFullCapacity": {
         "players": 10,
         "grossRevenueInCents": 170000,
         "stripeFixedFeeInCents": 3000,
@@ -363,6 +387,18 @@ Calculates a single custom scenario for an explicit price chosen by the admin.
         "organizerFeeInCents": 20000,
         "targetProfitInCents": 30000,
         "estimatedProfitInCents": 36780
+      },
+      "breakdownAtFullCapacity": {
+        "players": 10,
+        "grossRevenueInCents": 145000,
+        "stripeFixedFeeInCents": 3000,
+        "stripePercentFeeInCents": 5220,
+        "totalStripeFeesInCents": 8220,
+        "netRevenueInCents": 136780,
+        "fieldCostInCents": 80000,
+        "organizerFeeInCents": 20000,
+        "targetProfitInCents": 30000,
+        "estimatedProfitInCents": 36780
       }
     }
   }
@@ -375,6 +411,8 @@ Calculates a single custom scenario for an explicit price chosen by the admin.
 - `minimumPlayersToStart`: minimum players needed to satisfy the active profit target.
 - `estimatedProfitAtMinimumPlayersInCents`: projected profit if only the minimum start threshold is reached.
 - `estimatedProfitAtFullCapacityInCents`: projected profit if the match fills to the selected `maxPlayers`.
+- `breakdownAtMinimumPlayersToStart`: detailed breakdown for the minimum start threshold.
+- `breakdownAtFullCapacity`: detailed breakdown for the full match (`maxPlayers`).
 - `usesFieldOverrides`: tells the client whether global config was overridden by field-specific pricing settings.
 - `priceStepInCents`: UI step for suggested price chips.
 

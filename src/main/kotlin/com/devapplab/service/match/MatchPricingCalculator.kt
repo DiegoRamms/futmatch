@@ -105,7 +105,8 @@ object MatchPricingCalculator {
             isViable = minimumPlayersToStart != null && pricePerPlayerInCents <= policy.maxPricePerPlayerInCents,
             isRecommended = isRecommended,
             label = label,
-            breakdownAtMinimumPlayersToStart = breakdown
+            breakdownAtMinimumPlayersToStart = breakdown,
+            breakdownAtFullCapacity = fullCapacityBreakdown
         )
     }
 
@@ -320,7 +321,8 @@ data class MatchPricingOption(
     val isViable: Boolean,
     val isRecommended: Boolean,
     val label: FieldPricingOptionLabel,
-    val breakdownAtMinimumPlayersToStart: MatchPricingBreakdown
+    val breakdownAtMinimumPlayersToStart: MatchPricingBreakdown,
+    val breakdownAtFullCapacity: MatchPricingBreakdown
 )
 
 data class MatchPricingBreakdown(
