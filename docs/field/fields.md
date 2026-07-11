@@ -283,7 +283,7 @@ curl --location "$BASE_URL/fields/by-admin" \
 
 ### 1.6 Obtener Todos los Campos (ID + Nombre)
 
-Obtiene todos los campos registrados retornando `id`, `name` y `priceInCents`.
+Obtiene todos los campos registrados retornando `id`, `name`, `priceInCents` y `maxPlayersAllowed`.
 Este endpoint está pensado para catálogos de selección en formularios (por ejemplo, asignar campo a un partido).
 
 -   **Método:** `GET`
@@ -298,12 +298,14 @@ Este endpoint está pensado para catálogos de selección en formularios (por ej
         {
             "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
             "name": "Cancha Central",
-            "priceInCents": 1550
+            "priceInCents": 1550,
+            "maxPlayersAllowed": 14
         },
         {
             "id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
             "name": "Cancha Norte",
-            "priceInCents": 2000
+            "priceInCents": 2000,
+            "maxPlayersAllowed": 10
         }
     ]
 }

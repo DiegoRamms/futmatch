@@ -9,5 +9,6 @@ data class FieldBasicResponse(
     @Serializable(with = UUIDSerializer::class)
     val id: UUID,
     val name: String,
-    val priceInCents: Long
+    val priceInCents: Long,
+    val maxPlayersAllowed: Int
 )

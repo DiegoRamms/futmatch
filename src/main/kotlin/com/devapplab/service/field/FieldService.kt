@@ -475,7 +475,8 @@ class FieldService(
                 FieldBasicResponse(
                     id = it.id,
                     name = it.name,
-                    priceInCents = it.price.multiply(BigDecimal(100)).longValueExact()
+                    priceInCents = it.price.multiply(BigDecimal(100)).longValueExact(),
+                    maxPlayersAllowed = it.capacity
                 )
             }
         return AppResult.Success(fields)

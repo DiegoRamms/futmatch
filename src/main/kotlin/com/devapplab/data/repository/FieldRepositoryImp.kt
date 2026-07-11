@@ -123,12 +123,13 @@ class FieldRepositoryImp : FieldRepository {
     override suspend fun getAllFieldBasics(): List<FieldBasicInfo> {
         return dbQuery {
             FieldTable
-                .select(FieldTable.id, FieldTable.name, FieldTable.fieldCost)
+                .select(FieldTable.id, FieldTable.name, FieldTable.fieldCost, FieldTable.capacity)
                 .map {
                     FieldBasicInfo(
                         id = it[FieldTable.id],
                         name = it[FieldTable.name],
-                        price = it[FieldTable.fieldCost]
+                        price = it[FieldTable.fieldCost],
+                        capacity = it[FieldTable.capacity]
                     )
                 }
         }
