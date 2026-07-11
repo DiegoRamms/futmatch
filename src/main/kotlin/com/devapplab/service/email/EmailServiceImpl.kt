@@ -12,8 +12,7 @@ class EmailServiceImpl : EmailService {
             val logger = LoggerFactory.getLogger(this::class.java)
             try {
                 logger.info("📩 [TEST] Enviando código MFA al correo: $to")
-                logger.info("🔐 Código MFA generado: $code")
-                logger.info("⏰ Este código expira en 5 minutos.")
+                logger.info("Código MFA generado para envío por email.")
                 true
             } catch (e: Exception) {
                 logger.error("Error al enviar email MFA: ${e.message}")
@@ -26,8 +25,7 @@ class EmailServiceImpl : EmailService {
             val logger = LoggerFactory.getLogger(this::class.java)
             try {
                 logger.info("📩 [TEST] Enviando código de reseteo de contraseña al correo: $to")
-                logger.info("🔑 Código de reseteo generado: $code")
-                logger.info("⏰ Este código expira en 10 minutos.")
+                logger.info("Código de reseteo generado para envío por email.")
                 true
             } catch (e: Exception) {
                 logger.error("Error al enviar email de reseteo de contraseña: ${e.message}")
@@ -40,8 +38,7 @@ class EmailServiceImpl : EmailService {
             val logger = LoggerFactory.getLogger(this::class.java)
             try {
                 logger.info("📩 [TEST] Enviando código de registro al correo: $to")
-                logger.info("📝 Código de registro generado: $code")
-                logger.info("⏰ Este código expira en 1 hora.")
+                logger.info("Código de registro generado para envío por email.")
                 true
             } catch (e: Exception) {
                 logger.error("Error al enviar email de registro: ${e.message}")

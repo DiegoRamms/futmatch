@@ -14,14 +14,7 @@ import org.slf4j.LoggerFactory
 import java.util.Locale
 
 
-/**
- * This implementation is intended for testing purposes only.
- * It sends emails using Mailtrap's sandbox environment.
- *
- * TODO: When moving to production, this implementation should be replaced
- * with a real email service provider that sends emails to the actual recipients.
- */
-class RealEmailServiceTestImp(
+class MailtrapEmailService(
     private val client: HttpClient,
     private val emailConfig: EmailConfig,
     private val emailDomainPolicy: EmailDomainPolicy
@@ -45,10 +38,8 @@ class RealEmailServiceTestImp(
             footerText = footerText
         )
 
-        logCode(code)
-
         sendEmail(
-            to = "futmatch1411@gmail.com",
+            to = to,
             subject = subject,
             text = "$message $code",
             html = htmlContent,
@@ -71,10 +62,8 @@ class RealEmailServiceTestImp(
             footerText = footerText
         )
 
-       logCode(code)
-
         sendEmail(
-            to = "futmatch1411@gmail.com",
+            to = to,
             subject = subject,
             text = "$message $code",
             html = htmlContent,
@@ -97,9 +86,8 @@ class RealEmailServiceTestImp(
             footerText = footerText
         )
 
-        logCode(code)
         sendEmail(
-            to = "futmatch1411@gmail.com",
+            to = to,
             subject = subject,
             text = "$message $code",
             html = htmlContent,
@@ -145,14 +133,6 @@ class RealEmailServiceTestImp(
         emailDomainPolicy.logRejectedEmail(email)
         return false
     }
-
-
-    private fun logCode(code: String){
-        // TODO: Remove MFA/verification code logging before production or when emails are sent to each real user.
-        logger.info("🔐 Código MFA generado: $code")
-        logger.info("⏰ Este código expira en 5 minutos.")
-    }
-
 
     @Serializable
     data class MailtrapRequest(

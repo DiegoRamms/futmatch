@@ -17,7 +17,7 @@ import com.devapplab.service.billing.StripeBillingService
 import com.devapplab.service.clean.CleanupDataService
 import com.devapplab.service.device.DeviceService
 import com.devapplab.service.email.EmailDomainPolicy
-import com.devapplab.service.email.RealEmailServiceTestImp
+import com.devapplab.service.email.MailtrapEmailService
 import com.devapplab.service.field.FieldService
 import com.devapplab.service.firebase.FirebaseAuthService
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
@@ -55,7 +55,7 @@ val serviceModule = module {
     singleOf(::MfaCodeService)
     singleOf(::EmailDomainPolicy)
     //singleOf(::EmailServiceImpl) { bind<EmailService>() }
-    singleOf(::RealEmailServiceTestImp) { bind<com.devapplab.service.email.EmailService>() }
+    singleOf(::MailtrapEmailService) { bind<com.devapplab.service.email.EmailService>() }
     singleOf(::FieldService)
     singleOf(::MatchService)
     singleOf(::MatchPricingConfigProvider)
