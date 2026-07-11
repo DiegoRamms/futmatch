@@ -61,9 +61,9 @@ Creates a new scheduled match.
 | `minPlayersRequired` | Int | Yes | Must be between 1 and `maxPlayers` (inclusive). |
 | `matchPriceInCents` | Long | Yes | Must be greater than 0. Note: Value represents cents (e.g., 500 = $5.00). |
 | `discountIds` | List\<UUID\> | No | Optional list of discount UUIDs applicable to the match. |
-| `status` | Enum | No | Optional initial match status (e.g., `SCHEDULED`). Default: `SCHEDULED`. |
-| `genderType` | Enum | No | Must be a valid `GenderType` value (e.g., `MIXED`, `MALE`, `FEMALE`). Default: `MIXED`. |
-| `playerLevel` | Enum | No | Must be a valid `PlayerLevel` value (e.g., `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `ANY`). Default: `ANY`. |
+| `status` | Enum | No | Optional initial match status. Valid values: `SCHEDULED`, `IN_PROGRESS`, `COMPLETED`, `CANCELED`. Default: `SCHEDULED`. |
+| `genderType` | Enum | No | Must be a valid `GenderType` value. Valid values: `MIXED`, `MALE_ONLY`, `FEMALE_ONLY`. Default: `MIXED`. |
+| `playerLevel` | Enum | No | Must be a valid `PlayerLevel` value. Valid values: `ANY`, `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `PROFESSIONAL`. Default: `ANY`. |
 
 ### Pricing Validation
 
@@ -156,9 +156,9 @@ Updates an existing match.
 | `minPlayersRequired` | Int | Yes | Must be between 1 and `maxPlayers` (inclusive). |
 | `matchPriceInCents` | Long | Yes | Must be greater than 0. Note: Value represents cents (e.g., 500 = $5.00). |
 | `discountIds` | List\<UUID\> | No | Optional list of discount UUIDs applicable to the match. |
-| `status` | Enum | Yes | The new match status (e.g., `SCHEDULED`, `CANCELED`). |
-| `genderType` | Enum | Yes | Must be a valid `GenderType` value (e.g., `MIXED`, `MALE`, `FEMALE`). |
-| `playerLevel` | Enum | Yes | Must be a valid `PlayerLevel` value (e.g., `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `ANY`). |
+| `status` | Enum | Yes | Must be a valid `MatchStatus` value. Valid values: `SCHEDULED`, `IN_PROGRESS`, `COMPLETED`, `CANCELED`. |
+| `genderType` | Enum | Yes | Must be a valid `GenderType` value. Valid values: `MIXED`, `MALE_ONLY`, `FEMALE_ONLY`. |
+| `playerLevel` | Enum | Yes | Must be a valid `PlayerLevel` value. Valid values: `ANY`, `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `PROFESSIONAL`. |
 
 ### Pricing Validation
 
