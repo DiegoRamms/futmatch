@@ -135,3 +135,92 @@ fun getHtmlTemplate(title: String, message: String, code: String, footerText: St
             </html>
         """.trimIndent()
 }
+
+fun getNotificationHtmlTemplate(title: String, message: String, footerText: String): String {
+   val backgroundColor = "#111318"
+   val containerColor = "#1B2023"
+   val textColor = "#E1E2E9"
+   val accentColor = "#A7C8FF"
+   val secondaryAccent = "#D7BAFB"
+   val surfaceDim = "#0F1417"
+
+   return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body {
+                        font-family: 'Courier New', Courier, monospace;
+                        background-color: $backgroundColor;
+                        color: $textColor;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .container {
+                        max-width: 600px;
+                        margin: 40px auto;
+                        background-color: $containerColor;
+                        border: 1px solid #333;
+                        border-radius: 0px;
+                        box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+                        position: relative;
+                    }
+                    .container::before {
+                        content: '';
+                        display: block;
+                        height: 4px;
+                        background: linear-gradient(90deg, $accentColor, $secondaryAccent);
+                        width: 100%;
+                    }
+                    .header {
+                        background-color: $surfaceDim;
+                        padding: 40px 20px;
+                        text-align: center;
+                        border-bottom: 1px solid #333;
+                    }
+                    .header h1 {
+                        margin: 0;
+                        font-size: 24px;
+                        color: #FFFFFF;
+                        text-transform: uppercase;
+                        letter-spacing: 4px;
+                    }
+                    .content {
+                        padding: 50px 30px;
+                        text-align: center;
+                    }
+                    .message {
+                        font-size: 16px;
+                        line-height: 1.6;
+                        margin: 0;
+                        color: $textColor;
+                    }
+                    .footer {
+                        background-color: $surfaceDim;
+                        padding: 20px;
+                        text-align: center;
+                        font-size: 10px;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        color: #8C9198;
+                        border-top: 1px solid #333;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>$title</h1>
+                    </div>
+                    <div class="content">
+                        <p class="message">$message</p>
+                    </div>
+                    <div class="footer">
+                        <p>$footerText</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        """.trimIndent()
+}

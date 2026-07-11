@@ -5,7 +5,7 @@ internal sealed interface UpdatePasswordTxResult {
     data object ExpiredToken : UpdatePasswordTxResult
     data object UserNotFound : UpdatePasswordTxResult
     data object UpdateFailed : UpdatePasswordTxResult
-    data object Success : UpdatePasswordTxResult
+    data class Success(val email: String) : UpdatePasswordTxResult
 }
 
 internal sealed interface ResetMfaResult {

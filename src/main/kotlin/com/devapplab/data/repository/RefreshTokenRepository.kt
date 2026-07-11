@@ -16,5 +16,6 @@ interface RefreshTokenRepository {
         changedAt: Long
     ): Boolean
     fun revokeActiveTokens(deviceId: UUID, reason: RefreshTokenStatusReason, changedAt: Long): Boolean
+    fun revokeActiveTokensByUserId(userId: UUID, reason: RefreshTokenStatusReason, changedAt: Long): Int
     suspend fun deleteRevokedTokens(): Boolean
 }

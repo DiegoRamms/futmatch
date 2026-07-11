@@ -73,6 +73,17 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
         } > 0
     }
 
+    override fun revokeActiveTokensByUserId(userId: UUID, reason: RefreshTokenStatusReason, changedAt: Long): Int {
+        return RefreshTokenTable.update({
+            (RefreshTokenTable.userId eq userId) and (RefreshTokenTable.status eq RefreshTokenStatus.ACTIVE.name)
+        }) {
+            it[revoked] = true
+            it[status] = RefreshTokenStatus.REVOKED.name
+            it[statusReason] = reason.name
+            it[revokedAt] = changedAt
+        }
+    }
+
     override suspend fun deleteRevokedTokens(): Boolean = dbQuery {
         val now = System.currentTimeMillis()
         RefreshTokenTable.deleteWhere {

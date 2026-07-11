@@ -95,6 +95,29 @@ class MailtrapEmailService(
         )
     }
 
+    override suspend fun sendPasswordChangedEmail(to: String, locale: Locale): Boolean = withContext(Dispatchers.IO) {
+        if (!isAllowedRecipient(to)) return@withContext false
+
+        val title = locale.getString(StringResourcesKey.EMAIL_PASSWORD_CHANGED_TITLE)
+        val message = locale.getString(StringResourcesKey.EMAIL_PASSWORD_CHANGED_MESSAGE)
+        val subject = locale.getString(StringResourcesKey.EMAIL_PASSWORD_CHANGED_SUBJECT)
+        val footerText = locale.getString(StringResourcesKey.EMAIL_FOOTER_TEXT)
+
+        val htmlContent = getNotificationHtmlTemplate(
+            title = title,
+            message = message,
+            footerText = footerText
+        )
+
+        sendEmail(
+            to = to,
+            subject = subject,
+            text = message,
+            html = htmlContent,
+            category = "Password Changed"
+        )
+    }
+
     private suspend fun sendEmail(to: String, subject: String, text: String, html: String, category: String): Boolean {
         return try {
             val requestBody = MailtrapRequest(

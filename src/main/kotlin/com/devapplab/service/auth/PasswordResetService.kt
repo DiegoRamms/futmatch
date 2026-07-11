@@ -1,12 +1,14 @@
 package com.devapplab.service.auth
 
 import com.devapplab.data.database.executor.DbExecutor
+import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.password_reset.PasswordResetVerifyAttemptRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
+import com.devapplab.model.auth.RefreshTokenStatusReason
 import com.devapplab.model.auth.request.ForgotPasswordRequest
 import com.devapplab.model.auth.response.ForgotPasswordResponse
 import com.devapplab.model.auth.response.VerifyResetMfaResponse
@@ -45,6 +47,7 @@ class PasswordResetService(
     private val mfaCodeService: MfaCodeService,
     private val emailService: EmailService,
     private val authRepository: AuthRepository,
+    private val refreshTokenRepository: RefreshTokenRepository,
     private val loginAttemptRepository: LoginAttemptRepository,
     private val passwordResetVerifyAttemptRepository: PasswordResetVerifyAttemptRepository,
     private val mfaRateLimitConfig: MfaRateLimitConfig
@@ -163,8 +166,13 @@ class PasswordResetService(
                 // DB: invalidar token usado + limpiar intentos
                 passwordResetTokenRepository.delete(hashedInputToken)
                 loginAttemptRepository.delete(user.email)
+                refreshTokenRepository.revokeActiveTokensByUserId(
+                    userId = user.id,
+                    reason = RefreshTokenStatusReason.PASSWORD_RESET,
+                    changedAt = now
+                )
 
-                UpdatePasswordTxResult.Success
+                UpdatePasswordTxResult.Success(user.email)
             }
         }.getOrElse { error ->
             logger.authEvent(AuthLogSeverity.ERROR, "auth.password_reset.complete.failed", context, "failed", "db_error", throwable = error)
@@ -194,8 +202,13 @@ class PasswordResetService(
                 status = HttpStatusCode.InternalServerError
             )
 
-            UpdatePasswordTxResult.Success -> {
+            is UpdatePasswordTxResult.Success -> {
                 logger.authEvent(AuthLogSeverity.INFO, "auth.password_reset.complete.success", context, "success")
+                runCatching {
+                    emailService.sendPasswordChangedEmail(result.email, locale)
+                }.onFailure { error ->
+                    logger.authEvent(AuthLogSeverity.WARN, "auth.password_reset.complete.email_failed", context, "failed", "email_send_failed", throwable = error)
+                }
                 AppResult.Success(
                     UpdatePasswordResponse(
                         success = true,

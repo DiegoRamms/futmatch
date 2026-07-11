@@ -45,4 +45,16 @@ class EmailServiceImpl : EmailService {
                 false
             }
         }
+
+    override suspend fun sendPasswordChangedEmail(to: String, locale: Locale): Boolean =
+        withContext(Dispatchers.IO) {
+            val logger = LoggerFactory.getLogger(this::class.java)
+            try {
+                logger.info("📩 [TEST] Enviando notificación de contraseña actualizada al correo: $to")
+                true
+            } catch (e: Exception) {
+                logger.error("Error al enviar email de contraseña actualizada: ${e.message}")
+                false
+            }
+        }
 }
