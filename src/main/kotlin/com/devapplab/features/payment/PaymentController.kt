@@ -13,14 +13,17 @@ import com.devapplab.observability.appSuccess
 import com.devapplab.observability.requestContext
 import com.devapplab.service.billing.BillingService
 import com.devapplab.service.payment.PaymentService
+import com.devapplab.service.payment.PendingMatchPaymentService
 import com.devapplab.service.payment.StripeWebhookService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.respond
 import com.devapplab.utils.retrieveLocale
+import com.devapplab.utils.toUUIDOrNull
 import com.stripe.exception.StripeException
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import org.slf4j.LoggerFactory
@@ -28,7 +31,8 @@ import org.slf4j.LoggerFactory
 class PaymentController(
     private val billingService: BillingService,
     private val stripeWebhookService: StripeWebhookService,
-    private val paymentService: PaymentService
+    private val paymentService: PaymentService,
+    private val pendingMatchPaymentService: PendingMatchPaymentService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -207,6 +211,15 @@ class PaymentController(
             )
             call.respond(HttpStatusCode.InternalServerError, AppResult.Success(false))
         }
+    }
+
+    suspend fun getPendingMatchPayment(call: ApplicationCall) {
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull()
+            ?: throw NotFoundException("Can't recover pending match payment")
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val locale = call.retrieveLocale()
+        val result = pendingMatchPaymentService.getPendingPayment(matchId, userId, locale, call.requestContext())
+        call.respond(result)
     }
 
     suspend fun handleStripeWebhook(call: ApplicationCall) {

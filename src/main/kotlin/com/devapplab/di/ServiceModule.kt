@@ -32,6 +32,7 @@ import com.devapplab.service.notification.NotificationServiceImp
 import com.devapplab.service.password_reset.PasswordResetTokenServiceImpl
 import com.devapplab.service.payment.PaymentService
 import com.devapplab.service.payment.PaymentServiceFactory
+import com.devapplab.service.payment.PendingMatchPaymentService
 import com.devapplab.service.payment.StripePaymentService
 import com.devapplab.service.payment.StripeWebhookService
 import org.koin.core.module.dsl.bind
@@ -68,6 +69,7 @@ val serviceModule = module {
     singleOf(::MatchSignalsService)
     singleOf(::MatchPlayerRealtimeService)
     singleOf(::PaymentServiceFactory)
+    singleOf(::PendingMatchPaymentService)
     singleOf(::StripeWebhookService)
     singleOf(::NotificationServiceImp) { bind<com.devapplab.service.notification.NotificationService>() }
     singleOf(::StripeBillingService) { bind<BillingService>() }

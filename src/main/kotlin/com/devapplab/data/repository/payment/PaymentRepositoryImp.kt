@@ -111,7 +111,9 @@ class PaymentRepositoryImp : PaymentRepository {
                     MatchPlayerPaymentsTable.providerPaymentId,
                     MatchPlayerPaymentsTable.clientSecret,
                     MatchPlayerPaymentsTable.status,
-                    MatchPlayerPaymentsTable.provider
+                    MatchPlayerPaymentsTable.provider,
+                    MatchPlayerPaymentsTable.amount,
+                    MatchPlayerPaymentsTable.currency
                 )
                 .where {
                     (MatchPlayersTable.matchId eq matchId) and
@@ -129,7 +131,9 @@ class PaymentRepositoryImp : PaymentRepository {
                         providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
                         clientSecret = row[MatchPlayerPaymentsTable.clientSecret],
                         status = row[MatchPlayerPaymentsTable.status],
-                        provider = row[MatchPlayerPaymentsTable.provider]
+                        provider = row[MatchPlayerPaymentsTable.provider],
+                        amount = row[MatchPlayerPaymentsTable.amount],
+                        currency = row[MatchPlayerPaymentsTable.currency]
                     )
                 }
                 .singleOrNull()
@@ -149,7 +153,9 @@ class PaymentRepositoryImp : PaymentRepository {
                     MatchPlayerPaymentsTable.providerPaymentId,
                     MatchPlayerPaymentsTable.clientSecret,
                     MatchPlayerPaymentsTable.status,
-                    MatchPlayerPaymentsTable.provider
+                    MatchPlayerPaymentsTable.provider,
+                    MatchPlayerPaymentsTable.amount,
+                    MatchPlayerPaymentsTable.currency
                 )
                 .where {
                     (MatchPlayersTable.matchId eq matchId) and
@@ -163,7 +169,9 @@ class PaymentRepositoryImp : PaymentRepository {
                         providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
                         clientSecret = row[MatchPlayerPaymentsTable.clientSecret],
                         status = row[MatchPlayerPaymentsTable.status],
-                        provider = row[MatchPlayerPaymentsTable.provider]
+                        provider = row[MatchPlayerPaymentsTable.provider],
+                        amount = row[MatchPlayerPaymentsTable.amount],
+                        currency = row[MatchPlayerPaymentsTable.currency]
                     )
                 }
                 .singleOrNull()
@@ -183,7 +191,9 @@ class PaymentRepositoryImp : PaymentRepository {
                     MatchPlayerPaymentsTable.providerPaymentId,
                     MatchPlayerPaymentsTable.clientSecret,
                     MatchPlayerPaymentsTable.status,
-                    MatchPlayerPaymentsTable.provider
+                    MatchPlayerPaymentsTable.provider,
+                    MatchPlayerPaymentsTable.amount,
+                    MatchPlayerPaymentsTable.currency
                 )
                 .where {
                     (MatchPlayersTable.matchId eq matchId) and
@@ -201,7 +211,9 @@ class PaymentRepositoryImp : PaymentRepository {
                         providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
                         clientSecret = row[MatchPlayerPaymentsTable.clientSecret],
                         status = row[MatchPlayerPaymentsTable.status],
-                        provider = row[MatchPlayerPaymentsTable.provider]
+                        provider = row[MatchPlayerPaymentsTable.provider],
+                        amount = row[MatchPlayerPaymentsTable.amount],
+                        currency = row[MatchPlayerPaymentsTable.currency]
                     )
                 }
                 .singleOrNull()
@@ -216,7 +228,9 @@ class PaymentRepositoryImp : PaymentRepository {
                     MatchPlayerPaymentsTable.providerPaymentId,
                     MatchPlayerPaymentsTable.clientSecret,
                     MatchPlayerPaymentsTable.status,
-                    MatchPlayerPaymentsTable.provider
+                    MatchPlayerPaymentsTable.provider,
+                    MatchPlayerPaymentsTable.amount,
+                    MatchPlayerPaymentsTable.currency
                 )
                 .where {
                     (MatchPlayerPaymentsTable.matchPlayerId eq matchPlayerId) and
@@ -233,7 +247,9 @@ class PaymentRepositoryImp : PaymentRepository {
                         providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
                         clientSecret = row[MatchPlayerPaymentsTable.clientSecret],
                         status = row[MatchPlayerPaymentsTable.status],
-                        provider = row[MatchPlayerPaymentsTable.provider]
+                        provider = row[MatchPlayerPaymentsTable.provider],
+                        amount = row[MatchPlayerPaymentsTable.amount],
+                        currency = row[MatchPlayerPaymentsTable.currency]
                     )
                 }
                 .singleOrNull()
@@ -248,7 +264,9 @@ class PaymentRepositoryImp : PaymentRepository {
                     MatchPlayerPaymentsTable.providerPaymentId,
                     MatchPlayerPaymentsTable.clientSecret,
                     MatchPlayerPaymentsTable.status,
-                    MatchPlayerPaymentsTable.provider
+                    MatchPlayerPaymentsTable.provider,
+                    MatchPlayerPaymentsTable.amount,
+                    MatchPlayerPaymentsTable.currency
                 )
                 .where { MatchPlayerPaymentsTable.providerPaymentId eq providerPaymentId }
                 .limit(1)
@@ -258,7 +276,9 @@ class PaymentRepositoryImp : PaymentRepository {
                         providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId],
                         clientSecret = row[MatchPlayerPaymentsTable.clientSecret],
                         status = row[MatchPlayerPaymentsTable.status],
-                        provider = row[MatchPlayerPaymentsTable.provider]
+                        provider = row[MatchPlayerPaymentsTable.provider],
+                        amount = row[MatchPlayerPaymentsTable.amount],
+                        currency = row[MatchPlayerPaymentsTable.currency]
                     )
                 }
                 .singleOrNull()

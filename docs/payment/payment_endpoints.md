@@ -168,7 +168,71 @@ Endpoint optimizado para polling desde app móvil. Retorna solo estado de negoci
 
 *Nota: Si no hay un pago activo o pendiente para el usuario en ese partido, `data` puede retornar `null`.*
 
-### 4.2 Recuperar Estado de Pago de un Partido
+### 4.2 Recuperar Pago Pendiente de un Partido
+Recupera la información necesaria para reabrir Stripe PaymentSheet cuando el usuario autenticado ya tiene una reserva `RESERVED` en el partido, pero el cliente perdió la información local de pago o está usando otro dispositivo.
+
+- **Método:** `GET`
+- **Path:** `/payment/matches/{matchId}/pending`
+
+#### Parámetros de Ruta:
+- `matchId` (String): El ID del partido (UUID).
+- **Validaciones:**
+  - Requiere autenticación con token válido.
+  - Roles permitidos: `PLAYER`, `ADMIN`, `ORGANIZER`.
+  - `matchId` es obligatorio y debe ser UUID válido.
+  - El usuario autenticado debe estar `RESERVED` en ese partido.
+  - Debe existir un pago activo para ese usuario y partido con status `CREATED` o `AUTHORIZED`.
+  - La reserva no debe estar expirada.
+
+#### Ejemplo de Respuesta Exitosa:
+```json
+{
+  "data": {
+    "clientSecret": "pi_123456789_secret_abcdef12345",
+    "paymentId": "pi_123456789",
+    "provider": "STRIPE",
+    "amountInCents": 12000,
+    "currency": "mxn",
+    "customer": "cus_123456789",
+    "customerSessionClientSecret": "cuss_123456789_secret_abcdef12345",
+    "publishableKey": "pk_test_123456789",
+    "reservationTtlMs": 240000,
+    "existingPaymentStatus": "CREATED"
+  },
+  "error": null
+}
+```
+
+#### Respuestas de Error:
+- `404 Not Found`: El partido no existe, el usuario no está reservado, no hay pago activo, falta el `clientSecret`, la reserva expiró o no se puede recuperar la sesión de cliente.
+- `401 Unauthorized`: Token inválido o ausente.
+- `403 Forbidden`: Rol no permitido.
+
+#### Notas para Cliente:
+- No llamar este endpoint en cada carga de detalle.
+- Usarlo solo cuando el usuario esté `RESERVED` y no exista información local de pago.
+- Si existe información local persistida para ese `matchId`, hacer bypass de este endpoint y continuar con el flujo de PaymentSheet existente.
+- El contador visible debe seguir usando `reservationExpiresAt` desde Firestore (`match_players/{matchId}`).
+- `reservationTtlMs` representa tiempo restante para la reserva en el momento de recuperación, no una nueva ventana completa.
+- `customerSessionClientSecret` se genera nuevamente para abrir PaymentSheet; no crea un PaymentIntent nuevo.
+- El monto cobrado por Stripe lo define el PaymentIntent existente asociado al `clientSecret`; `amountInCents` es informativo para UI/estado local.
+
+#### Flujo Recomendado en Cliente:
+```text
+Usuario abre detalle de partido
+-> Cliente consume/observa Firestore match_players/{matchId}
+-> Valida si el usuario actual está en players con status RESERVED
+-> Si no está RESERVED: flujo normal de unirse/salir
+-> Si está RESERVED:
+   -> usa reservationExpiresAt de Firestore para el contador
+   -> revisa si existe info local de pago para ese matchId
+   -> si existe: abre PaymentSheet con la info local
+   -> si no existe: consume GET /payment/matches/{matchId}/pending
+      -> guarda/hidrata la info local
+      -> abre PaymentSheet con el clientSecret recuperado
+```
+
+### 4.3 Recuperar Estado de Pago de un Partido
 Recupera la información del pago activo asociado al usuario para un partido específico. Útil cuando la app se cerró o se perdió la conexión durante el flujo de pago.
 
 - **Método:** `GET`
@@ -195,7 +259,7 @@ Recupera la información del pago activo asociado al usuario para un partido esp
 ```
 *Nota: Si no hay un pago activo o pendiente para el usuario en ese partido, `data` puede retornar null.*
 
-### 4.3 Validar Pago Directo
+### 4.4 Validar Pago Directo
 Valida el estado actual de un pago específico directamente con el proveedor y actualiza la base de datos interna si es necesario.
 
 - **Método:** `GET`
@@ -221,7 +285,7 @@ Valida el estado actual de un pago específico directamente con el proveedor y a
 }
 ```
 
-### 4.4 Estados de `PaymentStatusResponse` (backend)
+### 4.5 Estados de `PaymentStatusResponse` (backend)
 El campo `status` de `/payment/status/{matchId}` y `/payment/validate/{providerPaymentId}` retorna estados internos del backend:
 
 - `CREATED`: Intento iniciado o en flujo de checkout/reintento.

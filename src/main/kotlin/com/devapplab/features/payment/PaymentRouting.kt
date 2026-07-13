@@ -27,6 +27,12 @@ fun Route.paymentsRouting() {
             controller.listMethods(call)
         }
 
+        get("matches/{matchId}/pending") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val controller = call.scope.get<PaymentController>()
+            controller.getPendingMatchPayment(call)
+        }
+
         delete("methods/{paymentMethodId}") {
             call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
             val controller = call.scope.get<PaymentController>()

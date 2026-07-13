@@ -57,7 +57,9 @@ data class PaymentInfo(
     val providerPaymentId: String?,
     val clientSecret: String?,
     val status: PaymentAttemptStatus,
-    val provider: PaymentProvider
+    val provider: PaymentProvider,
+    val amount: BigDecimal,
+    val currency: String
 )
 
 data class MatchPlayerPaymentInfo(
