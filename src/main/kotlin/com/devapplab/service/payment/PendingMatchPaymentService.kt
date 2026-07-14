@@ -56,34 +56,34 @@ class PendingMatchPaymentService(
 
         val currentPlayer = match.players.firstOrNull { it.userId == userId }
         if (currentPlayer?.status != MatchPlayerStatus.RESERVED) {
-            return pendingPaymentNotFound(matchId, userId, locale, context, "user_not_reserved")
+            return pendingPaymentConflict(matchId, userId, locale, context, "user_not_reserved")
         }
 
         val activePayment = paymentRepository.getActivePaymentForPlayer(matchId, userId)
-            ?: return pendingPaymentNotFound(matchId, userId, locale, context, "active_payment_not_found")
+            ?: return pendingPaymentConflict(matchId, userId, locale, context, "active_payment_not_found")
         val clientSecret = activePayment.clientSecret
-            ?: return pendingPaymentNotFound(matchId, userId, locale, context, "client_secret_not_found")
+            ?: return pendingPaymentConflict(matchId, userId, locale, context, "client_secret_not_found")
         val providerPaymentId = activePayment.providerPaymentId
-            ?: return pendingPaymentNotFound(matchId, userId, locale, context, "provider_payment_id_not_found")
+            ?: return pendingPaymentConflict(matchId, userId, locale, context, "provider_payment_id_not_found")
 
         val reservationExpiresAt = currentPlayer.joinedAt + RESERVATION_TTL.inWholeMilliseconds
         val remainingReservationTtlMs = (reservationExpiresAt - System.currentTimeMillis()).coerceAtLeast(0L)
         if (remainingReservationTtlMs == 0L) {
-            return pendingPaymentNotFound(matchId, userId, locale, context, "reservation_expired")
+            return pendingPaymentConflict(matchId, userId, locale, context, "reservation_expired")
         }
 
         val customerId = try {
             billingService.getOrCreateCustomer(userId, activePayment.provider)
         } catch (e: Exception) {
             logger.error("Failed to resolve payment customer for pending match payment. userId={}, matchId={}", userId, matchId, e)
-            return pendingPaymentNotFound(matchId, userId, locale, context, "customer_resolution_failed")
+            return pendingPaymentTemporarilyUnavailable(matchId, userId, locale, context, "customer_resolution_failed")
         }
 
         val customerSessionClientSecret = try {
             billingService.createCustomerSession(customerId)
         } catch (e: Exception) {
             logger.error("Failed to create customer session for pending match payment. userId={}, matchId={}", userId, matchId, e)
-            return pendingPaymentNotFound(matchId, userId, locale, context, "customer_session_failed")
+            return pendingPaymentTemporarilyUnavailable(matchId, userId, locale, context, "customer_session_failed")
         }
 
         val response = PendingMatchPaymentResponse(
@@ -109,7 +109,7 @@ class PendingMatchPaymentService(
         return AppResult.Success(response)
     }
 
-    private fun pendingPaymentNotFound(
+    private fun pendingPaymentConflict(
         matchId: UUID,
         userId: UUID,
         locale: Locale,
@@ -121,14 +121,37 @@ class PendingMatchPaymentService(
             context = context,
             reason = reason,
             userId = userId,
-            statusCode = HttpStatusCode.NotFound.value,
+            statusCode = HttpStatusCode.Conflict.value,
             extra = mapOf("matchId" to matchId)
         )
         return locale.createError(
             titleKey = StringResourcesKey.PAYMENT_NOT_FOUND_TITLE,
             descriptionKey = StringResourcesKey.PAYMENT_NOT_FOUND_DESCRIPTION,
-            status = HttpStatusCode.NotFound,
-            errorCode = ErrorCode.NOT_FOUND
+            status = HttpStatusCode.Conflict,
+            errorCode = ErrorCode.PAYMENT_PENDING_NOT_RECOVERABLE
+        )
+    }
+
+    private fun pendingPaymentTemporarilyUnavailable(
+        matchId: UUID,
+        userId: UUID,
+        locale: Locale,
+        context: AppRequestContext,
+        reason: String
+    ): AppResult.Failure {
+        logger.appRejected(
+            event = "payment.match_pending.load_failed",
+            context = context,
+            reason = reason,
+            userId = userId,
+            statusCode = HttpStatusCode.ServiceUnavailable.value,
+            extra = mapOf("matchId" to matchId)
+        )
+        return locale.createError(
+            titleKey = StringResourcesKey.PAYMENT_FAILED_TITLE,
+            descriptionKey = StringResourcesKey.PAYMENT_FAILED_DESCRIPTION,
+            status = HttpStatusCode.ServiceUnavailable,
+            errorCode = ErrorCode.PAYMENT_FAILED
         )
     }
 }

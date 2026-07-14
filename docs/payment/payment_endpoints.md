@@ -204,9 +204,9 @@ Recupera la información necesaria para reabrir Stripe PaymentSheet cuando el us
 ```
 
 #### Respuestas de Error:
-- `404 Not Found`: El partido no existe, el usuario no está reservado, no hay pago activo, falta el `clientSecret`, la reserva expiró o no se puede recuperar la sesión de cliente.
-- `401 Unauthorized`: Token inválido o ausente.
-- `403 Forbidden`: Rol no permitido.
+- `404 Not Found`: El partido no existe.
+- `409 Conflict` + `errorCode=PAYMENT_PENDING_NOT_RECOVERABLE`: El pago pendiente no es recuperable desde cliente. Puede ocurrir si el usuario ya no está `RESERVED`, no hay pago activo, falta el `clientSecret`/`paymentId` guardado o la reserva expiró.
+- `503 Service Unavailable` + `errorCode=PAYMENT_FAILED`: El backend no pudo preparar la sesión de Stripe temporalmente, por ejemplo al resolver el customer o crear la CustomerSession.
 
 #### Notas para Cliente:
 - No llamar este endpoint en cada carga de detalle.
@@ -216,6 +216,9 @@ Recupera la información necesaria para reabrir Stripe PaymentSheet cuando el us
 - `reservationTtlMs` representa tiempo restante para la reserva en el momento de recuperación, no una nueva ventana completa.
 - `customerSessionClientSecret` se genera nuevamente para abrir PaymentSheet; no crea un PaymentIntent nuevo.
 - El monto cobrado por Stripe lo define el PaymentIntent existente asociado al `clientSecret`; `amountInCents` es informativo para UI/estado local.
+- Si el endpoint responde `409`, no reintentar en loop. Mostrar un diálogo indicando que no se pudo recuperar el pago de la reserva; el usuario puede cancelar la reserva e intentar unirse nuevamente o esperar a que la reserva se libere.
+- Si el endpoint responde `503`, se puede permitir reintento más tarde porque el problema puede ser temporal.
+- `401` y `403` son manejados por el middleware de autenticación/autorización antes de ejecutar este endpoint.
 
 #### Flujo Recomendado en Cliente:
 ```text
