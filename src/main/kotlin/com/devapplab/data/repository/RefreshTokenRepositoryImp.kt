@@ -2,9 +2,11 @@ package com.devapplab.data.repository
 
 import com.devapplab.config.dbQuery
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
+import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.auth.RefreshTokenRecord
 import com.devapplab.model.auth.RefreshTokenStatus
 import com.devapplab.model.auth.RefreshTokenStatusReason
+import com.devapplab.model.auth.RefreshTokenValidationRecord
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
@@ -33,6 +35,37 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
             .limit(1)
             .mapNotNull { it.toRefreshTokenRecord() }
             .singleOrNull()
+    }
+
+    override fun findValidationByTokenHash(tokenHash: String): RefreshTokenValidationRecord? {
+        return (RefreshTokenTable innerJoin UserTable)
+            .select(
+                listOf(
+                    RefreshTokenTable.id,
+                    RefreshTokenTable.userId,
+                    RefreshTokenTable.deviceId,
+                    RefreshTokenTable.expiresAt,
+                    RefreshTokenTable.createdAt,
+                    RefreshTokenTable.status,
+                    RefreshTokenTable.statusReason,
+                    UserTable.role
+                )
+            )
+            .where { RefreshTokenTable.token eq tokenHash }
+            .limit(1)
+            .singleOrNull()
+            ?.let { row ->
+                RefreshTokenValidationRecord(
+                    id = row[RefreshTokenTable.id],
+                    userId = row[RefreshTokenTable.userId],
+                    deviceId = row[RefreshTokenTable.deviceId],
+                    expiresAt = row[RefreshTokenTable.expiresAt],
+                    createdAt = row[RefreshTokenTable.createdAt],
+                    status = RefreshTokenStatus.valueOf(row[RefreshTokenTable.status]),
+                    statusReason = row[RefreshTokenTable.statusReason]?.let(RefreshTokenStatusReason::valueOf),
+                    userRole = row[UserTable.role]
+                )
+            }
     }
 
     override fun markTokenAsRotatedIfActive(tokenId: UUID, changedAt: Long): Boolean {
