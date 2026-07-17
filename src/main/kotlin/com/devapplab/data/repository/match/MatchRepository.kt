@@ -29,7 +29,8 @@ interface MatchRepository {
         matchId: UUID,
         bestPlayerId: UUID,
         goals: List<PlayerGoalInput>,
-        externalGoals: List<TeamGoalInput>
+        externalGoals: List<TeamGoalInput>,
+        absentPlayerIds: Set<UUID>
     ): Pair<Int, Int>?
     suspend fun getMatchPlayerGoals(matchId: UUID): List<MatchPlayerGoal>
     suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int>

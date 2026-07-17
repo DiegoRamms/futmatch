@@ -420,7 +420,7 @@ Calculates a single custom scenario for an explicit price chosen by the admin.
 
 ## 3. Complete Match
 
-Registers the final result of a match, including player goals, external team goals, and the best player (MVP).
+Registers the final result of a match, including player goals, external team goals, the best player (MVP), and any enrolled players who did not attend.
 
 -   **Method:** `POST`
 -   **Path:** `/match/admin/{matchId}/complete`
@@ -453,7 +453,10 @@ Registers the final result of a match, including player goals, external team goa
             "goals": 0
         }
     ],
-    "bestPlayerId": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+    "bestPlayerId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "absentPlayerIds": [
+        "c2d3e4f5-a6b7-8901-2345-67890abcdef2"
+    ]
 }
 ```
 
@@ -462,12 +465,13 @@ Registers the final result of a match, including player goals, external team goa
 | Field | Type | Required | Validation Rules |
 |:------|:-----|:---------|:----------------|
 | `goals` | List | Yes | User goal entries. `goals` or `externalGoals` must contain at least one entry. |
-| `goals[].userId` | UUID | Yes | Must be a valid UUID of a user enrolled in the match. |
+| `goals[].userId` | UUID | Yes | Must be a valid UUID of an enrolled player who attended the match. |
 | `goals[].goals` | Int | Yes | Must be >= 0. |
 | `externalGoals` | List | No | Goals scored by players outside the app, grouped by team. Defaults to an empty list. |
 | `externalGoals[].team` | Enum | Yes | Supported values: `A`, `B`. |
 | `externalGoals[].goals` | Int | Yes | Must be >= 0. These goals affect only the final team score. |
-| `bestPlayerId` | UUID | Yes | Must be a valid UUID of a user enrolled in the match. |
+| `bestPlayerId` | UUID | Yes | Must be a valid UUID of an enrolled player who attended the match. |
+| `absentPlayerIds` | List\<UUID\> | No | IDs of enrolled active players who did not attend. Defaults to an empty list; every enrolled active player not included is recorded as present. |
 
 > `goals[].isBestPlayer` is not supported. Use only `bestPlayerId` at the root of the payload.
 
@@ -475,9 +479,11 @@ Registers the final result of a match, including player goals, external team goa
 
 > `externalGoals` are added to `match_results.team_a_score` and `match_results.team_b_score`. They are not stored in `match_player_goals`, do not belong to any user, and do not affect individual player statistics.
 
+> The backend stores attendance at completion time: `PRESENT` for enrolled active players not listed in `absentPlayerIds`, and `NO_SHOW` for listed players. A `NO_SHOW` player cannot have goals or be MVP, and is excluded from match-played, win/loss, and goal statistics.
+
 ### Completion Notifications
 
-When a match is completed, all enrolled players receive a push notification with `fieldName` and final score:
+When a match is completed, only players recorded as `PRESENT` receive a push notification with `fieldName` and final score. Players recorded as `NO_SHOW` do not receive a result notification:
 
 - Winner players: congratulation message.
 - Winner + MVP (`bestPlayerId`): combined congratulation + MVP message.
@@ -500,6 +506,7 @@ When a match is completed, all enrolled players receive a push notification with
 | `MATCH_NOT_FOUND` | The specified match does not exist. |
 | `MATCH_ALREADY_COMPLETED` | The match has already been completed. |
 | `INVALID_BEST_PLAYER` | The specified best player is not enrolled in the match. |
+| `INVALID_MATCH_ATTENDANCE` | An absent player was assigned goals or selected as MVP, or an absent ID is not an active enrolled player. |
 
 ---
 
@@ -1352,6 +1359,7 @@ Gets complete details of a specific match.
 - For `SCHEDULED` and `IN_PROGRESS`, detail consumers should continue using the realtime player source for live roster rendering.
 - For `CANCELED` and `COMPLETED`, the backend now returns `teams` populated directly in the detail response.
 - In final states, clients should treat the backend `teams` snapshot as the source of truth and do not need to query Firestore for players.
+- Each player in a completed match includes `attendanceStatus`: `PRESENT` or `NO_SHOW`. The frontend can label `NO_SHOW` players as absent and should not present them as participants in the result.
 
 Example for a completed match:
 

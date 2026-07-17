@@ -113,6 +113,8 @@ fun Application.configureDatabase() {
                 exec(statement)
             }
         }
+
+        backfillCompletedMatchAttendance()
     }
 }
 
@@ -126,6 +128,18 @@ private fun JdbcTransaction.renameFieldPriceColumnIfNeeded() {
 
     databaseMigrationLogger.info("Renaming fields.price_per_player to fields.field_cost")
     exec("ALTER TABLE fields RENAME COLUMN price_per_player TO field_cost")
+}
+
+private fun JdbcTransaction.backfillCompletedMatchAttendance() {
+    exec(
+        """
+        UPDATE match_players
+        SET attendance_status = 'PRESENT'
+        WHERE attendance_status IS NULL
+          AND status IN ('RESERVED', 'JOINED')
+          AND match_id IN (SELECT id FROM matches WHERE status = 'COMPLETED')
+        """.trimIndent()
+    )
 }
 
 private fun JdbcTransaction.hasColumn(tableName: String, columnName: String): Boolean {

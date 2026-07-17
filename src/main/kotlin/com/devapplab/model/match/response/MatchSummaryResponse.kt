@@ -3,6 +3,7 @@ package com.devapplab.model.match.response
 import com.devapplab.model.field.response.FieldImageResponse
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.GenderType
+import com.devapplab.model.match.AttendanceStatus
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.user.Gender
@@ -52,4 +53,5 @@ data class PlayerSummary(
     val name: String,
     val country: String? = null,
     val status: MatchPlayerStatus? = null,
+    val attendanceStatus: AttendanceStatus? = null,
 )

@@ -1920,19 +1920,42 @@ class MatchService(
             it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED
         }
         val enrolledPlayerIds = enrolledPlayers.map { it.userId }.toSet()
+        val absentPlayerIds = request.absentPlayerIds.toSet()
+        val attendingPlayerIds = enrolledPlayerIds - absentPlayerIds
         logger.info(
-            "🏆 [COMPLETE_DEBUG] service enrolled players | matchId=$matchId | enrolledPlayerIds=$enrolledPlayerIds | bestPlayerInMatch=${enrolledPlayerIds.contains(request.bestPlayerId)}"
+            "🏆 [COMPLETE_DEBUG] service enrolled players | matchId=$matchId | enrolledPlayerIds=$enrolledPlayerIds | absentPlayerIds=$absentPlayerIds | bestPlayerAttended=${attendingPlayerIds.contains(request.bestPlayerId)}"
         )
 
-        if (!enrolledPlayerIds.contains(request.bestPlayerId)) {
+        if (!enrolledPlayerIds.containsAll(absentPlayerIds)) {
+            logger.warn("🏆 [COMPLETE_DEBUG] service STOP | invalid absent players | matchId=$matchId | absentPlayerIds=$absentPlayerIds | enrolledPlayerIds=$enrolledPlayerIds")
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_INVALID_ATTENDANCE_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_INVALID_ATTENDANCE_DESCRIPTION,
+                status = HttpStatusCode.BadRequest,
+                errorCode = ErrorCode.INVALID_MATCH_ATTENDANCE
+            )
+        }
+
+        if (!attendingPlayerIds.contains(request.bestPlayerId)) {
             logger.warn(
-                "🏆 [COMPLETE_DEBUG] service STOP | invalid best player | matchId=$matchId | bestPlayerId=${request.bestPlayerId} | enrolledPlayerIds=$enrolledPlayerIds"
+                "🏆 [COMPLETE_DEBUG] service STOP | invalid best player | matchId=$matchId | bestPlayerId=${request.bestPlayerId} | attendingPlayerIds=$attendingPlayerIds"
             )
             return locale.createError(
-                titleKey = StringResourcesKey.MATCH_INVALID_BEST_PLAYER_TITLE,
-                descriptionKey = StringResourcesKey.MATCH_INVALID_BEST_PLAYER_DESCRIPTION,
+                titleKey = StringResourcesKey.MATCH_INVALID_ATTENDANCE_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_INVALID_ATTENDANCE_DESCRIPTION,
                 status = HttpStatusCode.BadRequest,
-                errorCode = ErrorCode.INVALID_BEST_PLAYER
+                errorCode = ErrorCode.INVALID_MATCH_ATTENDANCE
+            )
+        }
+
+        val goalPlayerIds = request.goals.map { it.userId }.toSet()
+        if (!attendingPlayerIds.containsAll(goalPlayerIds)) {
+            logger.warn("🏆 [COMPLETE_DEBUG] service STOP | goals assigned to absent or non-enrolled players | matchId=$matchId | goalPlayerIds=$goalPlayerIds | attendingPlayerIds=$attendingPlayerIds")
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_INVALID_ATTENDANCE_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_INVALID_ATTENDANCE_DESCRIPTION,
+                status = HttpStatusCode.BadRequest,
+                errorCode = ErrorCode.INVALID_MATCH_ATTENDANCE
             )
         }
 
@@ -1941,7 +1964,8 @@ class MatchService(
             matchId = matchId,
             bestPlayerId = request.bestPlayerId,
             goals = request.goals,
-            externalGoals = request.externalGoals
+            externalGoals = request.externalGoals,
+            absentPlayerIds = absentPlayerIds
         ) ?: run {
             logger.warn("🏆 [COMPLETE_DEBUG] service STOP | atomic returned null | matchId=$matchId")
             return locale.createError(
@@ -1957,9 +1981,10 @@ class MatchService(
         if (wasAlreadyCompleted) {
             logger.warn("🏆 [COMPLETE_DEBUG] service repaired missing result | matchId=$matchId | teamAScore=$teamAScore | teamBScore=$teamBScore")
         } else {
-            logger.info("🏆 [COMPLETE_DEBUG] service sending notifications | matchId=$matchId | players=${enrolledPlayers.map { it.userId }}")
+            val attendingPlayers = enrolledPlayers.filter { it.userId in attendingPlayerIds }
+            logger.info("🏆 [COMPLETE_DEBUG] service sending notifications | matchId=$matchId | players=${attendingPlayers.map { it.userId }}")
             sendMatchCompletedNotifications(
-                players = enrolledPlayers,
+                players = attendingPlayers,
                 matchId = matchId,
                 fieldName = matchWithField.fieldName,
                 bestPlayerId = request.bestPlayerId,

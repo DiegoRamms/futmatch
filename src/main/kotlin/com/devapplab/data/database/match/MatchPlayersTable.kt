@@ -2,6 +2,7 @@ package com.devapplab.data.database.match
 
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.match.MatchPlayerStatus
+import com.devapplab.model.match.AttendanceStatus
 import com.devapplab.model.match.TeamType
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
@@ -13,11 +14,13 @@ object MatchPlayersTable : Table("match_players") {
     val userId = javaUUID("user_id").references(UserTable.id, onDelete = ReferenceOption.CASCADE)
     val team = enumerationByName("team", 10, TeamType::class)
     val status = enumerationByName("status", 20, MatchPlayerStatus::class).clientDefault { MatchPlayerStatus.RESERVED }
+    val attendanceStatus = enumerationByName("attendance_status", 20, AttendanceStatus::class).nullable()
     val joinedAt = long("joined_at").clientDefault { System.currentTimeMillis() }
 
     override val primaryKey = PrimaryKey(matchId, userId)
 
     init {
         index(false, userId, status, matchId)
+        index(false, userId, attendanceStatus, matchId)
     }
 }

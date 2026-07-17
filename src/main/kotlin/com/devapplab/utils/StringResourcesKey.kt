@@ -150,6 +150,8 @@ enum class StringResourcesKey(val value: String) {
     MATCH_REBALANCE_TEAM_LIMIT_DESCRIPTION("match_rebalance_team_limit_description"),
     MATCH_INVALID_BEST_PLAYER_TITLE("match_invalid_best_player_title"),
     MATCH_INVALID_BEST_PLAYER_DESCRIPTION("match_invalid_best_player_description"),
+    MATCH_INVALID_ATTENDANCE_TITLE("match_invalid_attendance_title"),
+    MATCH_INVALID_ATTENDANCE_DESCRIPTION("match_invalid_attendance_description"),
     MATCH_GOALS_EMPTY_ERROR("match_goals_empty_error"),
     MATCH_MULTIPLE_BEST_PLAYER_ERROR("match_multiple_best_player_error"),
     MATCH_INVALID_GOALS_ERROR("match_invalid_goals_error"),

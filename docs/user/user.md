@@ -99,10 +99,10 @@ Perfil público de otro jugador para vista de visita; **incluye `lastMatch`** pa
 | `profilePic` | String? | URL pública de imagen de perfil |
 | `level` | Enum | Nivel del jugador |
 | `averageScore` | Int | Porcentaje de victorias `0..100` |
-| `stats.matchesPlayed` | Int | Partidos jugados |
-| `stats.matchesWon` | Int | Partidos ganados |
+| `stats.matchesPlayed` | Int | Partidos completados a los que el jugador asistió (`attendanceStatus = PRESENT`) |
+| `stats.matchesWon` | Int | Partidos ganados a los que el jugador asistió |
 | `stats.mvpCount` | Int | Veces MVP |
-| `stats.totalGoals` | Int | Goles totales en partidos completados |
+| `stats.totalGoals` | Int | Goles totales en partidos completados a los que el jugador asistió |
 
 ## Conceptos Comunes
 
@@ -211,7 +211,7 @@ curl --request GET '{{base_url}}/user/home' \
 
 #### Notas:
 - `averageScore` es un entero redondeado (`0..100`) calculado como: `(partidos ganados / partidos jugados) * 100`.
-- Para `averageScore`, se consideran partidos `COMPLETED` donde el jugador participó con estado `JOINED`.
+- Para `averageScore`, se consideran partidos `COMPLETED` donde el jugador tiene `attendanceStatus = PRESENT`. Los jugadores con `NO_SHOW` no reciben estadísticas del resultado.
 - `suggestedMatches` trae como máximo 4 elementos.
 
 ### 1.3 Subir Foto de Perfil

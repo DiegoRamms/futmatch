@@ -205,7 +205,8 @@ private class FakeMatchRepository(
         matchId: UUID,
         bestPlayerId: UUID,
         goals: List<PlayerGoalInput>,
-        externalGoals: List<TeamGoalInput>
+        externalGoals: List<TeamGoalInput>,
+        absentPlayerIds: Set<UUID>
     ): Pair<Int, Int>? = error("not used")
     override suspend fun getMatchPlayerGoals(matchId: UUID): List<MatchPlayerGoal> = error("not used")
     override suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int> = error("not used")

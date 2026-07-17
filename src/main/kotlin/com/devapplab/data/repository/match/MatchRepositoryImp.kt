@@ -335,6 +335,7 @@ class MatchRepositoryImp : MatchRepository {
                             avatarUrl = row[UserTable.profilePic],
                             name = "${row[UserTable.name]} ${row[UserTable.lastName].first()}." ,
                             status = row[MatchPlayersTable.status],
+                            attendanceStatus = row[MatchPlayersTable.attendanceStatus],
                             joinedAt = row[MatchPlayersTable.joinedAt]
                         )
                     }
@@ -466,6 +467,7 @@ class MatchRepositoryImp : MatchRepository {
                             avatarUrl = row[UserTable.profilePic],
                             name = "${row[UserTable.name]} ${row[UserTable.lastName].first()}." ,
                             status = row[MatchPlayersTable.status],
+                            attendanceStatus = row[MatchPlayersTable.attendanceStatus],
                             joinedAt = row[MatchPlayersTable.joinedAt]
                         )
                     }
@@ -582,6 +584,7 @@ class MatchRepositoryImp : MatchRepository {
                     avatarUrl = row[UserTable.profilePic],
                     name = "${row[UserTable.name]} ${row[UserTable.lastName].first()}." ,
                     status = row[MatchPlayersTable.status],
+                    attendanceStatus = row[MatchPlayersTable.attendanceStatus],
                     joinedAt = row[MatchPlayersTable.joinedAt]
                 )
             }
@@ -950,7 +953,8 @@ class MatchRepositoryImp : MatchRepository {
         matchId: UUID,
         bestPlayerId: UUID,
         goals: List<PlayerGoalInput>,
-        externalGoals: List<TeamGoalInput>
+        externalGoals: List<TeamGoalInput>,
+        absentPlayerIds: Set<UUID>
     ): Pair<Int, Int>? {
         return dbQuery {
             logger.info("🏆 [COMPLETE_DEBUG] repo.atomic START | matchId=$matchId | bestPlayerId=$bestPlayerId | goals=$goals | externalGoals=$externalGoals")
@@ -997,6 +1001,22 @@ class MatchRepositoryImp : MatchRepository {
                 logger.info(
                     "🏆 [COMPLETE_DEBUG] repo.atomic inserted goal | matchId=$matchId | userId=${goalInput.userId} | goals=${goalInput.goals}"
                 )
+            }
+
+            MatchPlayersTable.update({
+                (MatchPlayersTable.matchId eq matchId) and
+                    (MatchPlayersTable.status inList listOf(MatchPlayerStatus.JOINED, MatchPlayerStatus.RESERVED))
+            }) {
+                it[attendanceStatus] = AttendanceStatus.PRESENT
+            }
+            if (absentPlayerIds.isNotEmpty()) {
+                MatchPlayersTable.update({
+                    (MatchPlayersTable.matchId eq matchId) and
+                        (MatchPlayersTable.userId inList absentPlayerIds.toList()) and
+                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.JOINED, MatchPlayerStatus.RESERVED))
+                }) {
+                    it[attendanceStatus] = AttendanceStatus.NO_SHOW
+                }
             }
 
             val goalsByTeam: List<Pair<TeamType, Int>> = MatchPlayerGoalsTable.join(
@@ -1197,6 +1217,7 @@ class MatchRepositoryImp : MatchRepository {
                 .where {
                     (MatchPlayersTable.userId eq userId) and
                         (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                        (MatchPlayersTable.attendanceStatus eq AttendanceStatus.PRESENT) and
                         (MatchTable.status eq MatchStatus.COMPLETED)
                 }
                 .orderBy(MatchTable.dateTimeEnd to SortOrder.DESC)
@@ -1254,6 +1275,7 @@ class MatchRepositoryImp : MatchRepository {
                 .where {
                     (MatchPlayersTable.userId eq userId) and
                         (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                        (MatchPlayersTable.attendanceStatus eq AttendanceStatus.PRESENT) and
                         (MatchTable.status eq MatchStatus.COMPLETED)
                 }
                 .singleOrNull() ?: return@dbQuery HomeWinStats(playedMatches = 0, wonMatches = 0)
@@ -1303,6 +1325,7 @@ class MatchRepositoryImp : MatchRepository {
                 .where {
                     (MatchPlayerGoalsTable.userId eq userId) and
                         (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                        (MatchPlayersTable.attendanceStatus eq AttendanceStatus.PRESENT) and
                         (MatchTable.status eq MatchStatus.COMPLETED)
                 }
                 .singleOrNull()
