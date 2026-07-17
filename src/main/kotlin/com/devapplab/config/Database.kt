@@ -30,8 +30,11 @@ import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserPaymentProfileTable
 import com.devapplab.data.database.user.UserTable
 import io.ktor.server.application.*
+import io.ktor.server.config.ApplicationConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
@@ -41,12 +44,27 @@ import org.jetbrains.exposed.v1.migration.jdbc.MigrationUtils
 import org.slf4j.LoggerFactory
 
 fun Application.configureDatabase() {
-    val database = Database.connect(
-        url = environment.config.propertyOrNull("database.url")?.getString() ?: "",
-        driver = environment.config.propertyOrNull("database.driver")?.getString() ?: "",
-        user = environment.config.propertyOrNull("database.user")?.getString() ?: "",
-        password = environment.config.propertyOrNull("database.password")?.getString() ?: ""
-    )
+    val config = environment.config
+    val dataSource = HikariDataSource(HikariConfig().apply {
+        jdbcUrl = config.requiredProperty("database.url")
+        driverClassName = config.requiredProperty("database.driver")
+        username = config.requiredProperty("database.user")
+        password = config.requiredProperty("database.password")
+        maximumPoolSize = config.intProperty("database.pool.maximum_size", default = 5)
+        minimumIdle = config.intProperty("database.pool.minimum_idle", default = 1)
+        connectionTimeout = config.longProperty("database.pool.connection_timeout_ms", default = 5_000)
+        validationTimeout = config.longProperty("database.pool.validation_timeout_ms", default = 3_000)
+        idleTimeout = config.longProperty("database.pool.idle_timeout_ms", default = 600_000)
+        keepaliveTime = config.longProperty("database.pool.keepalive_time_ms", default = 120_000)
+        maxLifetime = config.longProperty("database.pool.max_lifetime_ms", default = 1_800_000)
+        poolName = "futmatch-postgres"
+        addDataSourceProperty("tcpKeepAlive", "true")
+    })
+    val database = Database.connect(dataSource)
+
+    monitor.subscribe(ApplicationStopping) {
+        dataSource.close()
+    }
 
     val isDevelopment =
         environment.config.propertyOrNull("ktor.development")?.getString()?.toBoolean() ?: false
@@ -117,6 +135,16 @@ fun Application.configureDatabase() {
         backfillCompletedMatchAttendance()
     }
 }
+
+private fun ApplicationConfig.requiredProperty(path: String): String =
+    propertyOrNull(path)?.getString()?.takeIf(String::isNotBlank)
+        ?: error("Missing required database configuration: $path")
+
+private fun ApplicationConfig.intProperty(path: String, default: Int): Int =
+    propertyOrNull(path)?.getString()?.toIntOrNull() ?: default
+
+private fun ApplicationConfig.longProperty(path: String, default: Long): Long =
+    propertyOrNull(path)?.getString()?.toLongOrNull() ?: default
 
 private val databaseMigrationLogger = LoggerFactory.getLogger("DatabaseMigration")
 

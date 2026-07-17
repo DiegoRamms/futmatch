@@ -14,6 +14,7 @@ grpc-version = "1.75.0"
 cloudinary-version = "2.0.0"
 commons-lang3-version = "3.18.0"
 stripe-version = "31.3.0"
+hikari-version = "7.0.2"
 
 [libraries]
 ktor-server-rate-limiting = { module = "io.github.flaxoos:ktor-server-rate-limiting", version = "2.1.2" }
@@ -29,6 +30,7 @@ exposed-migration-jdbc = { module = "org.jetbrains.exposed:exposed-migration-jdb
 
 h2 = { module = "com.h2database:h2", version.ref = "h2-version" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgres-version" }
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari-version" }
 ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor-version" }
 ktor-server-compression = { module = "io.ktor:ktor-server-compression", version.ref = "ktor-version" }
 ktor-server-request-validation = { module = "io.ktor:ktor-server-request-validation", version.ref = "ktor-version" }
