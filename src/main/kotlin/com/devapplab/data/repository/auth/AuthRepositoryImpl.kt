@@ -45,6 +45,27 @@ class AuthRepositoryImpl(
         )
     }
 
+    override fun rotateRefreshTokenIfActive(
+        currentTokenId: UUID,
+        userId: UUID,
+        deviceId: UUID,
+        newPayload: RefreshTokenPayload
+    ): Boolean {
+        val changedAt = System.currentTimeMillis()
+        if (!refreshTokenRepository.markTokenAsRotatedIfActive(currentTokenId, changedAt)) {
+            return false
+        }
+
+        deviceRepository.changeDeviceLastUsed(deviceId)
+        refreshTokenRepository.saveToken(
+            userId = userId,
+            deviceId = deviceId,
+            token = newPayload.hashedToken,
+            expiresAt = newPayload.expiresAt
+        )
+        return true
+    }
+
     override fun revokeRefreshToken(deviceId: UUID): Boolean {
         return refreshTokenRepository.revokeActiveTokens(
             deviceId = deviceId,

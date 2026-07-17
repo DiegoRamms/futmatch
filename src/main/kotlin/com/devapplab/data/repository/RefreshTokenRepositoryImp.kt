@@ -35,6 +35,18 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
             .singleOrNull()
     }
 
+    override fun markTokenAsRotatedIfActive(tokenId: UUID, changedAt: Long): Boolean {
+        return RefreshTokenTable.update({
+            (RefreshTokenTable.id eq tokenId) and
+                (RefreshTokenTable.status eq RefreshTokenStatus.ACTIVE.name)
+        }) {
+            it[revoked] = true
+            it[status] = RefreshTokenStatus.ROTATED.name
+            it[statusReason] = RefreshTokenStatusReason.TOKEN_ROTATED.name
+            it[revokedAt] = changedAt
+        } == 1
+    }
+
     override fun markPreviousActiveTokensAsRotated(deviceId: UUID, currentTokenId: UUID, changedAt: Long): Boolean {
         return RefreshTokenTable.update({
             (RefreshTokenTable.deviceId eq deviceId) and

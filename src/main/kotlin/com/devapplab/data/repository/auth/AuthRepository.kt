@@ -8,5 +8,11 @@ interface AuthRepository {
     fun completeMfaVerification(userId: UUID, deviceId: UUID, mfaCodeId: UUID)
     fun completeForgotPasswordMfaVerification(mfaCodeId: UUID)
     fun rotateRefreshToken(userId: UUID, deviceId: UUID, newPayload: RefreshTokenPayload)
+    fun rotateRefreshTokenIfActive(
+        currentTokenId: UUID,
+        userId: UUID,
+        deviceId: UUID,
+        newPayload: RefreshTokenPayload
+    ): Boolean
     fun revokeRefreshToken(deviceId: UUID): Boolean
 }

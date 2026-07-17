@@ -164,18 +164,22 @@ class AuthTokenManagementService(
             val newPayload = refreshTokenService.generateRefreshToken(jwtConfig.refreshTokenLifetime)
 
             val rotated = runCatching {
-                dbExecutor.tx { authRepository.rotateRefreshToken(tokenRecord.userId, tokenRecord.deviceId, newPayload) }
-                true
+                dbExecutor.tx {
+                    authRepository.rotateRefreshTokenIfActive(
+                        currentTokenId = tokenRecord.id,
+                        userId = tokenRecord.userId,
+                        deviceId = tokenRecord.deviceId,
+                        newPayload = newPayload
+                    )
+                }
             }.getOrElse { error ->
                 logger.authFailure("auth.refresh.failed", context, "db_error", tokenRecord.userId, tokenRecord.deviceId, throwable = error)
                 false
             }
 
             if (!rotated) {
-                return locale.createError(
-                    StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
-                    StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
-                )
+                logger.authRejected("auth.refresh.failed", context, "rotation_conflict", tokenRecord.userId, tokenRecord.deviceId)
+                return locale.respondInvalidRefreshTokenError()
             }
 
             newRefreshToken = newPayload.plainToken
