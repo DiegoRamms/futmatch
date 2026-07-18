@@ -35,6 +35,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import com.zaxxer.hikari.metrics.micrometer.MicrometerMetricsTrackerFactory
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
@@ -58,6 +59,7 @@ fun Application.configureDatabase() {
         keepaliveTime = config.longProperty("database.pool.keepalive_time_ms", default = 120_000)
         maxLifetime = config.longProperty("database.pool.max_lifetime_ms", default = 1_800_000)
         poolName = "futmatch-postgres"
+        metricsTrackerFactory = MicrometerMetricsTrackerFactory(prometheusMeterRegistry())
         addDataSourceProperty("tcpKeepAlive", "true")
     })
     val database = Database.connect(dataSource)
