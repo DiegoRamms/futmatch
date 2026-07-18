@@ -29,6 +29,9 @@ import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerLevel
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.observability.AppRequestContext
+import com.devapplab.observability.MatchJoinMetricOutcome
+import com.devapplab.observability.MatchJoinRejectionReason
+import com.devapplab.observability.PaymentMetrics
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.billing.BillingService
@@ -70,7 +73,8 @@ class MatchService(
     private val refundFailureRepository: MatchRefundFailureRepository,
     private val publicMatchesCacheService: PublicMatchesCacheService,
     private val matchPaymentConfig: MatchPaymentConfig,
-    private val matchPricingConfigProvider: MatchPricingConfigProvider
+    private val matchPricingConfigProvider: MatchPricingConfigProvider,
+    private val paymentMetrics: PaymentMetrics
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -925,6 +929,11 @@ class MatchService(
 
         // 0. Check for active reservation
         if (matchRepository.hasActiveReservation(userId)) {
+            paymentMetrics.recordJoin(
+                MatchJoinMetricOutcome.REJECTED,
+                paymentProvider,
+                MatchJoinRejectionReason.PENDING_RESERVATION
+            )
             logger.warn("⚠️ [MATCH_TRACE] joinMatch | User has pending reservation | userId=$userId")
             logger.appRejected(
                 event = "match.join_failed",
@@ -944,6 +953,11 @@ class MatchService(
 
         val match = matchRepository.getMatchById(matchId)
             ?: run {
+                paymentMetrics.recordJoin(
+                    MatchJoinMetricOutcome.REJECTED,
+                    paymentProvider,
+                    MatchJoinRejectionReason.MATCH_NOT_FOUND
+                )
                 logger.appRejected(
                     event = "match.join_failed",
                     context = context,
@@ -961,6 +975,11 @@ class MatchService(
             }
 
         if (match.status != MatchStatus.SCHEDULED) {
+            paymentMetrics.recordJoin(
+                MatchJoinMetricOutcome.REJECTED,
+                paymentProvider,
+                MatchJoinRejectionReason.MATCH_NOT_SCHEDULED
+            )
             logger.warn("⚠️ [MATCH_TRACE] joinMatch | Match not scheduled | status=${match.status}")
             logger.appRejected(
                 event = "match.join_failed",
@@ -983,6 +1002,11 @@ class MatchService(
         val maxJoinPaymentWindowMs = matchPaymentConfig.maxJoinPaymentWindowHours.hours.inWholeMilliseconds
 
         if (timeUntilMatch > maxJoinPaymentWindowMs) {
+            paymentMetrics.recordJoin(
+                MatchJoinMetricOutcome.REJECTED,
+                paymentProvider,
+                MatchJoinRejectionReason.JOIN_TOO_EARLY
+            )
             logger.warn(
                 "⚠️ [MATCH_TRACE] joinMatch | Paid registration not open yet | userId={} | matchId={} | timeUntilMatchMs={} | maxWindowHours={}",
                 userId,
@@ -1008,6 +1032,11 @@ class MatchService(
         }
 
         if (matchRepository.isUserInMatch(matchId, userId)) {
+            paymentMetrics.recordJoin(
+                MatchJoinMetricOutcome.REJECTED,
+                paymentProvider,
+                MatchJoinRejectionReason.ALREADY_JOINED
+            )
             logger.warn("⚠️ [MATCH_TRACE] joinMatch | User already in match")
             logger.appRejected(
                 event = "match.join_failed",
@@ -1029,6 +1058,11 @@ class MatchService(
             match.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }
 
         if (activePlayers.size >= match.maxPlayers) {
+            paymentMetrics.recordJoin(
+                MatchJoinMetricOutcome.REJECTED,
+                paymentProvider,
+                MatchJoinRejectionReason.MATCH_FULL
+            )
             logger.warn("⚠️ [MATCH_TRACE] joinMatch | Match full")
             logger.appRejected(
                 event = "match.join_failed",
@@ -1051,6 +1085,11 @@ class MatchService(
             val currentTeamCount = activePlayers.count { it.team == team }
 
             if (currentTeamCount >= maxPerTeam) {
+                paymentMetrics.recordJoin(
+                    MatchJoinMetricOutcome.REJECTED,
+                    paymentProvider,
+                    MatchJoinRejectionReason.TEAM_FULL
+                )
                 logger.warn("⚠️ [MATCH_TRACE] joinMatch | Team full")
                 logger.appRejected(
                     event = "match.join_failed",
@@ -1092,6 +1131,10 @@ class MatchService(
             if (timeUntilMatch <= CAPTURE_METHOD_THRESHOLD.inWholeMilliseconds) {
                 val confirmedPayment = paymentRepository.getLatestConfirmedPaymentForPlayer(matchId, userId)
                 if (confirmedPayment != null) {
+                    paymentMetrics.recordJoin(
+                        MatchJoinMetricOutcome.REUSED_PAYMENT,
+                        confirmedPayment.provider
+                    )
                     matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
                     notifyMatchUpdate(matchId)
 
@@ -1149,6 +1192,11 @@ class MatchService(
 
             return when (paymentResult) {
                 is PaymentOperationResult.Success -> {
+                    paymentMetrics.recordJoin(
+                        MatchJoinMetricOutcome.RESERVED,
+                        paymentResult.data.provider,
+                        captureMethod = captureMethod
+                    )
                     logger.info("✅ [MATCH_TRACE] joinMatch | Payment intent created | userId=$userId | matchId=$matchId | paymentId=${paymentResult.data.paymentId}")
                     paymentRepository.createPayment(
                         matchPlayerId = matchPlayerId,
@@ -1193,6 +1241,11 @@ class MatchService(
                 }
 
                 is PaymentOperationResult.Failure -> {
+                    paymentMetrics.recordJoin(
+                        MatchJoinMetricOutcome.PAYMENT_INTENT_FAILED,
+                        paymentProvider,
+                        captureMethod = captureMethod
+                    )
                     // Rollback: Remove player from match because payment creation failed
                     logger.error("❌ [MATCH_TRACE] joinMatch | Payment creation failed | userId=$userId | matchId=$matchId | reason=${paymentResult.reason}")
                     logger.warn("⚠️ Payment creation failed. Rolling back reservation for user $userId in match $matchId")
@@ -1216,6 +1269,7 @@ class MatchService(
                 }
             }
         } else {
+            paymentMetrics.recordJoin(MatchJoinMetricOutcome.RESERVATION_FAILED, paymentProvider)
             logger.error("❌ [MATCH_TRACE] joinMatch | Failed to add player to match DB | userId=$userId | matchId=$matchId")
             return locale.createError(
                 titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,

@@ -8,6 +8,8 @@ import com.devapplab.model.WebhookConfig
 import com.devapplab.model.firestore.MatchPlayerList
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.payment.PaymentAttemptStatus
+import com.devapplab.observability.PaymentMetrics
+import com.devapplab.observability.StripeWebhookMetricOutcome
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
 import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.image.ImageService
@@ -38,6 +40,7 @@ class StripeWebhookService(
     private val notificationService: NotificationService,
     private val stripeWebhookEventRepository: StripeWebhookEventRepository,
     private val webhookConfig: WebhookConfig,
+    private val paymentMetrics: PaymentMetrics
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -53,14 +56,20 @@ class StripeWebhookService(
 
     suspend fun handleWebhook(payload: String, signature: String): Boolean {
         var lockedEventId: String? = null
+        var eventType = "unknown"
+        var metricOutcome = StripeWebhookMetricOutcome.FAILED
+        val processingTimer = paymentMetrics.startWebhookTimer()
 
         try {
             val event = Webhook.constructEvent(payload, signature, webhookConfig.webhookSecret)
+            eventType = event.type
+            paymentMetrics.recordWebhookReceived(eventType)
             logger.info("💳 Stripe webhook received. eventId={}, type={}", event.id, event.type)
 
             val locked = stripeWebhookEventRepository.tryLock(event.id)
             if (!locked) {
                 logger.info("ℹ️ Stripe webhook ignored (already processed). eventId={}", event.id)
+                metricOutcome = StripeWebhookMetricOutcome.DUPLICATE
                 return true
             }
             lockedEventId = event.id
@@ -71,6 +80,7 @@ class StripeWebhookService(
                     "⚠️ Stripe webhook ignored (could not obtain PaymentIntent). eventId={}, type={}",
                     event.id, event.type
                 )
+                metricOutcome = StripeWebhookMetricOutcome.IGNORED_NO_PAYMENT_INTENT
                 return true
             }
 
@@ -92,14 +102,19 @@ class StripeWebhookService(
 
                 else -> {
                     logger.info("ℹ️ Stripe webhook type ignored. eventId={}, type={}", event.id, event.type)
+                    metricOutcome = StripeWebhookMetricOutcome.IGNORED_EVENT_TYPE
                 }
             }
 
             logger.info("✅ Stripe webhook processed successfully. eventId={}", event.id)
+            if (metricOutcome == StripeWebhookMetricOutcome.FAILED) {
+                metricOutcome = StripeWebhookMetricOutcome.PROCESSED
+            }
             return true
 
         } catch (_: SignatureVerificationException) {
             logger.error("❌ Stripe webhook signature verification failed")
+            metricOutcome = StripeWebhookMetricOutcome.SIGNATURE_INVALID
             return false
 
         } catch (e: Exception) {
@@ -110,6 +125,8 @@ class StripeWebhookService(
                 logger.warn("🔓 Stripe webhook lock released. eventId={}", lockedEventId)
             }
             return false
+        } finally {
+            paymentMetrics.stopWebhookTimer(processingTimer, eventType, metricOutcome)
         }
     }
 
@@ -184,6 +201,7 @@ class StripeWebhookService(
             logger.error("❌ Failed to update payment status. paymentIntentId={}", paymentIntentId)
             return
         }
+        paymentMetrics.recordPaymentTransition(PaymentAttemptStatus.SUCCEEDED)
 
         val playerUpdated = matchRepository.updatePlayerStatus(matchPlayerId, MatchPlayerStatus.JOINED)
         if (!playerUpdated) {
@@ -220,6 +238,8 @@ class StripeWebhookService(
         )
         if (!paymentUpdated) {
             logger.warn("⚠️ Failed to keep payment in CREATED after recoverable failure. paymentIntentId={}", paymentIntentId)
+        } else {
+            paymentMetrics.recordPaymentTransition(PaymentAttemptStatus.CREATED)
         }
 
         paymentIntent.metadata["matchId"]?.let { matchIdStr ->
@@ -251,6 +271,7 @@ class StripeWebhookService(
 
         if (updated) {
             logger.info("✅ Payment marked as AUTHORIZED (ready for capture). paymentIntentId={}", paymentIntentId)
+            paymentMetrics.recordPaymentTransition(PaymentAttemptStatus.AUTHORIZED)
         } else {
             logger.error("❌ Failed to mark payment as AUTHORIZED. paymentIntentId={}", paymentIntentId)
         }
@@ -294,6 +315,7 @@ class StripeWebhookService(
 
         if (updated) {
             logger.info("✅ Payment marked as CANCELED in DB. paymentIntentId={}", paymentIntentId)
+            paymentMetrics.recordPaymentTransition(PaymentAttemptStatus.CANCELED)
         } else {
             logger.warn("⚠️ Failed to mark payment as CANCELED (maybe not found?). paymentIntentId={}", paymentIntentId)
         }

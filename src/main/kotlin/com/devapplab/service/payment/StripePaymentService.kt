@@ -5,6 +5,7 @@ import com.devapplab.data.repository.payment.PaymentRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.StripeConfig
+import com.devapplab.observability.PaymentMetrics
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.model.payment.PaymentCaptureMethod
@@ -39,7 +40,8 @@ import java.util.UUID
 class StripePaymentService(
     private val stripeConfig: StripeConfig,
     private val paymentRepository: PaymentRepository,
-    private val matchRepository: MatchRepository
+    private val matchRepository: MatchRepository,
+    private val paymentMetrics: PaymentMetrics
 ) : PaymentService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -56,6 +58,7 @@ class StripePaymentService(
         captureMethod: PaymentCaptureMethod,
         customerId: String?
     ): PaymentOperationResult {
+        val creationTimer = paymentMetrics.startPaymentIntentTimer()
 
         logger.info(
             "💳 Creating Stripe PaymentIntent. amount={}, currency={}, captureMethod={}, customerIdPresent={}",
@@ -68,6 +71,13 @@ class StripePaymentService(
         val safeCustomerId = customerId?.takeIf { it.isNotBlank() }
         if (safeCustomerId == null) {
             logger.warn("⚠️ Missing customerId. BillingService should create/return one before calling createPaymentIntent.")
+            paymentMetrics.recordPaymentIntentFailed(PaymentProvider.STRIPE, PaymentFailureReason.PROVIDER_ERROR)
+            paymentMetrics.stopPaymentIntentTimer(
+                creationTimer,
+                PaymentProvider.STRIPE,
+                captureMethod,
+                outcome = "failed"
+            )
             return PaymentOperationResult.Failure(
                 PaymentFailureReason.PROVIDER_ERROR,
                 "Missing customerId"
@@ -143,6 +153,13 @@ class StripePaymentService(
             val clientSecret = intent.clientSecret
             if (clientSecret.isNullOrBlank()) {
                 logger.error("🔥 Stripe returned PaymentIntent without client_secret. paymentId={}", intent.id)
+                paymentMetrics.recordPaymentIntentFailed(PaymentProvider.STRIPE, PaymentFailureReason.PROVIDER_ERROR)
+                paymentMetrics.stopPaymentIntentTimer(
+                    creationTimer,
+                    PaymentProvider.STRIPE,
+                    captureMethod,
+                    outcome = "failed"
+                )
                 return PaymentOperationResult.Failure(
                     PaymentFailureReason.PROVIDER_ERROR,
                     "Missing clientSecret from Stripe"
@@ -152,6 +169,13 @@ class StripePaymentService(
             val sessionClientSecret = customerSession.clientSecret
             if (sessionClientSecret.isNullOrBlank()) {
                 logger.error("🔥 Stripe returned CustomerSession without client_secret. customerId={}", customer.id)
+                paymentMetrics.recordPaymentIntentFailed(PaymentProvider.STRIPE, PaymentFailureReason.PROVIDER_ERROR)
+                paymentMetrics.stopPaymentIntentTimer(
+                    creationTimer,
+                    PaymentProvider.STRIPE,
+                    captureMethod,
+                    outcome = "failed"
+                )
                 return PaymentOperationResult.Failure(
                     PaymentFailureReason.PROVIDER_ERROR,
                     "Missing customerSessionClientSecret from Stripe"
@@ -163,6 +187,13 @@ class StripePaymentService(
                 intent.id,
                 intent.status,
                 intent.amount
+            )
+            paymentMetrics.recordPaymentIntentCreated(PaymentProvider.STRIPE, captureMethod)
+            paymentMetrics.stopPaymentIntentTimer(
+                creationTimer,
+                PaymentProvider.STRIPE,
+                captureMethod,
+                outcome = "success"
             )
 
             PaymentOperationResult.Success(
@@ -191,11 +222,25 @@ class StripePaymentService(
                 "card_declined" -> PaymentFailureReason.DECLINED
                 else -> PaymentFailureReason.PROVIDER_ERROR
             }
+            paymentMetrics.recordPaymentIntentFailed(PaymentProvider.STRIPE, reason)
+            paymentMetrics.stopPaymentIntentTimer(
+                creationTimer,
+                PaymentProvider.STRIPE,
+                captureMethod,
+                outcome = "failed"
+            )
 
             PaymentOperationResult.Failure(reason, e.stripeError?.message)
 
         } catch (e: Exception) {
             logger.error("🔥 Unexpected error creating payment", e)
+            paymentMetrics.recordPaymentIntentFailed(PaymentProvider.STRIPE, PaymentFailureReason.UNKNOWN)
+            paymentMetrics.stopPaymentIntentTimer(
+                creationTimer,
+                PaymentProvider.STRIPE,
+                captureMethod,
+                outcome = "failed"
+            )
             PaymentOperationResult.Failure(PaymentFailureReason.UNKNOWN, e.message)
         }
     }
