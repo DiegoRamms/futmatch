@@ -31,7 +31,8 @@ class AuthTokenManagementService(
     private val refreshTokenService: RefreshTokenService,
     private val authRepository: AuthRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
-    private val hashingService: HashingService
+    private val hashingService: HashingService,
+    private val authMetrics: AuthMetrics
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -45,7 +46,10 @@ class AuthTokenManagementService(
     ): AppResult<AuthResponse> {
         @Suppress("UNUSED_PARAMETER")
         val ignoredRequest = refreshJWTRequest
-        val plainRefresh = currentRefreshToken ?: return locale.respondInvalidRefreshTokenError()
+        val plainRefresh = currentRefreshToken ?: run {
+            authMetrics.recordRefreshRejected(RefreshRejectionReason.MISSING_TOKEN)
+            return locale.respondInvalidRefreshTokenError()
+        }
         val hashedRefresh = hashingService.hashOpaqueToken(plainRefresh)
 
         val tokenRecord = runCatching {
@@ -61,6 +65,7 @@ class AuthTokenManagementService(
         }
 
         if (tokenRecord == null) {
+            authMetrics.recordRefreshRejected(RefreshRejectionReason.UNKNOWN_TOKEN)
             logger.authRejected("auth.refresh.failed", context, "unknown_token")
             return locale.respondInvalidRefreshTokenError()
         }
@@ -68,6 +73,7 @@ class AuthTokenManagementService(
         val now = System.currentTimeMillis()
 
         if (tokenRecord.expiresAt <= now) {
+            authMetrics.recordRefreshRejected(RefreshRejectionReason.EXPIRED_TOKEN)
             runCatching {
                 if (tokenRecord.status == RefreshTokenStatus.ACTIVE) {
                     dbExecutor.tx {
@@ -90,6 +96,7 @@ class AuthTokenManagementService(
         when (tokenRecord.status) {
             RefreshTokenStatus.ROTATED,
             RefreshTokenStatus.REUSE_DETECTED -> {
+                authMetrics.recordRefreshRejected(RefreshRejectionReason.REUSE_DETECTED)
                 runCatching {
                     dbExecutor.tx {
                         refreshTokenRepository.updateTokenStatus(
@@ -119,6 +126,7 @@ class AuthTokenManagementService(
                 return locale.respondInvalidRefreshTokenError()
             }
             RefreshTokenStatus.REVOKED -> {
+                authMetrics.recordRefreshRejected(RefreshRejectionReason.REVOKED_TOKEN)
                 logger.authRejected(
                     "auth.refresh.failed",
                     context,
@@ -130,6 +138,7 @@ class AuthTokenManagementService(
                 return locale.respondInvalidRefreshTokenError()
             }
             RefreshTokenStatus.EXPIRED -> {
+                authMetrics.recordRefreshRejected(RefreshRejectionReason.EXPIRED_TOKEN)
                 logger.authRejected("auth.refresh.failed", context, "expired_token", tokenRecord.userId, tokenRecord.deviceId, extra = mapOf("tokenCreatedAt" to tokenRecord.createdAt))
                 return locale.respondInvalidRefreshTokenError()
             }
@@ -163,6 +172,7 @@ class AuthTokenManagementService(
             }
 
             if (!rotated) {
+                authMetrics.recordRefreshRejected(RefreshRejectionReason.ROTATION_CONFLICT)
                 logger.authRejected("auth.refresh.failed", context, "rotation_conflict", tokenRecord.userId, tokenRecord.deviceId)
                 return locale.respondInvalidRefreshTokenError()
             }

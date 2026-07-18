@@ -56,6 +56,8 @@ fun Application.configureMicrometerMetrics() {
     }
 }
 
+fun prometheusMeterRegistry(): PrometheusMeterRegistry = prometheusRegistry
+
 private fun ApplicationConfig.requiredMetricsBearerToken(): String =
     propertyOrNull("metrics.bearer_token")?.getString()?.takeIf(String::isNotBlank)
         ?: error("Missing required metrics configuration: metrics.bearer_token")
