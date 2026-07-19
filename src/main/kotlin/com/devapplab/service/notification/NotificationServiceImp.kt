@@ -86,7 +86,6 @@ class NotificationServiceImp(
             titleKey = StringResourcesKey.NOTIFICATION_RESERVATION_EXPIRED_TITLE,
             bodyKey = StringResourcesKey.NOTIFICATION_RESERVATION_EXPIRED_BODY,
             metadata = baseMetadata(matchId, "RESERVATION_EXPIRED", matchContext) + mapOf("fieldName" to fieldName),
-            placeholders = mapOf("fieldName" to fieldName),
             bodySuffix = matchContext?.bodySuffix
         )
     }
@@ -210,7 +209,6 @@ class NotificationServiceImp(
                 "type" to resultType.name
             ) + (matchContext?.metadataExtras ?: emptyMap()),
             placeholders = mapOf(
-                "fieldName" to fieldName,
                 "score" to "$teamAScore-$teamBScore"
             ),
             bodySuffix = matchContext?.bodySuffix
@@ -360,12 +358,11 @@ class NotificationServiceImp(
         bodyKey: StringResourcesKey,
         metadata: Map<String, String>? = null,
         placeholders: Map<String, String> = emptyMap(),
-        bodySuffix: String? = null,
+        bodySuffix: String? = null
     ): AppResult<UUID> {
         return try {
             val title = locale.getString(titleKey)
-            val baseBody = locale.getString(bodyKey, placeholders)
-            val body = appendContext(baseBody, bodySuffix)
+            val body = appendContext(locale.getString(bodyKey, placeholders), bodySuffix)
             val metadataJson = metadata?.let { convertMapToJson(it) }
 
             val notificationId = notificationRepository.createNotification(
@@ -472,13 +469,13 @@ class NotificationServiceImp(
         }
     }
 
+    private fun baseMetadata(matchId: UUID, type: String, matchContext: MatchContext?): Map<String, String> {
+        return mapOf("matchId" to matchId.toString(), "type" to type) + (matchContext?.metadataExtras ?: emptyMap())
+    }
+
     private fun appendContext(baseBody: String, bodySuffix: String?): String {
         if (bodySuffix.isNullOrBlank()) return baseBody
         return "$baseBody $bodySuffix"
-    }
-
-    private fun baseMetadata(matchId: UUID, type: String, matchContext: MatchContext?): Map<String, String> {
-        return mapOf("matchId" to matchId.toString(), "type" to type) + (matchContext?.metadataExtras ?: emptyMap())
     }
 
     private suspend fun getMatchContext(matchId: UUID, locale: Locale): MatchContext? {
@@ -486,7 +483,7 @@ class NotificationServiceImp(
         val matchDateTime = formatMatchDateTime(match.dateTime, locale)
         val fieldName = match.fieldName
         return MatchContext(
-            bodySuffix = "Partido: $fieldName, $matchDateTime.",
+            bodySuffix = "$fieldName, $matchDateTime.",
             metadataExtras = mapOf(
                 "fieldName" to fieldName,
                 "matchDateTime" to matchDateTime
@@ -495,7 +492,12 @@ class NotificationServiceImp(
     }
 
     private fun formatMatchDateTime(matchDateTimeMs: Long, locale: Locale): String {
-        val formatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM yyyy, HH:mm", locale)
+        val pattern = if (locale.language == "es") {
+            "EEEE d 'de' MMMM 'de' yyyy, HH:mm"
+        } else {
+            "EEEE, MMMM d, yyyy, HH:mm"
+        }
+        val formatter = DateTimeFormatter.ofPattern(pattern, locale)
         return Instant.ofEpochMilli(matchDateTimeMs)
             .atZone(ZoneId.of("America/Mexico_City"))
             .format(formatter)
