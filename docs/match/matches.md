@@ -923,6 +923,10 @@ The visible version is derived from:
 
 This means `currentVersion` is an opaque version for the authenticated user's visible list. Clients must persist and resend it exactly as received.
 
+### Regional Update Push
+
+The `matches_updated` data push is only a regional invalidation signal. Its payload contains `type` and `region`, but does not provide a `sinceVersion` value. On receipt, the client must call this endpoint using the last `currentVersion` it received from this endpoint for that region. The only version that may be persisted and resent as `sinceVersion` is `currentVersion` from this response.
+
 ### Visibility Rules
 
 - The same visibility rules described in section `8. Get Matches for Players` apply.

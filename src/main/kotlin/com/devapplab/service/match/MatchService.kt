@@ -1593,9 +1593,9 @@ class MatchService(
         val match = matchRepository.getMatchById(matchId)
         if (match != null) {
             val region = resolvePublicRegion(match.fieldCountryCode, match.fieldCityCode)
-            val currentVersion = publicMatchesCacheService.invalidate(region)
+            publicMatchesCacheService.invalidate(region)
             if (sendRegionalPush) {
-                sendRegionalMatchesUpdatedPush(region, currentVersion)
+                sendRegionalMatchesUpdatedPush(region)
             }
 
             val firestorePlayers = match.players.map { player ->
@@ -1620,19 +1620,18 @@ class MatchService(
         }
     }
 
-    private suspend fun sendRegionalMatchesUpdatedPush(region: String, currentVersion: Long) {
+    private suspend fun sendRegionalMatchesUpdatedPush(region: String) {
         val topic = "matches_${region.replace(":", "_")}"
         try {
             notificationService.sendDataOnlyToTopic(
                 topic = topic,
                 data = mapOf(
                     "type" to "matches_updated",
-                    "region" to region,
-                    "version" to currentVersion.toString()
+                    "region" to region
                 )
             )
         } catch (e: Exception) {
-            logger.error("📲 [MATCH_TRACE] Failed to send regional matches push | topic=$topic | region=$region | version=$currentVersion", e)
+            logger.error("📲 [MATCH_TRACE] Failed to send regional matches push | topic=$topic | region=$region", e)
         }
     }
 
