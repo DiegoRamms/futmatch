@@ -28,6 +28,7 @@ interface UserRepository {
     suspend fun updateUser(id: UUID, updatedUser: User): Boolean
     suspend fun updateProfilePic(userId: UUID, fileName: String): Boolean
     suspend fun getActiveAdminIds(): List<UUID>
+    fun countActiveAdminsTx(): Long
     suspend fun getUserLocalesByIds(userIds: List<UUID>): Map<UUID, String>
     fun updateNameTx(userId: UUID, name: String, lastName: String): Boolean
     fun updateCountryTx(userId: UUID, countryCode: String): Boolean

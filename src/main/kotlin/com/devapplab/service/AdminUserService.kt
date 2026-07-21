@@ -7,6 +7,7 @@ import com.devapplab.model.AppResult
 import com.devapplab.model.auth.RefreshTokenStatusReason
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.UserRole
+import com.devapplab.model.user.UserStatus
 import com.devapplab.model.user.request.UpdateManagedUserAccessRequest
 import com.devapplab.model.user.response.AdminManagedUserPageResponse
 import com.devapplab.model.user.response.AdminManagedUserResponse
@@ -68,8 +69,8 @@ class AdminUserService(
         val targetUser = dbExecutor.tx { userRepository.getUserById(targetUserId) }
             ?: return rejected(locale, context, adminId, targetUserId, "user_not_found", null, HttpStatusCode.NotFound)
 
-        if (targetUser.userRole != UserRole.ORGANIZER) {
-            return rejected(locale, context, adminId, targetUserId, "non_organizer_target", StringResourcesKey.ADMIN_USER_TARGET_FORBIDDEN)
+        if (targetUser.userRole == UserRole.PLAYER) {
+            return rejected(locale, context, adminId, targetUserId, "player_target", StringResourcesKey.ADMIN_USER_TARGET_FORBIDDEN)
         }
 
         val role = request.role ?: targetUser.userRole
@@ -78,7 +79,14 @@ class AdminUserService(
             return AppResult.Success(true)
         }
 
+        val removesLastActiveAdmin =
+            targetUser.userRole == UserRole.ADMIN &&
+                targetUser.status == UserStatus.ACTIVE &&
+                (role != UserRole.ADMIN || status != UserStatus.ACTIVE)
         val updated = dbExecutor.tx {
+            if (removesLastActiveAdmin && userRepository.countActiveAdminsTx() <= 1) {
+                return@tx false
+            }
             val accessUpdated = userRepository.updateManagedUserAccess(targetUserId, role, status)
             if (accessUpdated) {
                 refreshTokenRepository.revokeActiveTokensByUserId(
@@ -100,7 +108,18 @@ class AdminUserService(
             )
             AppResult.Success(true)
         } else {
-            rejected(locale, context, adminId, targetUserId, "user_not_manageable", null, HttpStatusCode.NotFound)
+            if (removesLastActiveAdmin) {
+                rejected(
+                    locale,
+                    context,
+                    adminId,
+                    targetUserId,
+                    "last_active_admin",
+                    StringResourcesKey.ADMIN_USER_LAST_ACTIVE_ADMIN_FORBIDDEN
+                )
+            } else {
+                rejected(locale, context, adminId, targetUserId, "user_not_manageable", null, HttpStatusCode.NotFound)
+            }
         }
     }
 

@@ -148,6 +148,16 @@ class UserRepositoryImpl : UserRepository {
             .map { row -> row[UserTable.id] }
     }
 
+    override fun countActiveAdminsTx(): Long {
+        val countExpression = UserTable.id.count()
+        return UserTable.select(countExpression)
+            .where {
+                (UserTable.role eq UserRole.ADMIN) and
+                    (UserTable.status eq UserStatus.ACTIVE)
+            }
+            .single()[countExpression]
+    }
+
     override suspend fun getUserLocalesByIds(userIds: List<UUID>): Map<UUID, String> = dbQuery {
         if (userIds.isEmpty()) return@dbQuery emptyMap()
 
@@ -264,7 +274,7 @@ class UserRepositoryImpl : UserRepository {
 
     override fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean {
         return UserTable.update({
-            (UserTable.id eq userId) and (UserTable.role neq UserRole.ADMIN)
+            (UserTable.id eq userId) and (UserTable.role inList listOf(UserRole.ADMIN, UserRole.ORGANIZER))
         }) {
             it[UserTable.role] = role
             it[UserTable.status] = status

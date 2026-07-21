@@ -92,7 +92,7 @@ Accept-Language: es-MX
 
 ## 2. Update Organizer Access
 
-Changes the role, status, or both for an existing organizer account. At least one field is required.
+Changes the role, status, or both for an existing organizer or admin account. At least one field is required.
 
 - **Method:** `PATCH`
 - **Path:** `/admin/users/{userId}/access`
@@ -102,7 +102,7 @@ Changes the role, status, or both for an existing organizer account. At least on
 
 | Parameter | Type | Description |
 |:--|:--|:--|
-| `userId` | UUID | Identifier of the organizer to update. |
+| `userId` | UUID | Identifier of the organizer or admin to update. |
 
 ### Request Body
 
@@ -134,8 +134,9 @@ At least one of `role` or `status` must be present. Omitting a field preserves i
 ### Access Rules
 
 - An administrator cannot update their own administrative access through this endpoint.
-- Only accounts whose current role is `ORGANIZER` can be updated.
-- Existing `ADMIN` accounts and `PLAYER` accounts cannot be updated through this endpoint.
+- Accounts whose current role is `ORGANIZER` or `ADMIN` can be updated.
+- `PLAYER` accounts cannot be updated through this endpoint.
+- The last active administrator cannot be blocked, suspended, or demoted.
 - When the access data changes, all active refresh tokens for the target user are revoked with reason `ADMIN_REVOCATION`.
 - Access tokens already issued remain valid until their expiration time.
 
@@ -144,5 +145,5 @@ At least one of `role` or `status` must be present. Omitting a field preserves i
 | HTTP Status | Scenario |
 |:--|:--|
 | `400 Bad Request` | Pagination is invalid or neither `role` nor `status` was provided. |
-| `403 Forbidden` | The caller is not an admin, is trying to update themselves, or the target is not an organizer. |
+| `403 Forbidden` | The caller is not an admin, is trying to update themselves, the target is a player, or the change would remove the last active admin. |
 | `404 Not Found` | `userId` is invalid or no matching manageable user exists. |

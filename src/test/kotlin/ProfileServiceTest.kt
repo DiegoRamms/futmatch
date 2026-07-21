@@ -143,6 +143,57 @@ class ProfileServiceTest {
         assertEquals(true, success.data)
     }
 
+    @Test
+    fun `updateManagedUserAccess allows blocking another admin when another active admin remains`() = kotlinx.coroutines.runBlocking {
+        val adminId = UUID.randomUUID()
+        val targetAdminId = UUID.randomUUID()
+        val repository = FakeUserRepository(user = fakeUser(targetAdminId).copy(userRole = UserRole.ADMIN))
+        val service = AdminUserService(
+            dbExecutor = FakeDbExecutor(),
+            userRepository = repository,
+            refreshTokenRepository = FakeRefreshTokenRepository(),
+            imageService = FakeImageService()
+        )
+
+        val result = service.updateManagedUserAccess(
+            adminId = adminId,
+            targetUserId = targetAdminId,
+            request = UpdateManagedUserAccessRequest(status = UserStatus.BLOCKED),
+            locale = Locale.US,
+            context = testContext
+        )
+
+        assertEquals(UserStatus.BLOCKED, repository.user?.status)
+        assertEquals(true, (result as AppResult.Success).data)
+    }
+
+    @Test
+    fun `updateManagedUserAccess prevents blocking the last active admin`() = kotlinx.coroutines.runBlocking {
+        val adminId = UUID.randomUUID()
+        val targetAdminId = UUID.randomUUID()
+        val repository = FakeUserRepository(
+            user = fakeUser(targetAdminId).copy(userRole = UserRole.ADMIN),
+            activeAdminCount = 1
+        )
+        val service = AdminUserService(
+            dbExecutor = FakeDbExecutor(),
+            userRepository = repository,
+            refreshTokenRepository = FakeRefreshTokenRepository(),
+            imageService = FakeImageService()
+        )
+
+        val result = service.updateManagedUserAccess(
+            adminId = adminId,
+            targetUserId = targetAdminId,
+            request = UpdateManagedUserAccessRequest(status = UserStatus.BLOCKED),
+            locale = Locale.US,
+            context = testContext
+        )
+
+        assertEquals(UserStatus.ACTIVE, repository.user?.status)
+        assertEquals(403, (result as AppResult.Failure).status.value)
+    }
+
     private fun fakeUser(userId: UUID): UserBaseInfo {
         return UserBaseInfo(
             id = userId,
@@ -176,7 +227,8 @@ private class FakeImageService : ImageService {
 }
 
 private class FakeUserRepository(
-    var user: UserBaseInfo?
+    var user: UserBaseInfo?,
+    private val activeAdminCount: Long = 2
 ) : UserRepository {
     override fun getUserById(userId: UUID): UserBaseInfo? = user
 
@@ -202,10 +254,11 @@ private class FakeUserRepository(
     override fun getOrganizers(): List<OrganizerListItem> = error("not used")
     override fun getAdminManagedUsers(page: Int, pageSize: Int): AdminManagedUsersPage = error("not used")
     override suspend fun getActiveAdminIds(): List<UUID> = error("not used")
+    override fun countActiveAdminsTx(): Long = activeAdminCount
     override suspend fun getUserLocalesByIds(userIds: List<UUID>): Map<UUID, String> = error("not used")
     override fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean {
         val current = user ?: return false
-        if (current.id != userId || current.userRole == UserRole.ADMIN) return false
+        if (current.id != userId || current.userRole == UserRole.PLAYER) return false
         user = current.copy(userRole = role, status = status)
         return true
     }
