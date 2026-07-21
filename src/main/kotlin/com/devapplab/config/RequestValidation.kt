@@ -1,6 +1,7 @@
 package com.devapplab.config
 
 import com.devapplab.features.auth.validation.validate
+import com.devapplab.features.admin.validation.validate
 import com.devapplab.features.device.validation.validate
 import com.devapplab.features.field.validation.validate
 import com.devapplab.features.location.validation.validate
@@ -28,6 +29,7 @@ import com.devapplab.model.user.request.UpdateGenderRequest
 import com.devapplab.model.user.request.UpdateNameRequest
 import com.devapplab.model.user.request.UpdatePasswordRequest
 import com.devapplab.model.user.request.UpdatePositionRequest
+import com.devapplab.model.user.request.UpdateManagedUserAccessRequest
 import io.ktor.server.application.*
 import io.ktor.server.plugins.requestvalidation.*
 
@@ -106,6 +108,9 @@ fun Application.configureRequestValidation() {
             request.validate()
         }
         validate<UpdatePositionRequest> { request ->
+            request.validate()
+        }
+        validate<UpdateManagedUserAccessRequest> { request ->
             request.validate()
         }
     }

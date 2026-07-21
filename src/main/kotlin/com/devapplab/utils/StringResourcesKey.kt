@@ -231,6 +231,11 @@ enum class StringResourcesKey(val value: String) {
     USER_PROFILE_GENDER_INVALID("user_profile_gender_invalid"),
     USER_PROFILE_POSITION_INVALID("user_profile_position_invalid"),
 
+    ADMIN_USER_ACCESS_UPDATE_REQUIRED("admin_user_access_update_required"),
+    ADMIN_USER_PAGE_INVALID("admin_user_page_invalid"),
+    ADMIN_USER_SELF_UPDATE_FORBIDDEN("admin_user_self_update_forbidden"),
+    ADMIN_USER_TARGET_FORBIDDEN("admin_user_target_forbidden"),
+
     // Demo Matches
     DEMO_MATCH_TITLE("demo_match_title"),
     DEMO_MATCH_DESCRIPTION("demo_match_description"),

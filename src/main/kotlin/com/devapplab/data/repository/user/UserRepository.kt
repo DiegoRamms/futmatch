@@ -5,9 +5,12 @@ import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.PlayerPosition
+import com.devapplab.model.user.AdminManagedUsersPage
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.UserHomeProfile
+import com.devapplab.model.user.UserRole
+import com.devapplab.model.user.UserStatus
 import com.devapplab.model.user.response.OrganizerListItem
 import java.util.*
 
@@ -35,4 +38,6 @@ interface UserRepository {
     suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String?
     suspend fun upsertPaymentProfile(userId: UUID, provider: PaymentProvider, providerCustomerId: String): Boolean
     fun getOrganizers(): List<OrganizerListItem>
+    fun getAdminManagedUsers(page: Int, pageSize: Int): AdminManagedUsersPage
+    fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean
 }

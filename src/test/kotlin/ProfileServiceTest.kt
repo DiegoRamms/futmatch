@@ -1,6 +1,11 @@
 import com.devapplab.data.database.executor.DbExecutor
+import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.user.UserRepository
+import com.devapplab.model.auth.RefreshTokenRecord
+import com.devapplab.model.auth.RefreshTokenStatus
+import com.devapplab.model.auth.RefreshTokenStatusReason
+import com.devapplab.model.auth.RefreshTokenValidationRecord
 import com.devapplab.model.AppResult
 import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.match.*
@@ -8,6 +13,8 @@ import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.*
 import com.devapplab.model.user.response.OrganizerListItem
 import com.devapplab.observability.AppRequestContext
+import com.devapplab.model.user.request.UpdateManagedUserAccessRequest
+import com.devapplab.service.AdminUserService
 import com.devapplab.service.ProfileService
 import com.devapplab.service.image.ImageService
 import io.ktor.http.content.*
@@ -108,6 +115,34 @@ class ProfileServiceTest {
         assertEquals(404, failure.status.value)
     }
 
+    @Test
+    fun `updateManagedUserAccess revokes refresh tokens after blocking organizer`() = kotlinx.coroutines.runBlocking {
+        val adminId = UUID.randomUUID()
+        val organizerId = UUID.randomUUID()
+        val repository = FakeUserRepository(user = fakeUser(organizerId).copy(userRole = UserRole.ORGANIZER))
+        val refreshTokenRepository = FakeRefreshTokenRepository()
+        val service = AdminUserService(
+            dbExecutor = FakeDbExecutor(),
+            userRepository = repository,
+            refreshTokenRepository = refreshTokenRepository,
+            imageService = FakeImageService()
+        )
+
+        val result = service.updateManagedUserAccess(
+            adminId = adminId,
+            targetUserId = organizerId,
+            request = UpdateManagedUserAccessRequest(status = UserStatus.BLOCKED),
+            locale = Locale.US,
+            context = testContext
+        )
+
+        assertEquals(UserStatus.BLOCKED, repository.user?.status)
+        assertEquals(organizerId, refreshTokenRepository.revokedUserId)
+        val success = result as AppResult.Success
+        assertEquals(200, success.status.value)
+        assertEquals(true, success.data)
+    }
+
     private fun fakeUser(userId: UUID): UserBaseInfo {
         return UserBaseInfo(
             id = userId,
@@ -141,7 +176,7 @@ private class FakeImageService : ImageService {
 }
 
 private class FakeUserRepository(
-    private val user: UserBaseInfo?
+    var user: UserBaseInfo?
 ) : UserRepository {
     override fun getUserById(userId: UUID): UserBaseInfo? = user
 
@@ -165,8 +200,32 @@ private class FakeUserRepository(
     override suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String? = error("not used")
     override suspend fun upsertPaymentProfile(userId: UUID, provider: PaymentProvider, providerCustomerId: String): Boolean = error("not used")
     override fun getOrganizers(): List<OrganizerListItem> = error("not used")
+    override fun getAdminManagedUsers(page: Int, pageSize: Int): AdminManagedUsersPage = error("not used")
     override suspend fun getActiveAdminIds(): List<UUID> = error("not used")
     override suspend fun getUserLocalesByIds(userIds: List<UUID>): Map<UUID, String> = error("not used")
+    override fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean {
+        val current = user ?: return false
+        if (current.id != userId || current.userRole == UserRole.ADMIN) return false
+        user = current.copy(userRole = role, status = status)
+        return true
+    }
+}
+
+private class FakeRefreshTokenRepository : RefreshTokenRepository {
+    var revokedUserId: UUID? = null
+
+    override fun saveToken(userId: UUID, deviceId: UUID, token: String, expiresAt: Long): UUID = error("not used")
+    override fun findByTokenHash(tokenHash: String): RefreshTokenRecord? = error("not used")
+    override fun findValidationByTokenHash(tokenHash: String): RefreshTokenValidationRecord? = error("not used")
+    override fun markTokenAsRotatedIfActive(tokenId: UUID, changedAt: Long): Boolean = error("not used")
+    override fun markPreviousActiveTokensAsRotated(deviceId: UUID, currentTokenId: UUID, changedAt: Long): Boolean = error("not used")
+    override fun updateTokenStatus(tokenId: UUID, status: RefreshTokenStatus, reason: RefreshTokenStatusReason, changedAt: Long): Boolean = error("not used")
+    override fun revokeActiveTokens(deviceId: UUID, reason: RefreshTokenStatusReason, changedAt: Long): Boolean = error("not used")
+    override fun revokeActiveTokensByUserId(userId: UUID, reason: RefreshTokenStatusReason, changedAt: Long): Int {
+        revokedUserId = userId
+        return 1
+    }
+    override suspend fun deleteRevokedTokens(): Boolean = error("not used")
 }
 
 private class FakeMatchRepository(

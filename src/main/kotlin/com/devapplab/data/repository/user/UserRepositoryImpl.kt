@@ -6,6 +6,7 @@ import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.Gender
+import com.devapplab.model.user.AdminManagedUsersPage
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.User
@@ -242,6 +243,33 @@ class UserRepositoryImpl : UserRepository {
                 name = it[UserTable.name],
                 lastName = it[UserTable.lastName]
             ) }
+    }
+
+    override fun getAdminManagedUsers(page: Int, pageSize: Int): AdminManagedUsersPage {
+        val managedUsersFilter = (UserTable.role eq UserRole.ADMIN) or (UserTable.role eq UserRole.ORGANIZER)
+        val totalExpression = UserTable.id.count()
+        val total = UserTable.select(totalExpression)
+            .where { managedUsersFilter }
+            .single()[totalExpression]
+
+        val items = UserTable.selectAll()
+            .where { managedUsersFilter }
+            .orderBy(UserTable.createdAt, SortOrder.DESC)
+            .limit(page * pageSize)
+            .map { it.toUserBaseInfo() }
+            .drop((page - 1) * pageSize)
+
+        return AdminManagedUsersPage(items = items, total = total)
+    }
+
+    override fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean {
+        return UserTable.update({
+            (UserTable.id eq userId) and (UserTable.role neq UserRole.ADMIN)
+        }) {
+            it[UserTable.role] = role
+            it[UserTable.status] = status
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
     }
 
     private fun ResultRow.toUser(): User {

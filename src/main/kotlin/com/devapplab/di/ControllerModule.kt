@@ -1,6 +1,7 @@
 package com.devapplab.di
 
 import com.devapplab.features.auth.AuthController
+import com.devapplab.features.admin.AdminUserController
 import com.devapplab.features.cron.CronController
 import com.devapplab.features.device.DeviceController
 import com.devapplab.features.field.FieldController
@@ -18,6 +19,7 @@ import org.koin.module.requestScope
 val controllerModule = module {
     requestScope {
         scopedOf(::AuthController)
+        scopedOf(::AdminUserController)
         scopedOf(::UserController)
         scopedOf(::FieldController)
         scopedOf(::MatchController)
