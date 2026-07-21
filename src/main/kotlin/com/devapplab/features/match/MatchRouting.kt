@@ -20,7 +20,7 @@ fun Route.matchRouting() {
             matchController.getMatchesByFieldId(call)
         }
         get("admin/matches") {
-            call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
+            call.requireRole(UserRole.ADMIN)
             val matchController = call.scope.get<MatchController>()
             matchController.getAllMatches(call)
         }
