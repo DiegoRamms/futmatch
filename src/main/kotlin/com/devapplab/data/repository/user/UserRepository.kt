@@ -39,6 +39,11 @@ interface UserRepository {
     suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String?
     suspend fun upsertPaymentProfile(userId: UUID, provider: PaymentProvider, providerCustomerId: String): Boolean
     fun getOrganizers(): List<OrganizerListItem>
-    fun getAdminManagedUsers(page: Int, pageSize: Int): AdminManagedUsersPage
+    fun getAdminManagedUsers(
+        page: Int,
+        pageSize: Int,
+        roles: Set<UserRole>,
+        statuses: Set<UserStatus>
+    ): AdminManagedUsersPage
     fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean
 }

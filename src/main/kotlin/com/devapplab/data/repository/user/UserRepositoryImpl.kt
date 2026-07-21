@@ -255,8 +255,16 @@ class UserRepositoryImpl : UserRepository {
             ) }
     }
 
-    override fun getAdminManagedUsers(page: Int, pageSize: Int): AdminManagedUsersPage {
-        val managedUsersFilter = (UserTable.role eq UserRole.ADMIN) or (UserTable.role eq UserRole.ORGANIZER)
+    override fun getAdminManagedUsers(
+        page: Int,
+        pageSize: Int,
+        roles: Set<UserRole>,
+        statuses: Set<UserStatus>
+    ): AdminManagedUsersPage {
+        var managedUsersFilter: Op<Boolean> = UserTable.role inList roles.toList()
+        if (statuses.isNotEmpty()) {
+            managedUsersFilter = managedUsersFilter and (UserTable.status inList statuses.toList())
+        }
         val totalExpression = UserTable.id.count()
         val total = UserTable.select(totalExpression)
             .where { managedUsersFilter }
@@ -273,9 +281,7 @@ class UserRepositoryImpl : UserRepository {
     }
 
     override fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean {
-        return UserTable.update({
-            (UserTable.id eq userId) and (UserTable.role inList listOf(UserRole.ADMIN, UserRole.ORGANIZER))
-        }) {
+        return UserTable.update({ UserTable.id eq userId }) {
             it[UserTable.role] = role
             it[UserTable.status] = status
             it[updatedAt] = System.currentTimeMillis()

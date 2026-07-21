@@ -194,6 +194,53 @@ class ProfileServiceTest {
         assertEquals(403, (result as AppResult.Failure).status.value)
     }
 
+    @Test
+    fun `updateManagedUserAccess allows blocking a player`() = kotlinx.coroutines.runBlocking {
+        val adminId = UUID.randomUUID()
+        val playerId = UUID.randomUUID()
+        val repository = FakeUserRepository(user = fakeUser(playerId))
+        val service = AdminUserService(
+            dbExecutor = FakeDbExecutor(),
+            userRepository = repository,
+            refreshTokenRepository = FakeRefreshTokenRepository(),
+            imageService = FakeImageService()
+        )
+
+        val result = service.updateManagedUserAccess(
+            adminId = adminId,
+            targetUserId = playerId,
+            request = UpdateManagedUserAccessRequest(status = UserStatus.BLOCKED),
+            locale = Locale.US,
+            context = testContext
+        )
+
+        assertEquals(UserStatus.BLOCKED, repository.user?.status)
+        assertEquals(true, (result as AppResult.Success).data)
+    }
+
+    @Test
+    fun `getManagedUsers forwards player and status filters to repository`() = kotlinx.coroutines.runBlocking {
+        val repository = FakeUserRepository(user = null)
+        val service = AdminUserService(
+            dbExecutor = FakeDbExecutor(),
+            userRepository = repository,
+            refreshTokenRepository = FakeRefreshTokenRepository(),
+            imageService = FakeImageService()
+        )
+
+        val result = service.getManagedUsers(
+            page = 2,
+            pageSize = 10,
+            roleValues = listOf("PLAYER"),
+            statusValues = listOf("ACTIVE,BLOCKED"),
+            locale = Locale.US
+        )
+
+        assertEquals(setOf(UserRole.PLAYER), repository.requestedRoles)
+        assertEquals(setOf(UserStatus.ACTIVE, UserStatus.BLOCKED), repository.requestedStatuses)
+        assertEquals(2, (result as AppResult.Success).data.page)
+    }
+
     private fun fakeUser(userId: UUID): UserBaseInfo {
         return UserBaseInfo(
             id = userId,
@@ -230,6 +277,8 @@ private class FakeUserRepository(
     var user: UserBaseInfo?,
     private val activeAdminCount: Long = 2
 ) : UserRepository {
+    var requestedRoles: Set<UserRole>? = null
+    var requestedStatuses: Set<UserStatus>? = null
     override fun getUserById(userId: UUID): UserBaseInfo? = user
 
     override fun create(pendingUser: PendingUser): User = error("not used")
@@ -252,13 +301,22 @@ private class FakeUserRepository(
     override suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String? = error("not used")
     override suspend fun upsertPaymentProfile(userId: UUID, provider: PaymentProvider, providerCustomerId: String): Boolean = error("not used")
     override fun getOrganizers(): List<OrganizerListItem> = error("not used")
-    override fun getAdminManagedUsers(page: Int, pageSize: Int): AdminManagedUsersPage = error("not used")
+    override fun getAdminManagedUsers(
+        page: Int,
+        pageSize: Int,
+        roles: Set<UserRole>,
+        statuses: Set<UserStatus>
+    ): AdminManagedUsersPage {
+        requestedRoles = roles
+        requestedStatuses = statuses
+        return AdminManagedUsersPage(items = emptyList(), total = 0)
+    }
     override suspend fun getActiveAdminIds(): List<UUID> = error("not used")
     override fun countActiveAdminsTx(): Long = activeAdminCount
     override suspend fun getUserLocalesByIds(userIds: List<UUID>): Map<UUID, String> = error("not used")
     override fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean {
         val current = user ?: return false
-        if (current.id != userId || current.userRole == UserRole.PLAYER) return false
+        if (current.id != userId) return false
         user = current.copy(userRole = role, status = status)
         return true
     }

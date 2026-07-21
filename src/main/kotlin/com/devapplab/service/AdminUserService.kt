@@ -34,6 +34,8 @@ class AdminUserService(
     suspend fun getManagedUsers(
         page: Int,
         pageSize: Int,
+        roleValues: List<String>?,
+        statusValues: List<String>?,
         locale: Locale
     ): AppResult<AdminManagedUserPageResponse> {
         if (page !in 1..1_000 || pageSize !in 1..100) {
@@ -44,7 +46,20 @@ class AdminUserService(
             )
         }
 
-        val result = dbExecutor.tx { userRepository.getAdminManagedUsers(page, pageSize) }
+        val roles = parseEnumFilter(roleValues, UserRole.entries, DEFAULT_MANAGED_ROLES)
+            ?: return locale.createError(
+                titleKey = StringResourcesKey.ADMIN_USER_ROLES_INVALID,
+                descriptionKey = StringResourcesKey.ADMIN_USER_ROLES_INVALID,
+                status = HttpStatusCode.BadRequest
+            )
+        val statuses = parseEnumFilter(statusValues, UserStatus.entries, emptySet<UserStatus>())
+            ?: return locale.createError(
+                titleKey = StringResourcesKey.ADMIN_USER_STATUSES_INVALID,
+                descriptionKey = StringResourcesKey.ADMIN_USER_STATUSES_INVALID,
+                status = HttpStatusCode.BadRequest
+            )
+
+        val result = dbExecutor.tx { userRepository.getAdminManagedUsers(page, pageSize, roles, statuses) }
         return AppResult.Success(
             AdminManagedUserPageResponse(
                 items = result.items.map(::toResponse),
@@ -68,10 +83,6 @@ class AdminUserService(
 
         val targetUser = dbExecutor.tx { userRepository.getUserById(targetUserId) }
             ?: return rejected(locale, context, adminId, targetUserId, "user_not_found", null, HttpStatusCode.NotFound)
-
-        if (targetUser.userRole == UserRole.PLAYER) {
-            return rejected(locale, context, adminId, targetUserId, "player_target", StringResourcesKey.ADMIN_USER_TARGET_FORBIDDEN)
-        }
 
         val role = request.role ?: targetUser.userRole
         val status = request.status ?: targetUser.status
@@ -144,6 +155,23 @@ class AdminUserService(
         )
     }
 
+    private fun <T : Enum<T>> parseEnumFilter(
+        values: List<String>?,
+        entries: Iterable<T>,
+        defaultValues: Set<T>
+    ): Set<T>? {
+        if (values.isNullOrEmpty()) return defaultValues
+
+        val filterValues = values
+            .flatMap { it.split(',') }
+            .map { it.trim() }
+        if (filterValues.isEmpty() || filterValues.any(String::isEmpty)) return null
+
+        return filterValues.map { value ->
+            entries.firstOrNull { it.name == value.uppercase(Locale.ROOT) } ?: return null
+        }.toSet()
+    }
+
     private fun rejected(
         locale: Locale,
         context: AppRequestContext,
@@ -162,5 +190,9 @@ class AdminUserService(
             extra = mapOf("targetUserId" to targetUserId.toString())
         )
         return locale.createError(titleKey = key, descriptionKey = key, status = status)
+    }
+
+    private companion object {
+        val DEFAULT_MANAGED_ROLES = setOf(UserRole.ADMIN, UserRole.ORGANIZER)
     }
 }

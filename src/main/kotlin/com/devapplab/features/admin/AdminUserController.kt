@@ -18,7 +18,13 @@ class AdminUserController(private val service: AdminUserService) {
         val pageSizeValue = call.request.queryParameters["pageSize"]
         val page = pageValue?.toIntOrNull() ?: if (pageValue == null) 1 else INVALID_PAGE_VALUE
         val pageSize = pageSizeValue?.toIntOrNull() ?: if (pageSizeValue == null) DEFAULT_PAGE_SIZE else INVALID_PAGE_VALUE
-        val result = service.getManagedUsers(page, pageSize, call.retrieveLocale())
+        val result = service.getManagedUsers(
+            page = page,
+            pageSize = pageSize,
+            roleValues = call.request.queryParameters.getAll("roles"),
+            statusValues = call.request.queryParameters.getAll("statuses"),
+            locale = call.retrieveLocale()
+        )
         call.respond(result)
     }
 

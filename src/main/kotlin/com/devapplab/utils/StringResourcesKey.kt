@@ -234,8 +234,9 @@ enum class StringResourcesKey(val value: String) {
     ADMIN_USER_ACCESS_UPDATE_REQUIRED("admin_user_access_update_required"),
     ADMIN_USER_PAGE_INVALID("admin_user_page_invalid"),
     ADMIN_USER_SELF_UPDATE_FORBIDDEN("admin_user_self_update_forbidden"),
-    ADMIN_USER_TARGET_FORBIDDEN("admin_user_target_forbidden"),
     ADMIN_USER_LAST_ACTIVE_ADMIN_FORBIDDEN("admin_user_last_active_admin_forbidden"),
+    ADMIN_USER_ROLES_INVALID("admin_user_roles_invalid"),
+    ADMIN_USER_STATUSES_INVALID("admin_user_statuses_invalid"),
 
     // Demo Matches
     DEMO_MATCH_TITLE("demo_match_title"),
