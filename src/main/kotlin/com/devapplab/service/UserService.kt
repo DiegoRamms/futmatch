@@ -84,6 +84,13 @@ class UserService(
             )
         }
 
+        return performAccountDeletion(userId, locale, context)
+    }
+
+    suspend fun deleteAccountByAdministrator(targetUserId: UUID, locale: Locale, context: AppRequestContext): AppResult<String> =
+        performAccountDeletion(targetUserId, locale, context)
+
+    private suspend fun performAccountDeletion(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<String> {
         val now = System.currentTimeMillis()
         val deletedPasswordHash = hashingService.hash(UUID.randomUUID().toString())
         val profilePic = dbExecutor.tx { userRepository.getUserById(userId)?.profilePic }

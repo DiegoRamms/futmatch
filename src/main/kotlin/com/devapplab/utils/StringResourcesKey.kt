@@ -29,6 +29,11 @@ enum class StringResourcesKey(val value: String) {
     ACCOUNT_DELETION_BLOCKED_TITLE("account_deletion_blocked_title"),
     ACCOUNT_DELETION_BLOCKED_DESCRIPTION("account_deletion_blocked_description"),
     ACCOUNT_DELETION_SUCCESS_MESSAGE("account_deletion_success_message"),
+    ADMIN_USER_DELETE_PASSWORD_REQUIRED("admin_user_delete_password_required"),
+    ADMIN_USER_DELETE_INVALID_PASSWORD_TITLE("admin_user_delete_invalid_password_title"),
+    ADMIN_USER_DELETE_INVALID_PASSWORD_DESCRIPTION("admin_user_delete_invalid_password_description"),
+    ADMIN_USER_DELETE_FORBIDDEN_TITLE("admin_user_delete_forbidden_title"),
+    ADMIN_USER_DELETE_FORBIDDEN_DESCRIPTION("admin_user_delete_forbidden_description"),
 
     AUTH_ACCOUNT_LOCKED_TITLE("AUTH_ACCOUNT_LOCKED_TITLE"),
     AUTH_ACCOUNT_LOCKED_DESCRIPTION("AUTH_ACCOUNT_LOCKED_DESCRIPTION"),

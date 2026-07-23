@@ -5,6 +5,7 @@ import com.devapplab.model.user.UserRole
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.route
 import org.koin.ktor.plugin.scope
 
@@ -18,6 +19,16 @@ fun Route.adminUserRouting() {
         patch("/{userId}/access") {
             call.requireRole(UserRole.ADMIN)
             call.scope.get<AdminUserController>().updateManagedUserAccess(call)
+        }
+
+        get("/{userId}/deletion-preview") {
+            call.requireRole(UserRole.ADMIN)
+            call.scope.get<AdminUserController>().getDeletionPreview(call)
+        }
+
+        delete("/{userId}") {
+            call.requireRole(UserRole.ADMIN)
+            call.scope.get<AdminUserController>().deleteUser(call)
         }
     }
 }

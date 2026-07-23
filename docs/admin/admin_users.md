@@ -148,3 +148,21 @@ At least one of `role` or `status` must be present. Omitting a field preserves i
 | `400 Bad Request` | Pagination is invalid or neither `role` nor `status` was provided. |
 | `403 Forbidden` | The caller is not an admin, is trying to update themselves, or the change would remove the last active admin. |
 | `404 Not Found` | `userId` is invalid or no matching manageable user exists. |
+
+---
+
+## 3. User Deletion Preview and Deletion
+
+- **Preview:** `GET /admin/users/{userId}/deletion-preview`
+- **Delete:** `DELETE /admin/users/{userId}`
+- **Required role:** `ADMIN`
+
+The preview returns the target's name, email, role, status, `canDelete`, and a technical `blockReason` when applicable. This lets the client show the admin exactly which account is about to be affected.
+
+Deletion requires the current administrator password:
+
+```json
+{ "password": "current-admin-password" }
+```
+
+The endpoint rejects self-deletion, inactive accounts, the last active administrator, and users that organize or participate in a scheduled or in-progress match. On success it runs the same anonymization, credential revocation, and profile-image cleanup flow as self-deletion.

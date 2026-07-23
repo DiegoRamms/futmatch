@@ -3,6 +3,7 @@ package com.devapplab.features.admin
 import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.user.request.UpdateManagedUserAccessRequest
+import com.devapplab.model.user.request.AdminDeleteUserRequest
 import com.devapplab.observability.requestContext
 import com.devapplab.service.AdminUserService
 import com.devapplab.utils.respond
@@ -39,6 +40,24 @@ class AdminUserController(private val service: AdminUserService) {
             request = request,
             locale = call.retrieveLocale(),
             context = call.requestContext()
+        )
+        call.respond(result)
+    }
+
+    suspend fun getDeletionPreview(call: ApplicationCall) {
+        val targetUserId = call.parameters["userId"]?.toUUIDOrNull()
+            ?: throw NotFoundException("Managed user was not found")
+        val result = service.getDeletionPreview(call.getIdentifier(ClaimType.USER_IDENTIFIER), targetUserId, call.retrieveLocale())
+        call.respond(result)
+    }
+
+    suspend fun deleteUser(call: ApplicationCall) {
+        val targetUserId = call.parameters["userId"]?.toUUIDOrNull()
+            ?: throw NotFoundException("Managed user was not found")
+        val request = call.receive<AdminDeleteUserRequest>()
+        val result = service.deleteUser(
+            call.getIdentifier(ClaimType.USER_IDENTIFIER), targetUserId, request.password,
+            call.retrieveLocale(), call.requestContext()
         )
         call.respond(result)
     }

@@ -11,10 +11,12 @@ import com.devapplab.model.user.UserStatus
 import com.devapplab.model.user.request.UpdateManagedUserAccessRequest
 import com.devapplab.model.user.response.AdminManagedUserPageResponse
 import com.devapplab.model.user.response.AdminManagedUserResponse
+import com.devapplab.model.user.response.AdminUserDeletionPreviewResponse
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.image.ImageService
+import com.devapplab.service.hashing.HashingService
 import com.devapplab.utils.Constants
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
@@ -27,7 +29,9 @@ class AdminUserService(
     private val dbExecutor: DbExecutor,
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
-    private val imageService: ImageService
+    private val imageService: ImageService,
+    private val hashingService: HashingService? = null,
+    private val userService: UserService? = null
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -132,6 +136,54 @@ class AdminUserService(
                 rejected(locale, context, adminId, targetUserId, "user_not_manageable", null, HttpStatusCode.NotFound)
             }
         }
+    }
+
+    suspend fun getDeletionPreview(adminId: UUID, targetUserId: UUID, locale: Locale): AppResult<AdminUserDeletionPreviewResponse> {
+        val target = dbExecutor.tx { userRepository.getUserById(targetUserId) }
+            ?: return locale.createError(status = HttpStatusCode.NotFound)
+        val reason = dbExecutor.tx { deletionBlockReason(adminId, target) }
+        return AppResult.Success(
+            AdminUserDeletionPreviewResponse(
+                id = target.id, name = target.name, lastName = target.lastName, email = target.email,
+                role = target.userRole, status = target.status, canDelete = reason == null, blockReason = reason
+            )
+        )
+    }
+
+    suspend fun deleteUser(
+        adminId: UUID, targetUserId: UUID, password: String, locale: Locale, context: AppRequestContext
+    ): AppResult<String> {
+        val admin = dbExecutor.tx { userRepository.getUserSignInInfoById(adminId) }
+            ?: return locale.createError(status = HttpStatusCode.Unauthorized)
+        if (admin.status != UserStatus.ACTIVE || hashingService == null || !hashingService.verify(password.trim(), admin.password)) {
+            return locale.createError(
+                StringResourcesKey.ADMIN_USER_DELETE_INVALID_PASSWORD_TITLE,
+                StringResourcesKey.ADMIN_USER_DELETE_INVALID_PASSWORD_DESCRIPTION,
+                status = HttpStatusCode.Unauthorized
+            )
+        }
+        val target = dbExecutor.tx { userRepository.getUserById(targetUserId) }
+            ?: return locale.createError(status = HttpStatusCode.NotFound)
+        val reason = dbExecutor.tx { deletionBlockReason(adminId, target) }
+        if (reason != null) return locale.createError(
+            StringResourcesKey.ADMIN_USER_DELETE_FORBIDDEN_TITLE,
+            StringResourcesKey.ADMIN_USER_DELETE_FORBIDDEN_DESCRIPTION,
+            status = HttpStatusCode.Conflict
+        )
+        val deletionService = userService ?: return locale.createError(status = HttpStatusCode.InternalServerError)
+        val result = deletionService.deleteAccountByAdministrator(targetUserId, locale, context)
+        if (result is AppResult.Success) {
+            logger.appSuccess("admin.user.deleted", context, userId = adminId, statusCode = HttpStatusCode.OK.value, extra = mapOf("targetUserId" to targetUserId.toString()))
+        }
+        return result
+    }
+
+    private fun deletionBlockReason(adminId: UUID, target: UserBaseInfo): String? = when {
+        adminId == target.id -> "self_deletion"
+        target.status != UserStatus.ACTIVE -> "user_not_active"
+        target.userRole == UserRole.ADMIN && userRepository.countActiveAdminsTx() <= 1 -> "last_active_admin"
+        userRepository.hasAccountDeletionBlockersTx(target.id) -> "active_match"
+        else -> null
     }
 
     private fun toResponse(user: UserBaseInfo): AdminManagedUserResponse {
