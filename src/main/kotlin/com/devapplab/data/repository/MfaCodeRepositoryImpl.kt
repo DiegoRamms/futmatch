@@ -108,6 +108,9 @@ class MfaCodeRepositoryImpl : MfaCodeRepository {
             .count()
     }
 
+    override fun deleteByUserIdTx(userId: UUID): Int =
+        MfaCodeTable.deleteWhere { MfaCodeTable.userId eq userId }
+
     override suspend fun deleteExpiredMfaCodes(): Boolean {
         return dbQuery {
             MfaCodeTable.deleteWhere {

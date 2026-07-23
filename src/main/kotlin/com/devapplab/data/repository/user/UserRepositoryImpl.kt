@@ -3,6 +3,8 @@ package com.devapplab.data.repository.user
 import com.devapplab.config.dbQuery
 import com.devapplab.data.database.user.UserPaymentProfileTable
 import com.devapplab.data.database.user.UserTable
+import com.devapplab.data.database.match.MatchPlayersTable
+import com.devapplab.data.database.match.MatchTable
 import com.devapplab.model.auth.UserSignInInfo
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.Gender
@@ -14,6 +16,8 @@ import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.UserHomeProfile
 import com.devapplab.model.user.UserRole
 import com.devapplab.model.user.UserStatus
+import com.devapplab.model.match.MatchPlayerStatus
+import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.user.response.OrganizerListItem
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
@@ -113,6 +117,14 @@ class UserRepositoryImpl : UserRepository {
             )
         }
     }
+
+    override fun getUserSignInInfoById(userId: UUID): UserSignInInfo? =
+        UserTable.selectAll().where { UserTable.id eq userId }.firstOrNull()?.let { row ->
+            UserSignInInfo(
+                userId = row[UserTable.id], userRole = row[UserTable.role], password = row[UserTable.password],
+                status = row[UserTable.status], isEmailVerified = row[UserTable.isEmailVerified]
+            )
+        }
 
     override suspend fun updateUser(id: UUID, updatedUser: User): Boolean = dbQuery {
         UserTable.update({ UserTable.id eq id }) {
@@ -287,6 +299,49 @@ class UserRepositoryImpl : UserRepository {
             it[updatedAt] = System.currentTimeMillis()
         } > 0
     }
+
+    override fun hasAccountDeletionBlockersTx(userId: UUID): Boolean {
+        val administersActiveMatch = MatchTable.select(MatchTable.id)
+            .where {
+                (MatchTable.adminId eq userId) and
+                    (MatchTable.status inList listOf(MatchStatus.SCHEDULED, MatchStatus.IN_PROGRESS))
+            }
+            .limit(1)
+            .any()
+        if (administersActiveMatch) return true
+        return (MatchPlayersTable innerJoin MatchTable)
+            .select(MatchPlayersTable.matchId)
+            .where {
+                (MatchPlayersTable.userId eq userId) and
+                    (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                    (MatchTable.status inList listOf(MatchStatus.SCHEDULED, MatchStatus.IN_PROGRESS))
+            }
+            .limit(1)
+            .any()
+    }
+
+    override fun anonymizeAccountTx(userId: UUID, anonymousEmail: String, anonymousPhone: String, passwordHash: String, now: Long): Boolean {
+        val updated = UserTable.update({ (UserTable.id eq userId) and (UserTable.status eq UserStatus.ACTIVE) }) {
+            it[name] = "Deleted"
+            it[lastName] = "User"
+            it[email] = anonymousEmail
+            it[phone] = anonymousPhone
+            it[password] = passwordHash
+            it[profilePic] = null
+            it[isEmailVerified] = false
+            it[isNotificationsEnabled] = false
+            it[status] = UserStatus.DELETED
+            it[deletedAt] = now
+            it[anonymizedAt] = now
+            it[updatedAt] = now
+        }
+        return updated == 1
+    }
+
+    override fun isActiveUserTx(userId: UUID): Boolean = UserTable.select(UserTable.id)
+        .where { (UserTable.id eq userId) and (UserTable.status eq UserStatus.ACTIVE) }
+        .limit(1)
+        .any()
 
     private fun ResultRow.toUser(): User {
         return User(

@@ -26,6 +26,7 @@ object DataCleanupScheduler : KoinComponent {
                     logger.info("🧹 Running data cleanup...")
                     cleanupDataService.cleanupData()
                     cleanupDataService.cleanupExpiredPendingRegistrations()
+                    cleanupDataService.cleanupProfileImages()
                     logger.info("✅ Data cleanup completed successfully")
                 } catch (e: Exception) {
                     logger.error("❌ Error in data cleanup cycle", e)

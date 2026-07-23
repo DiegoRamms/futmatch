@@ -6,6 +6,7 @@ import com.devapplab.model.user.request.UpdateCountryRequest
 import com.devapplab.model.user.request.UpdateGenderRequest
 import com.devapplab.model.user.request.UpdateNameRequest
 import com.devapplab.model.user.request.UpdatePositionRequest
+import com.devapplab.model.user.request.DeleteAccountRequest
 import com.devapplab.observability.requestContext
 import com.devapplab.service.UserService
 import com.devapplab.utils.respond
@@ -76,6 +77,14 @@ class UserController(private val service: UserService) {
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdatePositionRequest>()
         val result = service.updatePosition(userId, request.position, locale, call.requestContext())
+        call.respond(result)
+    }
+
+    suspend fun deleteAccount(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val request = call.receive<DeleteAccountRequest>()
+        val result = service.deleteAccount(userId, request.password, request.confirmation, locale, call.requestContext())
         call.respond(result)
     }
 }

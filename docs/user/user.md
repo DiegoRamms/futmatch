@@ -106,6 +106,18 @@ Perfil público de otro jugador para vista de visita; **incluye `lastMatch`** pa
 
 ## Conceptos Comunes
 
+## Eliminación de cuenta
+
+### `DELETE /user/me`
+
+Desactiva y anonimiza la cuenta autenticada sin eliminar el historial de partidos ni pagos.
+
+- **Auth:** Bearer token requerido.
+- **Body:** `{ "password": "current-password", "confirmation": "DELETE_MY_ACCOUNT" }`.
+- **Resultado:** revoca los refresh tokens, desactiva los dispositivos y sus tokens FCM, elimina códigos MFA y tokens de restablecimiento pendientes, revoca challenges MFA de inicio de sesión, borra la foto de perfil y reemplaza los datos personales. El correo queda disponible para un registro nuevo.
+- **Limpieza de foto:** si Cloudinary no responde al momento de la baja, se registra una tarea persistente y el proceso diario de limpieza la reintenta.
+- **Conflicto (`409`):** se rechaza si la cuenta organiza o participa con reserva/confirmación en un partido programado o en curso. Las canchas y los partidos finalizados permanecen asignados al usuario anonimizado.
+
 ### AppResult
 
 Todos los endpoints retornan un objeto `AppResult` estandarizado.

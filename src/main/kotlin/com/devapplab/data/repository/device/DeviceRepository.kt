@@ -9,6 +9,7 @@ interface DeviceRepository {
     fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean
     fun markDeviceAsTrusted(deviceId: UUID): Boolean
     fun changeDeviceLastUsed(deviceId: UUID): Boolean
+    fun deactivateDevicesByUserIdTx(userId: UUID, changedAt: Long): Int
     suspend fun updateDeviceFcmToken(
         deviceId: UUID,
         platform: DevicePlatform,

@@ -111,6 +111,9 @@ class LoginMfaVerifyAttemptRepositoryImpl : LoginMfaVerifyAttemptRepository {
         } > 0
     }
 
+    override fun deleteByUserIdTx(userId: UUID): Int =
+        LoginMfaVerifyAttemptTable.deleteWhere { LoginMfaVerifyAttemptTable.userId eq userId }
+
     override suspend fun deleteSafe(userId: UUID, deviceId: UUID): Boolean = dbQuery {
         delete(userId, deviceId)
     }

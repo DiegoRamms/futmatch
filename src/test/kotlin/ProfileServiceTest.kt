@@ -288,6 +288,7 @@ private class FakeUserRepository(
     override suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean = error("not used")
     override suspend fun isEmailVerified(userId: UUID): Boolean = error("not used")
     override fun getUserSignInInfo(email: String): UserSignInInfo? = error("not used")
+    override fun getUserSignInInfoById(userId: UUID): UserSignInInfo? = error("not used")
     override fun updatePassword(userId: UUID, hashedPassword: String): Boolean = error("not used")
     override fun addUser(user: User): UUID = error("not used")
     override suspend fun updateUser(id: UUID, updatedUser: User): Boolean = error("not used")
@@ -320,6 +321,9 @@ private class FakeUserRepository(
         user = current.copy(userRole = role, status = status)
         return true
     }
+    override fun hasAccountDeletionBlockersTx(userId: UUID): Boolean = error("not used")
+    override fun anonymizeAccountTx(userId: UUID, anonymousEmail: String, anonymousPhone: String, passwordHash: String, now: Long): Boolean = error("not used")
+    override fun isActiveUserTx(userId: UUID): Boolean = error("not used")
 }
 
 private class FakeRefreshTokenRepository : RefreshTokenRepository {

@@ -25,6 +25,8 @@ object UserTable : Table("users") {
     val role = enumerationByName("role", USER_ROLE_MAX_LENGTH, UserRole::class)
     val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
     val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
+    val deletedAt = long("deleted_at").nullable()
+    val anonymizedAt = long("anonymized_at").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

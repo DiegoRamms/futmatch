@@ -155,6 +155,11 @@ class SignInService(
                 locale.respondSignInSuspendedUserError()
             }
 
+            UserStatus.DELETED -> {
+                logger.authRejected("auth.sign_in.failed", context, "deleted_user", user.userId, statusCode = HttpStatusCode.Unauthorized.value, durationMs = System.currentTimeMillis() - startTime)
+                locale.respondInvalidSignInCredentialsError()
+            }
+
             UserStatus.ACTIVE -> {
                 val providedDeviceId = signInRequest.deviceId
 

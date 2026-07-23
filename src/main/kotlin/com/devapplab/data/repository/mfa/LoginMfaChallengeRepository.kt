@@ -14,6 +14,7 @@ interface LoginMfaChallengeRepository {
     fun create(tokenHash: String, userId: UUID, deviceId: UUID, expiresAt: Long, createdAt: Long): LoginMfaChallenge?
     fun findValidByTokenHash(tokenHash: String, now: Long): LoginMfaChallenge?
     fun revokeActiveByUserAndDevice(userId: UUID, deviceId: UUID, revokedAt: Long): Boolean
+    fun revokeActiveByUserTx(userId: UUID, revokedAt: Long): Int
     fun markUsed(tokenHash: String, usedAt: Long): Boolean
     suspend fun deleteInactive(now: Long): Boolean
 }
@@ -53,6 +54,16 @@ class LoginMfaChallengeRepositoryImpl : LoginMfaChallengeRepository {
         }) {
             it[LoginMfaChallengeTable.revokedAt] = revokedAt
         } > 0
+    }
+
+    override fun revokeActiveByUserTx(userId: UUID, revokedAt: Long): Int {
+        return LoginMfaChallengeTable.update({
+            (LoginMfaChallengeTable.userId eq userId) and
+                (LoginMfaChallengeTable.usedAt.isNull()) and
+                (LoginMfaChallengeTable.revokedAt.isNull())
+        }) {
+            it[LoginMfaChallengeTable.revokedAt] = revokedAt
+        }
     }
 
     override fun markUsed(tokenHash: String, usedAt: Long): Boolean {

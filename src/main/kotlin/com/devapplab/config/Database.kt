@@ -2,6 +2,7 @@ package com.devapplab.config
 
 import com.devapplab.data.database.device.DeviceTable
 import com.devapplab.data.database.config.MatchPricingConfigTable
+import com.devapplab.data.database.cleanup.ProfileImageCleanupJobsTable
 import com.devapplab.data.database.discount.DiscountsTable
 import com.devapplab.data.database.discount.UserMatchDiscountsTable
 import com.devapplab.data.database.field.FieldAdminsTable
@@ -100,7 +101,8 @@ fun Application.configureDatabase() {
         UserPaymentProfileTable,
         StripeWebhookEventsTable,
         NotificationTable,
-        MatchPricingConfigTable
+        MatchPricingConfigTable,
+        ProfileImageCleanupJobsTable
     )
 
     transaction(database) {

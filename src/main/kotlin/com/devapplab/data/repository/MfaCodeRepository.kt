@@ -20,6 +20,7 @@ interface MfaCodeRepository {
     fun findLatestMfaCodeSince(userId: UUID, purpose: MfaPurpose, since: Long): MfaData?
     fun markAsVerified(codeId: UUID): Boolean
     fun countRecentCodes(userId: UUID, purpose: MfaPurpose, since: Long): Long
+    fun deleteByUserIdTx(userId: UUID): Int
     suspend fun deleteExpiredMfaCodes(): Boolean
     suspend fun deleteById(codeId: UUID): Boolean
 }

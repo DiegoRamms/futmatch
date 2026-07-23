@@ -59,5 +59,11 @@ fun Route.userRouting() {
             val userController = call.scope.get<UserController>()
             userController.updatePosition(call)
         }
+
+        delete("/me") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val userController = call.scope.get<UserController>()
+            userController.deleteAccount(call)
+        }
     }
 }

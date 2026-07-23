@@ -130,7 +130,7 @@ class ImageServiceImp(config: ApplicationConfig) : ImageService {
                 val result = cloudinary.uploader().destroy(path, params)
                 val resultStr = result["result"] as String
                 logger.info("🗑️ Cloudinary delete result for $path: $resultStr")
-                resultStr == "ok"
+                resultStr == "ok" || resultStr == "not found" || resultStr == "not_found"
             }
         } catch (e: Exception) {
             logger.error("🔥 Error deleting image from Cloudinary: $path", e)

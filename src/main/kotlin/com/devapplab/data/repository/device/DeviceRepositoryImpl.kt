@@ -54,6 +54,14 @@ class DeviceRepositoryImpl : DeviceRepository {
         } > 0
     }
 
+    override fun deactivateDevicesByUserIdTx(userId: UUID, changedAt: Long): Int =
+        DeviceTable.update({ (DeviceTable.userId eq userId) and (DeviceTable.isActive eq true) }) {
+            it[isActive] = false
+            it[isTrusted] = false
+            it[fcmToken] = null
+            it[pushTokenUpdatedAt] = changedAt
+        }
+
     override suspend fun updateDeviceFcmToken(
         deviceId: UUID,
         platform: DevicePlatform,

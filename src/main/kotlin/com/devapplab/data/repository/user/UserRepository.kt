@@ -23,6 +23,7 @@ interface UserRepository {
     suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean
     suspend fun isEmailVerified(userId: UUID): Boolean
     fun getUserSignInInfo(email: String): UserSignInInfo?
+    fun getUserSignInInfoById(userId: UUID): UserSignInInfo?
     fun updatePassword(userId: UUID, hashedPassword: String): Boolean
     fun addUser(user: User): UUID
     suspend fun updateUser(id: UUID, updatedUser: User): Boolean
@@ -46,4 +47,7 @@ interface UserRepository {
         statuses: Set<UserStatus>
     ): AdminManagedUsersPage
     fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean
+    fun hasAccountDeletionBlockersTx(userId: UUID): Boolean
+    fun anonymizeAccountTx(userId: UUID, anonymousEmail: String, anonymousPhone: String, passwordHash: String, now: Long): Boolean
+    fun isActiveUserTx(userId: UUID): Boolean
 }

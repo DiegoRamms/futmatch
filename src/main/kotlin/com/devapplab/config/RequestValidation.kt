@@ -30,6 +30,7 @@ import com.devapplab.model.user.request.UpdateNameRequest
 import com.devapplab.model.user.request.UpdatePasswordRequest
 import com.devapplab.model.user.request.UpdatePositionRequest
 import com.devapplab.model.user.request.UpdateManagedUserAccessRequest
+import com.devapplab.model.user.request.DeleteAccountRequest
 import io.ktor.server.application.*
 import io.ktor.server.plugins.requestvalidation.*
 
@@ -111,6 +112,9 @@ fun Application.configureRequestValidation() {
             request.validate()
         }
         validate<UpdateManagedUserAccessRequest> { request ->
+            request.validate()
+        }
+        validate<DeleteAccountRequest> { request ->
             request.validate()
         }
     }

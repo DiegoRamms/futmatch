@@ -4,10 +4,20 @@ import com.devapplab.utils.Constants
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.user.UserRepository
+import com.devapplab.data.repository.RefreshTokenRepository
+import com.devapplab.data.repository.device.DeviceRepository
+import com.devapplab.data.repository.MfaCodeRepository
+import com.devapplab.data.repository.mfa.LoginMfaChallengeRepository
+import com.devapplab.data.repository.mfa.LoginMfaVerifyAttemptRepository
+import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
+import com.devapplab.data.repository.cleanup.ProfileImageCleanupRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.user.UserStatus
+import com.devapplab.model.user.request.DeleteAccountRequest
+import com.devapplab.model.auth.RefreshTokenStatusReason
 import com.devapplab.model.user.response.HomeLastMatchSection
 import com.devapplab.model.user.response.HomeProfileSection
 import com.devapplab.model.user.response.HomeSuggestedMatchSection
@@ -20,6 +30,7 @@ import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.image.ImageService
+import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.match.MatchVisibilityRules
 import com.devapplab.service.payment.PaymentServiceFactory
 import com.devapplab.utils.StringResourcesKey
@@ -38,10 +49,79 @@ class UserService(
     private val dbExecutor: DbExecutor,
     private val userRepository: UserRepository,
     private val matchRepository: MatchRepository,
+    private val refreshTokenRepository: RefreshTokenRepository,
+    private val deviceRepository: DeviceRepository,
+    private val mfaCodeRepository: MfaCodeRepository,
+    private val loginMfaChallengeRepository: LoginMfaChallengeRepository,
+    private val loginMfaVerifyAttemptRepository: LoginMfaVerifyAttemptRepository,
+    private val passwordResetTokenRepository: PasswordResetTokenRepository,
+    private val profileImageCleanupRepository: ProfileImageCleanupRepository,
+    private val hashingService: HashingService,
     private val imageService: ImageService,
     private val paymentServiceFactory: PaymentServiceFactory
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
+
+    suspend fun deleteAccount(userId: UUID, password: String, confirmation: String, locale: Locale, context: AppRequestContext): AppResult<String> {
+        if (confirmation.trim().uppercase() != DeleteAccountRequest.REQUIRED_CONFIRMATION) {
+            return locale.createError(
+                StringResourcesKey.ACCOUNT_DELETION_CONFIRMATION_REQUIRED,
+                StringResourcesKey.ACCOUNT_DELETION_CONFIRMATION_REQUIRED,
+                status = HttpStatusCode.BadRequest
+            )
+        }
+        val user = dbExecutor.tx { userRepository.getUserSignInInfoById(userId) }
+            ?: return locale.createError(status = HttpStatusCode.NotFound)
+        if (user.status != UserStatus.ACTIVE || !hashingService.verify(password.trim(), user.password)) {
+            logger.appRejected(
+                event = "user.account.deletion.rejected", context = context, reason = "invalid_password",
+                userId = userId, statusCode = HttpStatusCode.Unauthorized.value
+            )
+            return locale.createError(
+                StringResourcesKey.ACCOUNT_DELETION_INVALID_PASSWORD_TITLE,
+                StringResourcesKey.ACCOUNT_DELETION_INVALID_PASSWORD_DESCRIPTION,
+                status = HttpStatusCode.Unauthorized
+            )
+        }
+
+        val now = System.currentTimeMillis()
+        val deletedPasswordHash = hashingService.hash(UUID.randomUUID().toString())
+        val profilePic = dbExecutor.tx { userRepository.getUserById(userId)?.profilePic }
+        val deletionResult = dbExecutor.tx {
+            if (userRepository.hasAccountDeletionBlockersTx(userId)) return@tx null
+            val updated = userRepository.anonymizeAccountTx(
+                userId, "deleted+$userId@deleted.invalid", "deleted-$userId", deletedPasswordHash, now
+            )
+            if (!updated) return@tx null
+            val cleanupJobId = profilePic?.takeIf(String::isNotBlank)?.let { fileName ->
+                profileImageCleanupRepository.enqueueTx(
+                    publicId = "${Constants.BASE_USER_STORAGE_PATH}/$userId/$fileName",
+                    now = now
+                )
+            }
+            refreshTokenRepository.revokeActiveTokensByUserId(userId, RefreshTokenStatusReason.ADMIN_REVOCATION, now)
+            deviceRepository.deactivateDevicesByUserIdTx(userId, now)
+            mfaCodeRepository.deleteByUserIdTx(userId)
+            loginMfaChallengeRepository.revokeActiveByUserTx(userId, now)
+            loginMfaVerifyAttemptRepository.deleteByUserIdTx(userId)
+            passwordResetTokenRepository.deleteByUserId(userId)
+            true to cleanupJobId
+        } ?: return locale.createError(
+            StringResourcesKey.ACCOUNT_DELETION_BLOCKED_TITLE,
+            StringResourcesKey.ACCOUNT_DELETION_BLOCKED_DESCRIPTION,
+            status = HttpStatusCode.Conflict
+        )
+
+        val cleanupJobId = deletionResult.second
+        if (!profilePic.isNullOrBlank() && imageService.deleteImages("${Constants.BASE_USER_STORAGE_PATH}/$userId/$profilePic")) {
+            cleanupJobId?.let { profileImageCleanupRepository.markCompleted(it, System.currentTimeMillis()) }
+        }
+        logger.appSuccess(
+            event = "user.account.deletion.completed", context = context, userId = userId,
+            statusCode = HttpStatusCode.OK.value
+        )
+        return AppResult.Success(locale.getString(StringResourcesKey.ACCOUNT_DELETION_SUCCESS_MESSAGE))
+    }
 
     suspend fun getUserById(userId: UUID?, locale: Locale, context: AppRequestContext): AppResult<UserResponse> {
         userId ?: run {
