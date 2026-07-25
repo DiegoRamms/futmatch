@@ -27,7 +27,9 @@ class DesktopDeviceRepositoryImpl : DesktopDeviceRepository {
         if (DeviceTable.selectAll().where { DeviceTable.id eq deviceId }.singleOrNull() != null) return@dbQuery false
         DeviceTable.insert {
             it[id] = deviceId; it[userId] = ownerUserId; it[platform] = DevicePlatform.DESKTOP; it[deviceInfo] = label
-            it[isTrusted] = true; it[isActive] = true; it[lastUsedAt] = now; it[createdAt] = now
+            // Mobile approval authorizes this cryptographic desktop key; it must not bypass
+            // the user's first password + MFA login on this device.
+            it[isTrusted] = false; it[isActive] = true; it[lastUsedAt] = now; it[createdAt] = now
         }
         DesktopDeviceTable.insert {
             it[id] = deviceId; it[this.publicKey] = publicKey; it[this.label] = label; it[approvedByUserId] = approvedBy
