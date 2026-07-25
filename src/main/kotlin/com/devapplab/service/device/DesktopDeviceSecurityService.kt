@@ -1,9 +1,12 @@
 package com.devapplab.service.device
 
 import com.devapplab.data.repository.device.DesktopDeviceRepository
-import com.devapplab.data.repository.device.DesktopEnrollmentRecord
-import com.devapplab.model.device.DesktopEnrollmentRequestResponse
+import com.devapplab.model.AppResult
+import com.devapplab.model.device.DesktopEnrollmentStatusProof
 import com.devapplab.model.device.DesktopEnrollmentStatus
+import com.devapplab.model.device.DesktopEnrollmentStatusResponse
+import com.devapplab.utils.createError
+import io.ktor.http.HttpStatusCode
 import java.math.BigInteger
 import java.security.AlgorithmParameters
 import java.security.KeyFactory
@@ -14,64 +17,48 @@ import java.security.spec.ECPoint
 import java.security.spec.ECPublicKeySpec
 import java.util.Base64
 import java.util.UUID
+import java.util.Locale
 
 class DesktopDeviceSecurityService(private val repository: DesktopDeviceRepository) {
-    suspend fun createEnrollmentRequest(
+    suspend fun registerApprovedDevice(
         deviceId: String,
         publicKey: String,
         label: String,
-        ownerUserId: String,
         nonce: String,
         expiresAt: Long,
-        submittedBy: UUID
-    ) {
-        require(label.isNotBlank() && label.length <= 120) { "Invalid device label" }
+        ownerUserId: UUID
+    ): Boolean {
+        val normalizedLabel = label.trim()
+        require(normalizedLabel.isNotBlank() && normalizedLabel.length <= 120) { "Invalid device label" }
         parsePublicKey(publicKey)
         val id = UUID.fromString(deviceId)
-        val ownerId = UUID.fromString(ownerUserId)
         UUID.fromString(nonce)
         val now = System.currentTimeMillis()
         require(expiresAt > now && expiresAt <= now + ENROLLMENT_TTL_MS) { "Invalid enrollment expiration" }
-        repository.createEnrollment(DesktopEnrollmentRecord(id, publicKey, nonce, label.trim(), ownerId, DesktopEnrollmentStatus.PENDING, expiresAt), submittedBy, now)
+        return repository.registerApprovedDevice(id, publicKey, normalizedLabel, ownerUserId, ownerUserId, now)
     }
 
-    suspend fun pendingEnrollments(): List<DesktopEnrollmentRequestResponse> = repository.getPendingEnrollments(System.currentTimeMillis()).map {
-                DesktopEnrollmentRequestResponse(
-                    deviceId = it.deviceId.toString(), label = it.label, ownerUserId = it.ownerUserId.toString(), status = it.status, expiresAt = it.expiresAt
-                )
-            }
-
-    suspend fun approve(deviceId: UUID, approvedBy: UUID): Boolean = repository.approveEnrollment(deviceId, approvedBy, System.currentTimeMillis())
-
-    suspend fun reject(deviceId: UUID, rejectedBy: UUID): Boolean = repository.rejectEnrollment(deviceId, rejectedBy, System.currentTimeMillis())
-
-    /**
-     * This is used before the desktop has a JWT. The pending enrollment public key
-     * authenticates the polling client; a replayed GET has no side effect.
-     */
+    /** This is used before the desktop has a JWT; the approved device key authenticates the polling client. */
     suspend fun enrollmentStatus(
-        deviceId: String?,
-        timestamp: String?,
-        requestId: String?,
-        signature: String?,
-        method: String,
-        path: String
-    ): DesktopEnrollmentStatus? {
-        val id = runCatching { UUID.fromString(deviceId) }.getOrNull() ?: return null
-        val at = timestamp?.toLongOrNull() ?: return null
+        proof: DesktopEnrollmentStatusProof,
+        locale: Locale
+    ): AppResult<DesktopEnrollmentStatusResponse> {
+        val status = verifiedEnrollmentStatus(proof)
+        return status?.let { AppResult.Success(DesktopEnrollmentStatusResponse(it)) }
+            ?: locale.createError(status = HttpStatusCode.Forbidden)
+    }
+
+    private suspend fun verifiedEnrollmentStatus(proof: DesktopEnrollmentStatusProof): DesktopEnrollmentStatus? {
+        val id = runCatching { UUID.fromString(proof.deviceId) }.getOrNull() ?: return null
+        val at = proof.timestamp?.toLongOrNull() ?: return null
         if (kotlin.math.abs(System.currentTimeMillis() - at) > MAX_CLOCK_SKEW_MS) return null
-        val nonce = requestId?.takeIf { runCatching { UUID.fromString(it) }.isSuccess } ?: return null
-        val encodedSignature = signature ?: return null
+        val nonce = proof.requestId?.takeIf { runCatching { UUID.fromString(it) }.isSuccess } ?: return null
+        val encodedSignature = proof.signature ?: return null
         val enrollment = repository.getEnrollment(id) ?: return null
         val status = enrollment.status
-        if (status != DesktopEnrollmentStatus.PENDING && status != DesktopEnrollmentStatus.ACTIVE) return null
-        val canonical = "$method\n$path\n$at\n$nonce\n$EMPTY_BODY_SHA256".toByteArray()
-        val resolvedStatus = if (status == DesktopEnrollmentStatus.PENDING && enrollment.expiresAt < System.currentTimeMillis()) {
-            DesktopEnrollmentStatus.EXPIRED
-        } else {
-            status
-        }
-        return resolvedStatus.takeIf {
+        if (status != DesktopEnrollmentStatus.ACTIVE) return null
+        val canonical = "${proof.method}\n${proof.path}\n$at\n$nonce\n$EMPTY_BODY_SHA256".toByteArray()
+        return status.takeIf {
             verifySignature(enrollment.publicKey, encodedSignature, canonical)
         }
     }

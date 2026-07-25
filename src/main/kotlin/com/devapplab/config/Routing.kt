@@ -135,7 +135,7 @@ fun Application.configureRouting() {
         staticFiles("/uploads", File("uploads"))
         stripeRouting()
         cronRouting()
-        desktopEnrollmentStatusRouting(desktopDeviceSecurityService)
+        desktopEnrollmentStatusRouting()
         appCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService) {
             authRouting()
         }
