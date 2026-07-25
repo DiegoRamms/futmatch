@@ -4,6 +4,9 @@ import com.devapplab.config.dbQuery
 import com.devapplab.data.database.device.DesktopDeviceTable
 import com.devapplab.data.database.device.DesktopRequestNonceTable
 import com.devapplab.data.database.device.DeviceTable
+import com.devapplab.data.database.refresh_token.RefreshTokenTable
+import com.devapplab.model.auth.RefreshTokenStatus
+import com.devapplab.model.auth.RefreshTokenStatusReason
 import com.devapplab.model.device.DesktopEnrollmentStatus
 import com.devapplab.model.device.DevicePlatform
 import org.jetbrains.exposed.v1.core.and
@@ -46,7 +49,20 @@ class DesktopDeviceRepositoryImpl : DesktopDeviceRepository {
         val revoked =
             DesktopDeviceTable.update({ (DesktopDeviceTable.id eq deviceId) and (DesktopDeviceTable.isActive eq true) }) {
                 it[isActive] = false; it[revokedAt] = now
-            } > 0; if (revoked) DeviceTable.update({ DeviceTable.id eq deviceId }) { it[isActive] = false }; revoked
+            } > 0
+        if (!revoked) return@dbQuery false
+
+        DeviceTable.update({ DeviceTable.id eq deviceId }) { it[isActive] = false; it[isTrusted] = false }
+        RefreshTokenTable.update({
+            (RefreshTokenTable.deviceId eq deviceId) and (RefreshTokenTable.status eq RefreshTokenStatus.ACTIVE.name)
+        }) {
+            it[RefreshTokenTable.revoked] = true
+            it[RefreshTokenTable.status] = RefreshTokenStatus.REVOKED.name
+            it[RefreshTokenTable.statusReason] = RefreshTokenStatusReason.ADMIN_REVOCATION.name
+            it[RefreshTokenTable.revokedAt] = now
+        }
+        DesktopRequestNonceTable.deleteWhere { DesktopRequestNonceTable.deviceId eq deviceId }
+        true
     }
 
     override suspend fun getActivePublicKey(deviceId: UUID): String? = dbQuery {
