@@ -65,6 +65,9 @@ fun Route.requireAppCheck(
                 call.attributes.put(DesktopVerifiedDeviceIdKey, desktopDeviceId)
                 return@onCall
             }
+            if (desktopHeaderPresent) {
+                throw InvalidAppCheckException("desktop_reenrollment_required")
+            }
             when (val result = appCheckService.verify(appCheckToken)) {
                 AppCheckVerificationResult.Disabled -> Unit
                 is AppCheckVerificationResult.Valid -> {

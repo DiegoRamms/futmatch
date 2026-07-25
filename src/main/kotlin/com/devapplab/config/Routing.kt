@@ -92,6 +92,9 @@ fun Application.configureRouting() {
 
         exception<InvalidAppCheckException> { call, cause ->
             this@configureRouting.log.warn("[InvalidAppCheck] path={}, reason={}", call.request.path(), cause.message)
+            if (cause.message == "desktop_reenrollment_required") {
+                call.response.headers.append("X-Desktop-Reenrollment-Required", "true")
+            }
             call.respond<String>(
                 AppResult.Failure(
                     ErrorResponse(
