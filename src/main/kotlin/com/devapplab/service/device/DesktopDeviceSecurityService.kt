@@ -43,7 +43,7 @@ class DesktopDeviceSecurityService(
             ?: error("Invalid desktop request id")
         require(kotlin.math.abs(System.currentTimeMillis() - timestamp) <= MAX_CLOCK_SKEW_MS) { "Expired desktop proof" }
         val signature = proof.signature ?: error("Missing desktop signature")
-        val canonical = "${proof.method}\n${proof.path}\n$timestamp\n$requestId\n$deviceId\n${request.publicKey}\n$normalizedLabel".toByteArray()
+        val canonical = "${proof.method}\n${proof.path}\n$timestamp\n$requestId\n${request.deviceId}\n${request.publicKey}\n$normalizedLabel".toByteArray()
         require(verifySignature(publicKey, signature, canonical)) { "Invalid desktop proof" }
         val now = System.currentTimeMillis()
         val enrollment = PendingDesktopEnrollment(
