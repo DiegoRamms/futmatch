@@ -13,6 +13,7 @@ import com.devapplab.model.auth.response.AuthCode
 import com.devapplab.model.auth.response.AuthResponse
 import com.devapplab.model.auth.response.AuthTokenResponse
 import com.devapplab.model.auth.response.RefreshJWTRequest
+import com.devapplab.model.device.DevicePlatform
 import com.devapplab.observability.*
 import com.devapplab.service.auth.auth_token.AuthTokenService
 import com.devapplab.service.auth.refresh_token.RefreshTokenService
@@ -68,6 +69,14 @@ class AuthTokenManagementService(
         if (tokenRecord == null) {
             authMetrics.recordRefreshRejected(RefreshRejectionReason.UNKNOWN_TOKEN)
             logger.authRejected("auth.refresh.failed", context, "unknown_token")
+            return locale.respondInvalidRefreshTokenError()
+        }
+
+        // Refresh has no access JWT. A desktop refresh token is therefore bound directly
+        // to the P-256 proof that AppCheck stored in DesktopVerifiedDeviceIdKey.
+        if (tokenRecord.devicePlatform == DevicePlatform.DESKTOP && desktopDeviceId != tokenRecord.deviceId) {
+            authMetrics.recordRefreshRejected(RefreshRejectionReason.UNKNOWN_TOKEN)
+            logger.authRejected("auth.refresh.failed", context, "desktop_signature_required", tokenRecord.userId, tokenRecord.deviceId)
             return locale.respondInvalidRefreshTokenError()
         }
 

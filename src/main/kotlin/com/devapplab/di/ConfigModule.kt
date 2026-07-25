@@ -11,14 +11,32 @@ import com.devapplab.utils.loadDomainResource
 import com.devapplab.utils.toDomainSet
 import io.ktor.server.config.ApplicationConfig
 import org.koin.dsl.module
+import org.slf4j.LoggerFactory
+
+private val configLogger = LoggerFactory.getLogger("AppCheckConfig")
 
 val configModule = module {
     single {
         val config = get<ApplicationConfig>()
+        val enabled = config.propertyOrNull("appCheck.enabled")?.getString()?.toBooleanStrictOrNull() ?: true
+        val enforce = config.propertyOrNull("appCheck.enforce")?.getString()?.toBooleanStrictOrNull() ?: true
+        val projectNumber = config.propertyOrNull("appCheck.projectNumber")?.getString().orEmpty()
+
+        if (enforce && !enabled) {
+            val message = "Invalid App Check configuration: appCheck.enforce requires appCheck.enabled=true."
+            configLogger.error(message)
+            throw IllegalStateException(message)
+        }
+        if (enabled && projectNumber.isBlank()) {
+            val message = "Invalid App Check configuration: FIREBASE_PROJECT_NUMBER is required when App Check is enabled."
+            configLogger.error(message)
+            throw IllegalStateException(message)
+        }
+
         AppCheckConfig(
-            enabled = config.propertyOrNull("appCheck.enabled")?.getString()?.toBooleanStrictOrNull() ?: false,
-            enforce = config.propertyOrNull("appCheck.enforce")?.getString()?.toBooleanStrictOrNull() ?: false,
-            projectNumber = config.propertyOrNull("appCheck.projectNumber")?.getString().orEmpty(),
+            enabled = enabled,
+            enforce = enforce,
+            projectNumber = projectNumber,
             allowedAppIds = config.propertyOrNull("appCheck.allowedAppIds")
                 ?.getString()
                 ?.split(",")

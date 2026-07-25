@@ -15,6 +15,7 @@ import com.devapplab.model.auth.response.AuthCode
 import com.devapplab.model.auth.response.AuthResponse
 import com.devapplab.model.auth.response.SignOutResponse
 import com.devapplab.model.mfa.*
+import com.devapplab.model.device.DevicePlatform
 import com.devapplab.model.mfa.response.MfaSendCodeResponse
 import com.devapplab.model.user.UserStatus
 import com.devapplab.observability.AuthLogSeverity
@@ -171,9 +172,16 @@ class SignInService(
 
                 val deviceDecision = runCatching {
                     dbExecutor.tx {
+                        val isDesktopDevice = providedDeviceId?.let {
+                            deviceRepository.getPlatform(it) == DevicePlatform.DESKTOP
+                        } ?: false
                         val isKnownDevice = providedDeviceId?.let { deviceRepository.isValidDeviceIdForUser(it, user.userId) } ?: false
                         val isTrustedDevice = providedDeviceId?.let { deviceRepository.isTrustedDeviceIdForUser(it, user.userId) } ?: false
 
+                        // signIn has no access JWT. A known desktop id must be accompanied by
+                        // the P-256 proof verified by AppCheck; a client cannot turn a trusted
+                        // desktop into an unsigned login simply by omitting its headers.
+                        if (isDesktopDevice && desktopDeviceId != providedDeviceId) return@tx null
                         if (desktopDeviceId != null && !isKnownDevice) return@tx null
 
                         val resolvedDeviceId =
