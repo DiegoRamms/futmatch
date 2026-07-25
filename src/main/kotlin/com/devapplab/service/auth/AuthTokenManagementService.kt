@@ -152,7 +152,12 @@ class AuthTokenManagementService(
             RefreshTokenStatus.ACTIVE -> Unit
         }
 
-        val claimConfig = ClaimConfig(tokenRecord.userId, tokenRecord.userRole, tokenRecord.deviceId)
+        val claimConfig = ClaimConfig(
+            tokenRecord.userId,
+            tokenRecord.userRole,
+            tokenRecord.deviceId,
+            tokenRecord.devicePlatform
+        )
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
 
         val expiresSoon =

@@ -25,6 +25,9 @@ class DeviceRepositoryImpl : DeviceRepository {
         }[DeviceTable.id]
     }
 
+    override fun getPlatform(deviceId: UUID): DevicePlatform? =
+        DeviceTable.selectAll().where { DeviceTable.id eq deviceId }.singleOrNull()?.get(DeviceTable.platform)
+
     override fun isValidDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean {
         return DeviceTable.selectAll().where {
             (DeviceTable.id eq deviceId) and

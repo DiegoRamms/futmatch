@@ -2,6 +2,7 @@ package com.devapplab.config
 
 import com.devapplab.model.AppCheckConfig
 import com.devapplab.model.auth.ClaimType
+import com.devapplab.model.device.DevicePlatform
 import com.devapplab.service.appcheck.AppCheckVerificationResult
 import com.devapplab.service.appcheck.FirebaseAppCheckService
 import com.devapplab.service.device.DesktopDeviceSecurityService
@@ -50,6 +51,12 @@ fun Route.requireAppCheck(
         onCall { call ->
             val appCheckToken = call.request.header(FIREBASE_APP_CHECK_HEADER)
             val desktopHeaderPresent = call.request.header("X-Desktop-Device-Id") != null
+            val jwtDeviceId = call.getOptionalIdentifier(ClaimType.DEVICE_IDENTIFIER)
+            val jwtDevicePlatform = call.getOptionalDevicePlatform()
+            // JWTs issued before device_platform existed need a short-lived compatibility lookup.
+            // Newly issued tokens take this branch without touching the database.
+            val requiresDesktopSignature = jwtDevicePlatform == DevicePlatform.DESKTOP ||
+                (jwtDevicePlatform == null && jwtDeviceId != null && desktopDeviceSecurityService.isDesktopDevice(jwtDeviceId))
             val bodyHash = if (desktopHeaderPresent) call.desktopBodyHash() else null
             val desktopDeviceId = desktopDeviceSecurityService.verify(
                 call.request.header("X-Desktop-Device-Id"), call.request.header("X-Desktop-Timestamp"),
@@ -57,8 +64,11 @@ fun Route.requireAppCheck(
                 call.request.httpMethod.value, call.request.path(), bodyHash
             )
             val requestId = call.request.header("X-Request-Id")
+            if (requiresDesktopSignature && desktopDeviceId == null) {
+                if (desktopHeaderPresent) throw InvalidAppCheckException("desktop_reenrollment_required")
+                throw InvalidAppCheckException("desktop_signature_required")
+            }
             if (desktopDeviceId != null) {
-                val jwtDeviceId = call.getOptionalIdentifier(ClaimType.DEVICE_IDENTIFIER)
                 if (jwtDeviceId != null && jwtDeviceId != desktopDeviceId) {
                     throw InvalidAppCheckException("desktop_device_session_mismatch")
                 }

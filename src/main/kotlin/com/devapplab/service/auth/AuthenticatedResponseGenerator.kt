@@ -2,6 +2,7 @@ package com.devapplab.service.auth
 
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.auth.AuthRepository
+import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.auth.ClaimConfig
@@ -24,6 +25,7 @@ class AuthenticatedResponseGenerator(
     private val authTokenService: AuthTokenService,
     private val refreshTokenService: RefreshTokenService,
     private val authRepository: AuthRepository,
+    private val deviceRepository: DeviceRepository,
     private val firebaseAuthService: FirebaseAuthService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -54,7 +56,8 @@ class AuthenticatedResponseGenerator(
         }
 
         // 2. Generate JWT Access Token
-        val claimConfig = ClaimConfig(userId, userRole, deviceId)
+        val devicePlatform = dbExecutor.tx { deviceRepository.getPlatform(deviceId) }
+        val claimConfig = ClaimConfig(userId, userRole, deviceId, devicePlatform)
         val accessToken = authTokenService.createAuthToken(claimConfig, jwtConfig)
         
         // 3. Generate Refresh Token

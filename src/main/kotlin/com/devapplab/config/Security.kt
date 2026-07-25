@@ -5,6 +5,7 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.devapplab.model.AppResult
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.auth.JWTConfig
+import com.devapplab.model.device.DevicePlatform
 import com.devapplab.model.user.UserRole
 import com.devapplab.utils.*
 import io.ktor.http.*
@@ -107,6 +108,12 @@ fun ApplicationCall.getOptionalIdentifier(claimType: ClaimType): UUID? {
     return principal?.payload?.getClaim(claimType.value)?.asString()?.let { value ->
         runCatching { UUID.fromString(value) }.getOrNull()
     }
+}
+
+fun ApplicationCall.getOptionalDevicePlatform(): DevicePlatform? {
+    val principal = principal<JWTPrincipal>()
+    return principal?.payload?.getClaim(ClaimType.DEVICE_PLATFORM.value)?.asString()
+        ?.let { value -> runCatching { DevicePlatform.valueOf(value) }.getOrNull() }
 }
 
 fun ApplicationCall.getRole(): UserRole {

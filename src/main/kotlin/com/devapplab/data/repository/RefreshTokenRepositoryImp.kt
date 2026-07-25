@@ -2,6 +2,7 @@ package com.devapplab.data.repository
 
 import com.devapplab.config.dbQuery
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
+import com.devapplab.data.database.device.DeviceTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.auth.RefreshTokenRecord
 import com.devapplab.model.auth.RefreshTokenStatus
@@ -38,7 +39,7 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
     }
 
     override fun findValidationByTokenHash(tokenHash: String): RefreshTokenValidationRecord? {
-        return (RefreshTokenTable innerJoin UserTable)
+        return ((RefreshTokenTable innerJoin UserTable) innerJoin DeviceTable)
             .select(
                 listOf(
                     RefreshTokenTable.id,
@@ -48,7 +49,8 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
                     RefreshTokenTable.createdAt,
                     RefreshTokenTable.status,
                     RefreshTokenTable.statusReason,
-                    UserTable.role
+                    UserTable.role,
+                    DeviceTable.platform
                 )
             )
             .where { RefreshTokenTable.token eq tokenHash }
@@ -63,7 +65,8 @@ class RefreshTokenRepositoryImp : RefreshTokenRepository {
                     createdAt = row[RefreshTokenTable.createdAt],
                     status = RefreshTokenStatus.valueOf(row[RefreshTokenTable.status]),
                     statusReason = row[RefreshTokenTable.statusReason]?.let(RefreshTokenStatusReason::valueOf),
-                    userRole = row[UserTable.role]
+                    userRole = row[UserTable.role],
+                    devicePlatform = row[DeviceTable.platform]
                 )
             }
     }

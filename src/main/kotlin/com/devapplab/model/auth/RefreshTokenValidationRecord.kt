@@ -1,6 +1,7 @@
 package com.devapplab.model.auth
 
 import com.devapplab.model.user.UserRole
+import com.devapplab.model.device.DevicePlatform
 import java.util.*
 
 /** Data required to validate and refresh an access token, including the current user role. */
@@ -12,5 +13,6 @@ data class RefreshTokenValidationRecord(
     val createdAt: Long,
     val status: RefreshTokenStatus,
     val statusReason: RefreshTokenStatusReason?,
-    val userRole: UserRole
+    val userRole: UserRole,
+    val devicePlatform: DevicePlatform?
 )

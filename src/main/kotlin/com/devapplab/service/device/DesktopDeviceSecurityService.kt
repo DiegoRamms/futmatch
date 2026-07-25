@@ -65,6 +65,8 @@ class DesktopDeviceSecurityService(private val repository: DesktopDeviceReposito
 
     suspend fun revoke(deviceId: UUID): Boolean = repository.revokeDevice(deviceId, System.currentTimeMillis())
 
+    suspend fun isDesktopDevice(deviceId: UUID): Boolean = repository.isDesktopDevice(deviceId)
+
     suspend fun verify(
         deviceId: String?,
         timestamp: String?,

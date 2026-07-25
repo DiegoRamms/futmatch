@@ -71,6 +71,12 @@ class DesktopDeviceRepositoryImpl : DesktopDeviceRepository {
             ?.get(DesktopDeviceTable.publicKey)
     }
 
+    override suspend fun isDesktopDevice(deviceId: UUID): Boolean = dbQuery {
+        DeviceTable.selectAll().where {
+            (DeviceTable.id eq deviceId) and (DeviceTable.platform eq DevicePlatform.DESKTOP)
+        }.any()
+    }
+
     override suspend fun claimRequestNonce(deviceId: UUID, requestId: UUID, expiresAt: Long, now: Long): Boolean =
         runCatching {
             dbQuery {
