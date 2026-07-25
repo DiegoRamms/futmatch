@@ -15,6 +15,7 @@ fun Application.module() {
     configureMicrometerMetrics()
     configureAdministration()
     configureSerialization()
+    configureDesktopRequestBodyCaching()
     configureDatabase()
     configureHTTP()
     configureSecurity()

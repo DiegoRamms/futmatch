@@ -1,17 +1,29 @@
 package com.devapplab.config
 
 import com.devapplab.model.AppCheckConfig
+import com.devapplab.model.auth.ClaimType
 import com.devapplab.service.appcheck.AppCheckVerificationResult
 import com.devapplab.service.appcheck.FirebaseAppCheckService
+import com.devapplab.service.device.DesktopDeviceSecurityService
 import io.ktor.server.application.createRouteScopedPlugin
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.header
+import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
+import io.ktor.server.request.receiveChannel
 import io.ktor.server.routing.RouteSelector
 import io.ktor.server.routing.RouteSelectorEvaluation
 import io.ktor.server.routing.RoutingResolveContext
 import io.ktor.server.routing.Route
+import io.ktor.util.AttributeKey
+import io.ktor.utils.io.core.readBytes
+import io.ktor.utils.io.readRemaining
+import java.security.MessageDigest
+import java.util.HexFormat
+import java.util.UUID
 
 private const val FIREBASE_APP_CHECK_HEADER = "X-Firebase-AppCheck"
+val DesktopVerifiedDeviceIdKey = AttributeKey<UUID>("desktop-verified-device-id")
 private val appCheckScopedSelector = object : RouteSelector() {
     override suspend fun evaluate(context: RoutingResolveContext, segmentIndex: Int): RouteSelectorEvaluation {
         return RouteSelectorEvaluation.Transparent
@@ -21,21 +33,38 @@ private val appCheckScopedSelector = object : RouteSelector() {
 fun Route.appCheck(
     appCheckService: FirebaseAppCheckService,
     appCheckConfig: AppCheckConfig,
+    desktopDeviceSecurityService: DesktopDeviceSecurityService,
     build: Route.() -> Unit
 ) {
     val scopedRoute = createChild(appCheckScopedSelector)
-    scopedRoute.requireAppCheck(appCheckService, appCheckConfig)
+    scopedRoute.requireAppCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService)
     scopedRoute.build()
 }
 
 fun Route.requireAppCheck(
     appCheckService: FirebaseAppCheckService,
-    appCheckConfig: AppCheckConfig
+    appCheckConfig: AppCheckConfig,
+    desktopDeviceSecurityService: DesktopDeviceSecurityService
 ) {
     install(createRouteScopedPlugin("FirebaseAppCheckPlugin") {
         onCall { call ->
             val appCheckToken = call.request.header(FIREBASE_APP_CHECK_HEADER)
+            val desktopHeaderPresent = call.request.header("X-Desktop-Device-Id") != null
+            val bodyHash = if (desktopHeaderPresent) call.desktopBodyHash() else null
+            val desktopDeviceId = desktopDeviceSecurityService.verify(
+                call.request.header("X-Desktop-Device-Id"), call.request.header("X-Desktop-Timestamp"),
+                call.request.header("X-Desktop-Request-Id"), call.request.header("X-Desktop-Signature"),
+                call.request.httpMethod.value, call.request.path(), bodyHash
+            )
             val requestId = call.request.header("X-Request-Id")
+            if (desktopDeviceId != null) {
+                val jwtDeviceId = call.getOptionalIdentifier(ClaimType.DEVICE_IDENTIFIER)
+                if (jwtDeviceId != null && jwtDeviceId != desktopDeviceId) {
+                    throw InvalidAppCheckException("desktop_device_session_mismatch")
+                }
+                call.attributes.put(DesktopVerifiedDeviceIdKey, desktopDeviceId)
+                return@onCall
+            }
             when (val result = appCheckService.verify(appCheckToken)) {
                 AppCheckVerificationResult.Disabled -> Unit
                 is AppCheckVerificationResult.Valid -> {
@@ -79,5 +108,14 @@ fun Route.requireAppCheck(
         }
     })
 }
+
+private suspend fun ApplicationCall.desktopBodyHash(): String? = runCatching {
+    val declaredSize = request.headers["Content-Length"]?.toLongOrNull()
+    if (declaredSize != null && (declaredSize < 0 || declaredSize > DESKTOP_SIGNED_BODY_MAX_BYTES)) return null
+    @Suppress("DEPRECATION")
+    val bytes = receiveChannel().readRemaining(DESKTOP_SIGNED_BODY_MAX_BYTES + 1).readBytes()
+    if (bytes.size > DESKTOP_SIGNED_BODY_MAX_BYTES) return null
+    HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))
+}.getOrNull()
 
 class InvalidAppCheckException(message: String) : RuntimeException(message)

@@ -2,8 +2,10 @@ package com.devapplab.config
 
 import com.devapplab.features.auth.authRouting
 import com.devapplab.features.admin.adminUserRouting
+import com.devapplab.features.admin.desktopDeviceAdminRouting
 import com.devapplab.features.cron.cronRouting
 import com.devapplab.features.device.deviceRouting
+import com.devapplab.features.device.desktopEnrollmentStatusRouting
 import com.devapplab.features.field.fieldRouting
 import com.devapplab.features.location.locationRouting
 import com.devapplab.features.match.matchRouting
@@ -17,6 +19,7 @@ import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
 import com.devapplab.model.ErrorResponse
 import com.devapplab.service.appcheck.FirebaseAppCheckService
+import com.devapplab.service.device.DesktopDeviceSecurityService
 import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -38,6 +41,7 @@ fun Application.configureRouting() {
     val isDevelopment = environment.config.propertyOrNull("ktor.development")?.getString()?.toBoolean() ?: false
     val appCheckService by inject<FirebaseAppCheckService>()
     val appCheckConfig by inject<AppCheckConfig>()
+    val desktopDeviceSecurityService by inject<DesktopDeviceSecurityService>()
 
     install(StatusPages) {
 
@@ -131,14 +135,17 @@ fun Application.configureRouting() {
         staticFiles("/uploads", File("uploads"))
         stripeRouting()
         cronRouting()
-        appCheck(appCheckService, appCheckConfig) {
+        desktopEnrollmentStatusRouting(desktopDeviceSecurityService)
+        appCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService) {
             authRouting()
         }
+
         authenticate("auth-jwt") {
-            appCheck(appCheckService, appCheckConfig) {
+            appCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService) {
                 rateLimit(RateLimitName(RateLimitType.PROTECTED.value)) {
                     userRouting()
                     adminUserRouting()
+                    desktopDeviceAdminRouting()
                     fieldRouting()
                     matchRouting()
                     locationRouting()

@@ -43,6 +43,7 @@ brcypt = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback-version" }
 call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor-version" }
 ktor-server-call-id = { module = "io.ktor:ktor-server-call-id", version.ref = "ktor-version" }
+ktor-server-double-receive = { module = "io.ktor:ktor-server-double-receive", version.ref = "ktor-version" }
 ktor-server-metrics-micrometer = { module = "io.ktor:ktor-server-metrics-micrometer", version.ref = "ktor-version" }
 micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor-version" }

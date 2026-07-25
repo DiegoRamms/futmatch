@@ -9,6 +9,8 @@ import com.devapplab.data.repository.cleanup.ProfileImageCleanupRepository
 import com.devapplab.data.repository.cleanup.ProfileImageCleanupRepositoryImpl
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.device.DeviceRepositoryImpl
+import com.devapplab.data.repository.device.DesktopDeviceRepository
+import com.devapplab.data.repository.device.DesktopDeviceRepositoryImpl
 import com.devapplab.data.repository.discount.DiscountRepository
 import com.devapplab.data.repository.discount.DiscountRepositoryImp
 import com.devapplab.data.repository.location.LocationRepository
@@ -49,6 +51,7 @@ val repositoryModule = module {
     singleOf(::UserRepositoryImpl) { bind<UserRepository>() }
     singleOf(::RefreshTokenRepositoryImp) { bind<RefreshTokenRepository>() }
     singleOf(::DeviceRepositoryImpl) { bind<DeviceRepository>() }
+    singleOf(::DesktopDeviceRepositoryImpl) { bind<DesktopDeviceRepository>() }
     singleOf(::MfaCodeRepositoryImpl) { bind<MfaCodeRepository>() }
     singleOf(::LoginMfaChallengeRepositoryImpl) { bind<LoginMfaChallengeRepository>() }
     singleOf(::LoginMfaVerifyAttemptRepositoryImpl) { bind<LoginMfaVerifyAttemptRepository>() }

@@ -46,6 +46,7 @@ dependencies {
     implementation(libs.logback.classic)
     implementation(libs.call.logging)
     implementation(libs.ktor.server.call.id)
+    implementation(libs.ktor.server.double.receive)
     implementation(libs.ktor.server.metrics.micrometer)
     implementation(libs.micrometer.registry.prometheus)
     implementation(libs.ktor.client.core)

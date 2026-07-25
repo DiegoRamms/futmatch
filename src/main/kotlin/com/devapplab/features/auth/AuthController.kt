@@ -2,6 +2,7 @@ package com.devapplab.features.auth
 
 import com.devapplab.config.getIdentifier
 import com.devapplab.config.getOptionalIdentifier
+import com.devapplab.config.DesktopVerifiedDeviceIdKey
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.auth.JWTConfig
 import com.devapplab.model.auth.request.*
@@ -61,7 +62,8 @@ class AuthController(
         val context = call.toAuthRequestContext()
         val deviceInfo = call.getUserAgentHeader()
         val request = call.receive<SignInRequest>()
-        val result = signInService.signIn(locale, request, jwtConfig, deviceInfo, context)
+        val desktopDeviceId = call.attributes.getOrNull(DesktopVerifiedDeviceIdKey)
+        val result = signInService.signIn(locale, request, jwtConfig, deviceInfo, context, desktopDeviceId)
         call.respond(result)
     }
 
@@ -70,7 +72,8 @@ class AuthController(
         val context = call.toAuthRequestContext()
         val refreshToken = call.getRefreshToken()
         val refreshJWTRequest = call.receive<RefreshJWTRequest>()
-        val result = authTokenManagementService.refreshJwtToken(locale, refreshToken, refreshJWTRequest, jwtConfig, context)
+        val desktopDeviceId = call.attributes.getOrNull(DesktopVerifiedDeviceIdKey)
+        val result = authTokenManagementService.refreshJwtToken(locale, refreshToken, refreshJWTRequest, jwtConfig, context, desktopDeviceId)
         call.respond(result)
     }
 

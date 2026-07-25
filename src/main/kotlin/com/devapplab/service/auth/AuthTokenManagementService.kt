@@ -42,7 +42,8 @@ class AuthTokenManagementService(
         currentRefreshToken: String?,
         refreshJWTRequest: RefreshJWTRequest,
         jwtConfig: JWTConfig,
-        context: AuthRequestContext
+        context: AuthRequestContext,
+        desktopDeviceId: UUID? = null
     ): AppResult<AuthResponse> {
         @Suppress("UNUSED_PARAMETER")
         val ignoredRequest = refreshJWTRequest
@@ -67,6 +68,12 @@ class AuthTokenManagementService(
         if (tokenRecord == null) {
             authMetrics.recordRefreshRejected(RefreshRejectionReason.UNKNOWN_TOKEN)
             logger.authRejected("auth.refresh.failed", context, "unknown_token")
+            return locale.respondInvalidRefreshTokenError()
+        }
+
+        if (desktopDeviceId != null && tokenRecord.deviceId != desktopDeviceId) {
+            authMetrics.recordRefreshRejected(RefreshRejectionReason.UNKNOWN_TOKEN)
+            logger.authRejected("auth.refresh.failed", context, "desktop_device_mismatch", tokenRecord.userId, tokenRecord.deviceId)
             return locale.respondInvalidRefreshTokenError()
         }
 

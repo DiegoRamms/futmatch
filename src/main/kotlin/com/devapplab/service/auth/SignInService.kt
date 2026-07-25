@@ -89,6 +89,7 @@ class SignInService(
         jwtConfig: JWTConfig,
         deviceInfo: String?,
         context: AuthRequestContext,
+        desktopDeviceId: UUID? = null,
     ): AppResult<AuthResponse> {
         val startTime = System.currentTimeMillis()
         val email = signInRequest.email
@@ -163,10 +164,17 @@ class SignInService(
             UserStatus.ACTIVE -> {
                 val providedDeviceId = signInRequest.deviceId
 
+                if (desktopDeviceId != null && providedDeviceId != desktopDeviceId) {
+                    logger.authRejected("auth.sign_in.failed", context, "desktop_device_mismatch", user.userId, statusCode = HttpStatusCode.Unauthorized.value, durationMs = System.currentTimeMillis() - startTime)
+                    return locale.respondInvalidSignInCredentialsError()
+                }
+
                 val deviceDecision = runCatching {
                     dbExecutor.tx {
                         val isKnownDevice = providedDeviceId?.let { deviceRepository.isValidDeviceIdForUser(it, user.userId) } ?: false
                         val isTrustedDevice = providedDeviceId?.let { deviceRepository.isTrustedDeviceIdForUser(it, user.userId) } ?: false
+
+                        if (desktopDeviceId != null && !isKnownDevice) return@tx null
 
                         val resolvedDeviceId =
                             if (isKnownDevice) {
@@ -188,7 +196,7 @@ class SignInService(
                         StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
                         StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
                     )
-                }
+                } ?: return locale.respondInvalidSignInCredentialsError()
 
                 if (deviceDecision.needsMfa) {
                     val challengeToken = runCatching {

@@ -19,6 +19,8 @@ import com.devapplab.service.billing.BillingService
 import com.devapplab.service.billing.StripeBillingService
 import com.devapplab.service.clean.CleanupDataService
 import com.devapplab.service.device.DeviceService
+import com.devapplab.service.device.DesktopDeviceSecurityService
+import com.devapplab.service.device.DesktopEnrollmentService
 import com.devapplab.service.email.EmailDomainPolicy
 import com.devapplab.service.email.MailtrapEmailService
 import com.devapplab.service.field.FieldService
@@ -81,4 +83,6 @@ val serviceModule = module {
     singleOf(::StripeBillingService) { bind<BillingService>() }
     singleOf(::StripePaymentService) { bind<PaymentService>() }
     singleOf(::DeviceService)
+    singleOf(::DesktopDeviceSecurityService)
+    singleOf(::DesktopEnrollmentService)
 }

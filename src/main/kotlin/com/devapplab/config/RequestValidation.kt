@@ -13,6 +13,7 @@ import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.request.SignOutRequest
 import com.devapplab.model.auth.response.RefreshJWTRequest
 import com.devapplab.model.device.UpdateFcmTokenRequest
+import com.devapplab.model.device.CreateDesktopEnrollmentRequest
 import com.devapplab.model.field.request.CreateFieldRequest
 import com.devapplab.model.field.request.UpdateFieldRequest
 import com.devapplab.model.location.Location
@@ -99,6 +100,7 @@ fun Application.configureRequestValidation() {
         validate<UpdateFcmTokenRequest> { request ->
             request.validate()
         }
+        validate<CreateDesktopEnrollmentRequest> { request -> request.validate() }
 
         validate<UpdateNameRequest> { request ->
             request.validate()
