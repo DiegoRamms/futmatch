@@ -93,7 +93,7 @@ class DesktopDeviceSecurityService(private val repository: DesktopDeviceReposito
             Signature.getInstance("SHA256withECDSA").run {
                 initVerify(parsePublicKey(publicKey))
                 update(canonical)
-                verify(rawP256SignatureToDer(Base64.getDecoder().decode(encodedSignature)))
+                verify(p256SignatureForJava(Base64.getDecoder().decode(encodedSignature)))
             }
         }.getOrDefault(false)
 
@@ -105,6 +105,14 @@ class DesktopDeviceSecurityService(private val repository: DesktopDeviceReposito
         val point = ECPoint(BigInteger(1, bytes.copyOfRange(1, 33)), BigInteger(1, bytes.copyOfRange(33, 65)))
         return KeyFactory.getInstance("EC").generatePublic(ECPublicKeySpec(point, spec)) as ECPublicKey
     }
+
+    /**
+     * Windows/TPM bridges commonly expose P-256 signatures as raw `r || s` (64 bytes),
+     * while macOS Security.framework returns the X9.62 ASN.1/DER form. Java's provider
+     * expects DER, so normalize raw signatures and retain a valid DER signature as-is.
+     */
+    private fun p256SignatureForJava(signature: ByteArray): ByteArray =
+        if (signature.size == P256_RAW_SIGNATURE_SIZE) rawP256SignatureToDer(signature) else signature
 
     private fun rawP256SignatureToDer(raw: ByteArray): ByteArray {
         require(raw.size == 64) { "Expected a 64-byte P-256 signature" }
@@ -122,6 +130,7 @@ class DesktopDeviceSecurityService(private val repository: DesktopDeviceReposito
         const val MAX_CLOCK_SKEW_MS = 300_000L
         const val NONCE_TTL_MS = 300_000L
         const val ENROLLMENT_TTL_MS = 600_000L
+        const val P256_RAW_SIGNATURE_SIZE = 64
         const val EMPTY_BODY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
 }
