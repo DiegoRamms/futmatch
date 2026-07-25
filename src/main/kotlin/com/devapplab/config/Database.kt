@@ -2,6 +2,7 @@ package com.devapplab.config
 
 import com.devapplab.data.database.device.DeviceTable
 import com.devapplab.data.database.device.DesktopDeviceTable
+import com.devapplab.data.database.device.DesktopEnrollmentRequestTable
 import com.devapplab.data.database.device.DesktopRequestNonceTable
 import com.devapplab.data.database.config.MatchPricingConfigTable
 import com.devapplab.data.database.cleanup.ProfileImageCleanupJobsTable
@@ -78,6 +79,7 @@ fun Application.configureDatabase() {
         UserTable,
         DeviceTable,
         DesktopDeviceTable,
+        DesktopEnrollmentRequestTable,
         DesktopRequestNonceTable,
         MfaCodeTable,
         LoginMfaChallengeTable,

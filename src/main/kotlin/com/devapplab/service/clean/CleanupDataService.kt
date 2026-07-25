@@ -6,6 +6,7 @@ import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.mfa.LoginMfaChallengeRepository
 import com.devapplab.data.repository.pending_registrations.PendingRegistrationRepository
 import com.devapplab.data.repository.cleanup.ProfileImageCleanupRepository
+import com.devapplab.data.repository.device.DesktopEnrollmentRepository
 import com.devapplab.service.image.ImageService
 import org.slf4j.LoggerFactory
 
@@ -14,6 +15,7 @@ class CleanupDataService(
     private val mfaCodeRepository: MfaCodeRepository,
     private val loginMfaChallengeRepository: LoginMfaChallengeRepository,
     private val pendingRegistrationRepository: PendingRegistrationRepository,
+    private val desktopEnrollmentRepository: DesktopEnrollmentRepository,
     private val profileImageCleanupRepository: ProfileImageCleanupRepository,
     private val imageService: ImageService,
     private val dbExecutor: DbExecutor
@@ -25,6 +27,7 @@ class CleanupDataService(
         refreshTokenRepository.deleteRevokedTokens()
         mfaCodeRepository.deleteExpiredMfaCodes()
         loginMfaChallengeRepository.deleteInactive(currentTimestamp)
+        desktopEnrollmentRepository.deleteExpired(currentTimestamp)
     }
 
     suspend fun cleanupExpiredPendingRegistrations() {

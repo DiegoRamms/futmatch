@@ -1,5 +1,7 @@
 package com.devapplab.service.device
 
+import com.devapplab.data.database.executor.DbExecutor
+import com.devapplab.data.repository.device.DesktopEnrollmentRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.device.ApproveDesktopEnrollmentRequest
 import com.devapplab.utils.createError
@@ -8,20 +10,21 @@ import java.util.Locale
 import java.util.UUID
 
 /** Application service for endpoint-facing enrollment operations. */
-class DesktopEnrollmentService(private val securityService: DesktopDeviceSecurityService) {
+class DesktopEnrollmentService(
+    private val dbExecutor: DbExecutor,
+    private val enrollmentRepository: DesktopEnrollmentRepository,
+    private val securityService: DesktopDeviceSecurityService
+) {
     suspend fun approveFromMobile(
         request: ApproveDesktopEnrollmentRequest,
         adminId: UUID,
         locale: Locale
     ): AppResult<Unit> = runCatching {
-        securityService.registerApprovedDevice(
-            deviceId = request.deviceId,
-            publicKey = request.publicKey,
-            label = request.label,
-            nonce = request.nonce,
-            expiresAt = request.expiresAt,
-            ownerUserId = adminId
-        )
+        val enrollmentId = UUID.fromString(request.enrollmentId)
+        val nonce = UUID.fromString(request.nonce)
+        dbExecutor.tx {
+            enrollmentRepository.consumeAndApprove(enrollmentId, nonce, adminId, adminId, System.currentTimeMillis())
+        }
     }.fold(
         onSuccess = { created ->
             if (created) AppResult.Success(Unit, HttpStatusCode.Created)

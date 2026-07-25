@@ -2,6 +2,7 @@ package com.devapplab.features.device.validation
 
 import com.devapplab.model.device.UpdateFcmTokenRequest
 import com.devapplab.model.device.ApproveDesktopEnrollmentRequest
+import com.devapplab.model.device.CreateDesktopEnrollmentRequest
 import com.devapplab.utils.StringResourcesKey
 import io.ktor.server.plugins.requestvalidation.*
 import java.util.UUID
@@ -15,10 +16,15 @@ fun UpdateFcmTokenRequest.validate(): ValidationResult {
     }
 }
 
-fun ApproveDesktopEnrollmentRequest.validate(): ValidationResult = when {
+fun CreateDesktopEnrollmentRequest.validate(): ValidationResult = when {
     label.trim().isEmpty() || label.trim().length > 120 -> ValidationResult.Invalid(StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY.value)
     runCatching { UUID.fromString(deviceId) }.isFailure -> ValidationResult.Invalid(StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY.value)
-    runCatching { UUID.fromString(nonce) }.isFailure -> ValidationResult.Invalid(StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY.value)
     publicKey.isBlank() -> ValidationResult.Invalid(StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY.value)
+    else -> ValidationResult.Valid
+}
+
+fun ApproveDesktopEnrollmentRequest.validate(): ValidationResult = when {
+    runCatching { UUID.fromString(enrollmentId) }.isFailure -> ValidationResult.Invalid(StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY.value)
+    runCatching { UUID.fromString(nonce) }.isFailure -> ValidationResult.Invalid(StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY.value)
     else -> ValidationResult.Valid
 }

@@ -125,6 +125,11 @@ fun Application.configureRateLimit() {
             rateLimiter(limit = 30, refillPeriod = 60.seconds)
             requestKey { call -> "desktop-enrollment:ip:${call.clientIp()}" }
         }
+
+        register(RateLimitName(RateLimitType.DESKTOP_ENROLLMENT_CREATE.value)) {
+            rateLimiter(limit = 10, refillPeriod = 5.minutes)
+            requestKey { call -> "desktop-enrollment-create:ip:${call.clientIp()}" }
+        }
     }
 }
 
@@ -199,4 +204,5 @@ enum class RateLimitType(val value: String) {
     STRIPE_WEBHOOK("stripe_webhook"),
     CRON_JOB("cron_job"),
     DESKTOP_ENROLLMENT_STATUS("desktop_enrollment_status"),
+    DESKTOP_ENROLLMENT_CREATE("desktop_enrollment_create"),
 }

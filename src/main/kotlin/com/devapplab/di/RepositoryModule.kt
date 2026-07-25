@@ -11,6 +11,8 @@ import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.device.DeviceRepositoryImpl
 import com.devapplab.data.repository.device.DesktopDeviceRepository
 import com.devapplab.data.repository.device.DesktopDeviceRepositoryImpl
+import com.devapplab.data.repository.device.DesktopEnrollmentRepository
+import com.devapplab.data.repository.device.DesktopEnrollmentRepositoryImpl
 import com.devapplab.data.repository.discount.DiscountRepository
 import com.devapplab.data.repository.discount.DiscountRepositoryImp
 import com.devapplab.data.repository.location.LocationRepository
@@ -52,6 +54,7 @@ val repositoryModule = module {
     singleOf(::RefreshTokenRepositoryImp) { bind<RefreshTokenRepository>() }
     singleOf(::DeviceRepositoryImpl) { bind<DeviceRepository>() }
     singleOf(::DesktopDeviceRepositoryImpl) { bind<DesktopDeviceRepository>() }
+    singleOf(::DesktopEnrollmentRepositoryImpl) { bind<DesktopEnrollmentRepository>() }
     singleOf(::MfaCodeRepositoryImpl) { bind<MfaCodeRepository>() }
     singleOf(::LoginMfaChallengeRepositoryImpl) { bind<LoginMfaChallengeRepository>() }
     singleOf(::LoginMfaVerifyAttemptRepositoryImpl) { bind<LoginMfaVerifyAttemptRepository>() }

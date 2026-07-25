@@ -1,6 +1,8 @@
 package com.devapplab.features.device
 
 import com.devapplab.model.device.ApproveDesktopEnrollmentRequest
+import com.devapplab.model.device.CreateDesktopEnrollmentRequest
+import com.devapplab.model.device.DesktopEnrollmentCreationProof
 import com.devapplab.model.device.DesktopEnrollmentStatusProof
 import com.devapplab.service.device.DesktopDeviceSecurityService
 import com.devapplab.service.device.DesktopEnrollmentService
@@ -14,6 +16,18 @@ class DesktopDeviceController(
     private val enrollmentService: DesktopEnrollmentService,
     private val securityService: DesktopDeviceSecurityService
 ) {
+    suspend fun createEnrollment(call: ApplicationCall) {
+        val request = call.receive<CreateDesktopEnrollmentRequest>()
+        val proof = DesktopEnrollmentCreationProof(
+            timestamp = call.request.header("X-Desktop-Timestamp"),
+            requestId = call.request.header("X-Desktop-Request-Id"),
+            signature = call.request.header("X-Desktop-Signature"),
+            method = call.request.httpMethod.value,
+            path = call.request.path()
+        )
+        call.respond(securityService.createEnrollment(request, proof, call.retrieveLocale()))
+    }
+
     suspend fun approveFromMobile(call: ApplicationCall, adminId: UUID) {
         val request = call.receive<ApproveDesktopEnrollmentRequest>()
         call.respond(enrollmentService.approveFromMobile(request, adminId, call.retrieveLocale()))

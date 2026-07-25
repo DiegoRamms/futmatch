@@ -1,10 +1,16 @@
 package com.devapplab.service.device
 
 import com.devapplab.data.repository.device.DesktopDeviceRepository
+import com.devapplab.data.repository.device.DesktopEnrollmentRecord
+import com.devapplab.data.repository.device.DesktopEnrollmentRepository
 import com.devapplab.model.AppResult
+import com.devapplab.model.device.CreateDesktopEnrollmentRequest
+import com.devapplab.model.device.CreateDesktopEnrollmentResponse
+import com.devapplab.model.device.DesktopEnrollmentCreationProof
 import com.devapplab.model.device.DesktopEnrollmentStatusProof
 import com.devapplab.model.device.DesktopEnrollmentStatus
 import com.devapplab.model.device.DesktopEnrollmentStatusResponse
+import com.devapplab.model.device.PendingDesktopEnrollment
 import com.devapplab.utils.createError
 import io.ktor.http.HttpStatusCode
 import java.math.BigInteger
@@ -19,24 +25,47 @@ import java.util.Base64
 import java.util.UUID
 import java.util.Locale
 
-class DesktopDeviceSecurityService(private val repository: DesktopDeviceRepository) {
-    suspend fun registerApprovedDevice(
-        deviceId: String,
-        publicKey: String,
-        label: String,
-        nonce: String,
-        expiresAt: Long,
-        ownerUserId: UUID
-    ): Boolean {
-        val normalizedLabel = label.trim()
+class DesktopDeviceSecurityService(
+    private val repository: DesktopDeviceRepository,
+    private val enrollmentRepository: DesktopEnrollmentRepository
+) {
+    suspend fun createEnrollment(
+        request: CreateDesktopEnrollmentRequest,
+        proof: DesktopEnrollmentCreationProof,
+        locale: Locale
+    ): AppResult<CreateDesktopEnrollmentResponse> = runCatching {
+        val normalizedLabel = request.label.trim()
         require(normalizedLabel.isNotBlank() && normalizedLabel.length <= 120) { "Invalid device label" }
-        parsePublicKey(publicKey)
-        val id = UUID.fromString(deviceId)
-        UUID.fromString(nonce)
+        val publicKey = parsePublicKey(request.publicKey)
+        val deviceId = UUID.fromString(request.deviceId)
+        val timestamp = proof.timestamp?.toLongOrNull() ?: error("Invalid desktop timestamp")
+        val requestId = proof.requestId?.takeIf { runCatching { UUID.fromString(it) }.isSuccess }
+            ?: error("Invalid desktop request id")
+        require(kotlin.math.abs(System.currentTimeMillis() - timestamp) <= MAX_CLOCK_SKEW_MS) { "Expired desktop proof" }
+        val signature = proof.signature ?: error("Missing desktop signature")
+        val canonical = "${proof.method}\n${proof.path}\n$timestamp\n$requestId\n$deviceId\n${request.publicKey}\n$normalizedLabel".toByteArray()
+        require(verifySignature(publicKey, signature, canonical)) { "Invalid desktop proof" }
         val now = System.currentTimeMillis()
-        require(expiresAt > now && expiresAt <= now + ENROLLMENT_TTL_MS) { "Invalid enrollment expiration" }
-        return repository.registerApprovedDevice(id, publicKey, normalizedLabel, ownerUserId, ownerUserId, now)
-    }
+        val enrollment = PendingDesktopEnrollment(
+            id = UUID.randomUUID(),
+            deviceId = deviceId,
+            publicKey = request.publicKey,
+            label = normalizedLabel,
+            nonce = UUID.randomUUID(),
+            expiresAt = now + ENROLLMENT_TTL_MS,
+            createdAt = now
+        )
+        require(enrollmentRepository.createPending(enrollment)) { "Desktop enrollment already exists" }
+        CreateDesktopEnrollmentResponse(
+            enrollmentId = enrollment.id.toString(),
+            deviceId = enrollment.deviceId.toString(),
+            nonce = enrollment.nonce.toString(),
+            expiresAt = enrollment.expiresAt
+        )
+    }.fold(
+        onSuccess = { AppResult.Success(it, HttpStatusCode.Created) },
+        onFailure = { locale.createError(status = HttpStatusCode.Conflict) }
+    )
 
     /** This is used before the desktop has a JWT; the approved device key authenticates the polling client. */
     suspend fun enrollmentStatus(
@@ -54,12 +83,13 @@ class DesktopDeviceSecurityService(private val repository: DesktopDeviceReposito
         if (kotlin.math.abs(System.currentTimeMillis() - at) > MAX_CLOCK_SKEW_MS) return null
         val nonce = proof.requestId?.takeIf { runCatching { UUID.fromString(it) }.isSuccess } ?: return null
         val encodedSignature = proof.signature ?: return null
-        val enrollment = repository.getEnrollment(id) ?: return null
+        val enrollment = repository.getEnrollment(id) ?: enrollmentRepository.findByDeviceId(id, System.currentTimeMillis())
+            ?.let { DesktopEnrollmentRecord(it.publicKey, DesktopEnrollmentStatus.PENDING) }
+            ?: return null
         val status = enrollment.status
-        if (status != DesktopEnrollmentStatus.ACTIVE) return null
         val canonical = "${proof.method}\n${proof.path}\n$at\n$nonce\n$EMPTY_BODY_SHA256".toByteArray()
         return status.takeIf {
-            verifySignature(enrollment.publicKey, encodedSignature, canonical)
+            verifySignature(parsePublicKey(enrollment.publicKey), encodedSignature, canonical)
         }
     }
 
@@ -91,9 +121,14 @@ class DesktopDeviceSecurityService(private val repository: DesktopDeviceReposito
     }
 
     private fun verifySignature(publicKey: String, encodedSignature: String, canonical: ByteArray): Boolean =
+        runCatching { parsePublicKey(publicKey) }.getOrNull()?.let { key ->
+            verifySignature(key, encodedSignature, canonical)
+        } ?: false
+
+    private fun verifySignature(publicKey: ECPublicKey, encodedSignature: String, canonical: ByteArray): Boolean =
         runCatching {
             Signature.getInstance("SHA256withECDSA").run {
-                initVerify(parsePublicKey(publicKey))
+                initVerify(publicKey)
                 update(canonical)
                 verify(p256SignatureForJava(Base64.getDecoder().decode(encodedSignature)))
             }

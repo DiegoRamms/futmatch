@@ -19,28 +19,6 @@ import org.jetbrains.exposed.v1.jdbc.update
 import java.util.UUID
 
 class DesktopDeviceRepositoryImpl : DesktopDeviceRepository {
-    override suspend fun registerApprovedDevice(
-        deviceId: UUID,
-        publicKey: String,
-        label: String,
-        ownerUserId: UUID,
-        approvedBy: UUID,
-        now: Long
-    ): Boolean = dbQuery {
-        if (DeviceTable.selectAll().where { DeviceTable.id eq deviceId }.singleOrNull() != null) return@dbQuery false
-        DeviceTable.insert {
-            it[id] = deviceId; it[userId] = ownerUserId; it[platform] = DevicePlatform.DESKTOP; it[deviceInfo] = label
-            // Mobile approval authorizes this cryptographic desktop key; it must not bypass
-            // the user's first password + MFA login on this device.
-            it[isTrusted] = false; it[isActive] = true; it[lastUsedAt] = now; it[createdAt] = now
-        }
-        DesktopDeviceTable.insert {
-            it[id] = deviceId; it[this.publicKey] = publicKey; it[this.label] = label; it[approvedByUserId] = approvedBy
-            it[isActive] = true; it[createdAt] = now
-        }
-        true
-    }
-
     override suspend fun getEnrollment(deviceId: UUID): DesktopEnrollmentRecord? = dbQuery {
         activeDeviceEnrollment(deviceId)
     }

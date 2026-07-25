@@ -6,6 +6,7 @@ import com.devapplab.features.admin.desktopDeviceAdminRouting
 import com.devapplab.features.cron.cronRouting
 import com.devapplab.features.device.deviceRouting
 import com.devapplab.features.device.desktopEnrollmentStatusRouting
+import com.devapplab.features.device.desktopEnrollmentRouting
 import com.devapplab.features.field.fieldRouting
 import com.devapplab.features.location.locationRouting
 import com.devapplab.features.match.matchRouting
@@ -138,6 +139,7 @@ fun Application.configureRouting() {
         staticFiles("/uploads", File("uploads"))
         stripeRouting()
         cronRouting()
+        desktopEnrollmentRouting()
         desktopEnrollmentStatusRouting()
         appCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService) {
             authRouting()
