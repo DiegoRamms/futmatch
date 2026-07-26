@@ -24,11 +24,14 @@ import java.security.spec.ECPublicKeySpec
 import java.util.Base64
 import java.util.UUID
 import java.util.Locale
+import org.slf4j.LoggerFactory
 
 class DesktopDeviceSecurityService(
     private val repository: DesktopDeviceRepository,
     private val enrollmentRepository: DesktopEnrollmentRepository
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     suspend fun createEnrollment(
         request: CreateDesktopEnrollmentRequest,
         proof: DesktopEnrollmentCreationProof,
@@ -64,7 +67,10 @@ class DesktopDeviceSecurityService(
         )
     }.fold(
         onSuccess = { AppResult.Success(it, HttpStatusCode.Created) },
-        onFailure = { locale.createError(status = HttpStatusCode.Conflict) }
+        onFailure = { error ->
+            logger.warn("Desktop enrollment creation rejected: reason={}", error.message)
+            locale.createError(status = HttpStatusCode.Conflict)
+        }
     )
 
     /** This is used before the desktop has a JWT; the approved device key authenticates the polling client. */
