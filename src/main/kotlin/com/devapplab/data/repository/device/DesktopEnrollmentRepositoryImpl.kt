@@ -37,6 +37,12 @@ class DesktopEnrollmentRepositoryImpl : DesktopEnrollmentRepository {
         true
     }
 
+    override suspend fun isOrphanedDesktopDevice(deviceId: UUID): Boolean = dbQuery {
+        val device = DeviceTable.selectAll().where { DeviceTable.id eq deviceId }.singleOrNull() ?: return@dbQuery false
+        device[DeviceTable.platform] == DevicePlatform.DESKTOP &&
+            !DesktopDeviceTable.selectAll().where { DesktopDeviceTable.id eq deviceId }.any()
+    }
+
     override suspend fun findByDeviceId(deviceId: UUID, now: Long): PendingDesktopEnrollment? = dbQuery {
         DesktopEnrollmentRequestTable.selectAll().where {
             (DesktopEnrollmentRequestTable.deviceId eq deviceId) and

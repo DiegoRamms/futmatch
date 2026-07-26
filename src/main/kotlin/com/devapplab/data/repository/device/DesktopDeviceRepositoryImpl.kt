@@ -24,23 +24,7 @@ class DesktopDeviceRepositoryImpl : DesktopDeviceRepository {
     }
 
     override suspend fun revokeDevice(deviceId: UUID, now: Long): Boolean = dbQuery {
-        val revoked =
-            DesktopDeviceTable.update({ (DesktopDeviceTable.id eq deviceId) and (DesktopDeviceTable.isActive eq true) }) {
-                it[isActive] = false; it[revokedAt] = now
-            } > 0
-        if (!revoked) return@dbQuery false
-
-        DeviceTable.update({ DeviceTable.id eq deviceId }) { it[isActive] = false; it[isTrusted] = false }
-        RefreshTokenTable.update({
-            (RefreshTokenTable.deviceId eq deviceId) and (RefreshTokenTable.status eq RefreshTokenStatus.ACTIVE.name)
-        }) {
-            it[RefreshTokenTable.revoked] = true
-            it[RefreshTokenTable.status] = RefreshTokenStatus.REVOKED.name
-            it[RefreshTokenTable.statusReason] = RefreshTokenStatusReason.ADMIN_REVOCATION.name
-            it[RefreshTokenTable.revokedAt] = now
-        }
-        DesktopRequestNonceTable.deleteWhere { DesktopRequestNonceTable.deviceId eq deviceId }
-        true
+        revokeDeviceTx(deviceId, now)
     }
 
     override suspend fun getActivePublicKey(deviceId: UUID): String? = dbQuery {
@@ -55,6 +39,41 @@ class DesktopDeviceRepositoryImpl : DesktopDeviceRepository {
         }.any()
     }
 
+    override suspend fun cleanupStaleDesktopDevices(now: Long): DesktopDeviceCleanupResult = dbQuery {
+        val orphanBefore = now - ORPHAN_RETENTION_MS
+        val inactiveBefore = now - INACTIVE_RETENTION_MS
+        val unusedBefore = now - UNUSED_RETENTION_MS
+
+        val orphanIds = DeviceTable.selectAll().where {
+            (DeviceTable.platform eq DevicePlatform.DESKTOP) and (DeviceTable.createdAt less orphanBefore)
+        }.map { it[DeviceTable.id] }.filter { id ->
+            !DesktopDeviceTable.selectAll().where { DesktopDeviceTable.id eq id }.any()
+        }
+        orphanIds.forEach { id -> DeviceTable.deleteWhere { DeviceTable.id eq id } }
+
+        val unusedActiveIds = DeviceTable.selectAll().where {
+            (DeviceTable.platform eq DevicePlatform.DESKTOP) and
+                (DeviceTable.isActive eq true) and
+                (DeviceTable.lastUsedAt less unusedBefore)
+        }.map { it[DeviceTable.id] }.filter { id ->
+            DesktopDeviceTable.selectAll().where {
+                (DesktopDeviceTable.id eq id) and (DesktopDeviceTable.isActive eq true)
+            }.any()
+        }
+        val revokedInactiveDevices = unusedActiveIds.count { id -> revokeDeviceTx(id, now) }
+
+        val revokedIds = DesktopDeviceTable.selectAll().where {
+            (DesktopDeviceTable.isActive eq false) and (DesktopDeviceTable.revokedAt less inactiveBefore)
+        }.map { it[DesktopDeviceTable.id] }
+        revokedIds.forEach { id -> DeviceTable.deleteWhere { DeviceTable.id eq id } }
+
+        DesktopDeviceCleanupResult(
+            deletedOrphans = orphanIds.size,
+            revokedInactiveDevices = revokedInactiveDevices,
+            deletedRevokedDevices = revokedIds.size
+        )
+    }
+
     override suspend fun claimRequestNonce(deviceId: UUID, requestId: UUID, expiresAt: Long, now: Long): Boolean =
         runCatching {
             dbQuery {
@@ -65,15 +84,40 @@ class DesktopDeviceRepositoryImpl : DesktopDeviceRepository {
         }.getOrDefault(false)
 
     private fun activeDeviceEnrollment(deviceId: UUID): DesktopEnrollmentRecord? {
-        val desktop = DesktopDeviceTable.selectAll().where {
-            (DesktopDeviceTable.id eq deviceId) and (DesktopDeviceTable.isActive eq true)
-        }.singleOrNull() ?: return null
-        DeviceTable.selectAll().where {
-            (DeviceTable.id eq deviceId) and (DeviceTable.isActive eq true)
-        }.singleOrNull() ?: return null
+        val desktop = DesktopDeviceTable.selectAll().where { DesktopDeviceTable.id eq deviceId }.singleOrNull() ?: return null
+        val device = DeviceTable.selectAll().where { DeviceTable.id eq deviceId }.singleOrNull() ?: return null
         return DesktopEnrollmentRecord(
             publicKey = desktop[DesktopDeviceTable.publicKey],
-            status = DesktopEnrollmentStatus.ACTIVE
+            status = if (desktop[DesktopDeviceTable.isActive] && device[DeviceTable.isActive]) {
+                DesktopEnrollmentStatus.ACTIVE
+            } else {
+                DesktopEnrollmentStatus.REENROLLMENT_REQUIRED
+            }
         )
+    }
+
+    private fun revokeDeviceTx(deviceId: UUID, now: Long): Boolean {
+        val revoked = DesktopDeviceTable.update({ (DesktopDeviceTable.id eq deviceId) and (DesktopDeviceTable.isActive eq true) }) {
+            it[isActive] = false; it[revokedAt] = now
+        } > 0
+        if (!revoked) return false
+
+        DeviceTable.update({ DeviceTable.id eq deviceId }) { it[isActive] = false; it[isTrusted] = false }
+        RefreshTokenTable.update({
+            (RefreshTokenTable.deviceId eq deviceId) and (RefreshTokenTable.status eq RefreshTokenStatus.ACTIVE.name)
+        }) {
+            it[RefreshTokenTable.revoked] = true
+            it[RefreshTokenTable.status] = RefreshTokenStatus.REVOKED.name
+            it[RefreshTokenTable.statusReason] = RefreshTokenStatusReason.ADMIN_REVOCATION.name
+            it[RefreshTokenTable.revokedAt] = now
+        }
+        DesktopRequestNonceTable.deleteWhere { DesktopRequestNonceTable.deviceId eq deviceId }
+        return true
+    }
+
+    private companion object {
+        const val ORPHAN_RETENTION_MS = 24 * 60 * 60 * 1_000L
+        const val UNUSED_RETENTION_MS = 90L * 24 * 60 * 60 * 1_000L
+        const val INACTIVE_RETENTION_MS = 30L * 24 * 60 * 60 * 1_000L
     }
 }

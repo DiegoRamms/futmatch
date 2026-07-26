@@ -3,6 +3,7 @@ package com.devapplab.service.device
 import com.devapplab.data.repository.device.DesktopDeviceRepository
 import com.devapplab.data.repository.device.DesktopEnrollmentRecord
 import com.devapplab.data.repository.device.DesktopEnrollmentRepository
+import com.devapplab.config.DesktopReenrollmentRequiredException
 import com.devapplab.model.AppResult
 import com.devapplab.model.device.CreateDesktopEnrollmentRequest
 import com.devapplab.model.device.CreateDesktopEnrollmentResponse
@@ -48,6 +49,9 @@ class DesktopDeviceSecurityService(
         val signature = proof.signature ?: error("Missing desktop signature")
         val canonical = "${proof.method}\n${proof.path}\n$timestamp\n$requestId\n${request.deviceId}\n${request.publicKey}\n$normalizedLabel".toByteArray()
         require(verifySignature(publicKey, signature, canonical)) { "Invalid desktop proof" }
+        if (enrollmentRepository.isOrphanedDesktopDevice(deviceId)) {
+            throw DesktopReenrollmentRequiredException()
+        }
         val now = System.currentTimeMillis()
         val enrollment = PendingDesktopEnrollment(
             id = UUID.randomUUID(),
@@ -68,6 +72,7 @@ class DesktopDeviceSecurityService(
     }.fold(
         onSuccess = { AppResult.Success(it, HttpStatusCode.Created) },
         onFailure = { error ->
+            if (error is DesktopReenrollmentRequiredException) throw error
             logger.warn("Desktop enrollment creation rejected: reason={}", error.message)
             locale.createError(status = HttpStatusCode.Conflict)
         }

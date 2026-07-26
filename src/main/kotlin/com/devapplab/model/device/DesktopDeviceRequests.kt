@@ -53,7 +53,7 @@ data class DesktopEnrollmentStatusProof(
 
 @Suppress("unused")
 @Serializable
-enum class DesktopEnrollmentStatus { PENDING, ACTIVE }
+enum class DesktopEnrollmentStatus { PENDING, ACTIVE, REENROLLMENT_REQUIRED }
 
 @Serializable
 data class DesktopEnrollmentStatusResponse(val status: DesktopEnrollmentStatus)

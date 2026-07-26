@@ -5,6 +5,7 @@ import java.util.UUID
 
 interface DesktopEnrollmentRepository {
     suspend fun createPending(request: PendingDesktopEnrollment): Boolean
+    suspend fun isOrphanedDesktopDevice(deviceId: UUID): Boolean
     suspend fun findByDeviceId(deviceId: UUID, now: Long): PendingDesktopEnrollment?
     fun consumeAndApprove(
         enrollmentId: UUID,

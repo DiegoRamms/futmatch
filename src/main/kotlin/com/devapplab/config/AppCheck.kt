@@ -132,3 +132,4 @@ private suspend fun ApplicationCall.desktopBodyHash(): String? = runCatching {
 }.getOrNull()
 
 class InvalidAppCheckException(message: String) : RuntimeException(message)
+class DesktopReenrollmentRequiredException : RuntimeException()

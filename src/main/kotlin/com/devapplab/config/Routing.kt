@@ -108,6 +108,12 @@ fun Application.configureRouting() {
             )
         }
 
+        exception<DesktopReenrollmentRequiredException> { call, _ ->
+            call.response.headers.append("X-Desktop-Reenrollment-Required", "true")
+            val locale = call.retrieveLocale()
+            call.respond<ErrorResponse>(locale.createError(status = HttpStatusCode.Conflict))
+        }
+
 
         exception<Throwable> { call, cause ->
             val locale = call.retrieveLocale()
