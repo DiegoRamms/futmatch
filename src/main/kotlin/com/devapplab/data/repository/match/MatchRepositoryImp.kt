@@ -1255,7 +1255,7 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
-    override suspend fun getHomeWinStats(userId: UUID): HomeWinStats {
+    override suspend fun getUserMatchWinStats(userId: UUID): MatchWinStats {
         return dbQuery {
             val isWinExpr = Case()
                 .When(
@@ -1266,11 +1266,19 @@ class MatchRepositoryImp : MatchRepository {
                 .Else(intLiteral(0))
             val wonMatchesExpr = isWinExpr.sum()
             val playedMatchesExpr = MatchPlayersTable.userId.count()
+            val isDecisiveExpr = Case()
+                .When(
+                    MatchResultsTable.teamAScore neq MatchResultsTable.teamBScore,
+                    intLiteral(1)
+                )
+                .Else(intLiteral(0))
+            val decisiveMatchesExpr = isDecisiveExpr.sum()
 
             val row = (MatchPlayersTable innerJoin MatchTable innerJoin MatchResultsTable)
                 .select(
                     playedMatchesExpr,
-                    wonMatchesExpr
+                    wonMatchesExpr,
+                    decisiveMatchesExpr
                 )
                 .where {
                     (MatchPlayersTable.userId eq userId) and
@@ -1278,11 +1286,12 @@ class MatchRepositoryImp : MatchRepository {
                         (MatchPlayersTable.attendanceStatus eq AttendanceStatus.PRESENT) and
                         (MatchTable.status eq MatchStatus.COMPLETED)
                 }
-                .singleOrNull() ?: return@dbQuery HomeWinStats(playedMatches = 0, wonMatches = 0)
+                .singleOrNull() ?: return@dbQuery MatchWinStats(playedMatches = 0, wonMatches = 0)
 
-            HomeWinStats(
+            MatchWinStats(
                 playedMatches = row[playedMatchesExpr].toInt(),
-                wonMatches = row[wonMatchesExpr] ?: 0
+                wonMatches = row[wonMatchesExpr] ?: 0,
+                decisiveMatches = row[decisiveMatchesExpr] ?: 0
             )
         }
     }

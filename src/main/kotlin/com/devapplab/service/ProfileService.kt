@@ -21,7 +21,6 @@ import kotlinx.coroutines.coroutineScope
 import org.slf4j.LoggerFactory
 import java.util.Locale
 import java.util.UUID
-import kotlin.math.roundToInt
 
 class ProfileService(
     private val dbExecutor: DbExecutor,
@@ -114,16 +113,12 @@ class ProfileService(
     }
 
     private suspend fun loadStats(userId: UUID): ProfileStatsComputed = coroutineScope {
-        val winStatsDeferred = async { matchRepository.getHomeWinStats(userId) }
+        val winStatsDeferred = async { matchRepository.getUserMatchWinStats(userId) }
         val mvpCountDeferred = async { matchRepository.getUserMvpCount(userId) }
         val totalGoalsDeferred = async { matchRepository.getUserTotalGoals(userId) }
 
         val winStats = winStatsDeferred.await()
-        val averageScore = if (winStats.playedMatches == 0) {
-            0
-        } else {
-            ((winStats.wonMatches.toDouble() / winStats.playedMatches.toDouble()) * 100.0).roundToInt()
-        }
+        val averageScore = winStats.overallScore
 
         ProfileStatsComputed(
             averageScore = averageScore,

@@ -38,7 +38,7 @@ class ProfileServiceTest {
             dbExecutor = FakeDbExecutor(),
             userRepository = FakeUserRepository(user = fakeUser(userId)),
             matchRepository = FakeMatchRepository(
-                winStats = HomeWinStats(playedMatches = 10, wonMatches = 8),
+                winStats = MatchWinStats(playedMatches = 10, wonMatches = 8),
                 mvpCount = 3,
                 totalGoals = 21,
                 lastMatch = null
@@ -58,12 +58,35 @@ class ProfileServiceTest {
     }
 
     @Test
+    fun `getMyProfile excludes draws from average score`() = kotlinx.coroutines.runBlocking {
+        val userId = UUID.randomUUID()
+        val service = ProfileService(
+            dbExecutor = FakeDbExecutor(),
+            userRepository = FakeUserRepository(user = fakeUser(userId)),
+            matchRepository = FakeMatchRepository(
+                winStats = MatchWinStats(playedMatches = 10, wonMatches = 8, decisiveMatches = 8),
+                mvpCount = 0,
+                totalGoals = 0,
+                lastMatch = null
+            ),
+            imageService = FakeImageService()
+        )
+
+        val result = service.getMyProfile(userId, Locale.US, testContext)
+        val success = result as AppResult.Success
+
+        assertEquals(100, success.data.averageScore)
+        assertEquals(10, success.data.stats.matchesPlayed)
+        assertEquals(8, success.data.stats.matchesWon)
+    }
+
+    @Test
     fun `getPublicProfile returns not found when user does not exist`() = kotlinx.coroutines.runBlocking {
         val service = ProfileService(
             dbExecutor = FakeDbExecutor(),
             userRepository = FakeUserRepository(user = null),
             matchRepository = FakeMatchRepository(
-                winStats = HomeWinStats(0, 0),
+                winStats = MatchWinStats(0, 0),
                 mvpCount = 0,
                 totalGoals = 0,
                 lastMatch = null
@@ -83,7 +106,7 @@ class ProfileServiceTest {
             dbExecutor = FakeDbExecutor(),
             userRepository = FakeUserRepository(user = fakeUser(userId)),
             matchRepository = FakeMatchRepository(
-                winStats = HomeWinStats(playedMatches = 0, wonMatches = 0),
+                winStats = MatchWinStats(playedMatches = 0, wonMatches = 0),
                 mvpCount = 0,
                 totalGoals = 0,
                 lastMatch = null
@@ -102,7 +125,7 @@ class ProfileServiceTest {
             dbExecutor = FakeDbExecutor(),
             userRepository = FakeUserRepository(user = null),
             matchRepository = FakeMatchRepository(
-                winStats = HomeWinStats(0, 0),
+                winStats = MatchWinStats(0, 0),
                 mvpCount = 0,
                 totalGoals = 0,
                 lastMatch = null
@@ -344,12 +367,12 @@ private class FakeRefreshTokenRepository : RefreshTokenRepository {
 }
 
 private class FakeMatchRepository(
-    private val winStats: HomeWinStats,
+    private val winStats: MatchWinStats,
     private val mvpCount: Int,
     private val totalGoals: Int,
     private val lastMatch: HomeLastMatch?
 ) : MatchRepository {
-    override suspend fun getHomeWinStats(userId: UUID): HomeWinStats = winStats
+    override suspend fun getUserMatchWinStats(userId: UUID): MatchWinStats = winStats
     override suspend fun getUserMvpCount(userId: UUID): Int = mvpCount
     override suspend fun getUserTotalGoals(userId: UUID): Int = totalGoals
     override suspend fun getHomeLastMatch(userId: UUID): HomeLastMatch? = lastMatch

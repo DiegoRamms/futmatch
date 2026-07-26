@@ -43,7 +43,6 @@ import kotlinx.coroutines.coroutineScope
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 import java.util.*
-import kotlin.math.roundToInt
 
 class UserService(
     private val dbExecutor: DbExecutor,
@@ -408,7 +407,7 @@ class UserService(
                 matchRepository.getHomeSuggestedMatches(userId = userId, limit = HOME_SUGGESTED_MATCHES_FETCH_LIMIT)
             }
             val lastMatchDeferred = async { matchRepository.getHomeLastMatch(userId) }
-            val winStatsDeferred = async { matchRepository.getHomeWinStats(userId) }
+            val winStatsDeferred = async { matchRepository.getUserMatchWinStats(userId) }
             Triple(
                 suggestedDeferred.await(),
                 lastMatchDeferred.await(),
@@ -416,11 +415,7 @@ class UserService(
             )
         }
 
-        val averageScore = if (winStats.playedMatches == 0) {
-            0
-        } else {
-            ((winStats.wonMatches.toDouble() / winStats.playedMatches.toDouble()) * 100.0).roundToInt()
-        }
+        val averageScore = winStats.overallScore
 
         val profileImageUrl = user.profilePic?.let { fileName ->
             imageService.getImageUrl("${Constants.BASE_USER_STORAGE_PATH}/${user.id}/$fileName")

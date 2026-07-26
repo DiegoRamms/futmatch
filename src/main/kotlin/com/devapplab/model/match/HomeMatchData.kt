@@ -27,11 +27,6 @@ data class HomeLastMatch(
     val outcome: HomeMatchOutcome
 )
 
-data class HomeWinStats(
-    val playedMatches: Int,
-    val wonMatches: Int
-)
-
 enum class HomeMatchOutcome {
     WIN,
     LOSS,

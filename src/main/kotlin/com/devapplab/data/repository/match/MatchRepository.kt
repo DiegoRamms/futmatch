@@ -36,7 +36,7 @@ interface MatchRepository {
     suspend fun calculateTeamScores(matchId: UUID): Pair<Int, Int>
     suspend fun getHomeSuggestedMatches(userId: UUID, limit: Int): List<HomeSuggestedMatch>
     suspend fun getHomeLastMatch(userId: UUID): HomeLastMatch?
-    suspend fun getHomeWinStats(userId: UUID): HomeWinStats
+    suspend fun getUserMatchWinStats(userId: UUID): MatchWinStats
     suspend fun getUserMvpCount(userId: UUID): Int
     suspend fun getUserTotalGoals(userId: UUID): Int
     suspend fun getMatchesPendingPaymentWindowWarning(
