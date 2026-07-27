@@ -8,6 +8,7 @@ import com.devapplab.model.AppResult
 import com.devapplab.model.device.CreateDesktopEnrollmentRequest
 import com.devapplab.model.device.CreateDesktopEnrollmentResponse
 import com.devapplab.model.device.DesktopEnrollmentCreationProof
+import com.devapplab.model.device.DesktopEnrollmentMetadata
 import com.devapplab.model.device.DesktopEnrollmentStatusProof
 import com.devapplab.model.device.DesktopEnrollmentStatus
 import com.devapplab.model.device.DesktopEnrollmentStatusResponse
@@ -36,6 +37,7 @@ class DesktopDeviceSecurityService(
     suspend fun createEnrollment(
         request: CreateDesktopEnrollmentRequest,
         proof: DesktopEnrollmentCreationProof,
+        metadata: DesktopEnrollmentMetadata,
         locale: Locale
     ): AppResult<CreateDesktopEnrollmentResponse> = runCatching {
         val normalizedLabel = request.label.trim()
@@ -58,6 +60,9 @@ class DesktopDeviceSecurityService(
             deviceId = deviceId,
             publicKey = request.publicKey,
             label = normalizedLabel,
+            deviceInfo = metadata.deviceInfo?.trim()?.takeIf { it.isNotBlank() },
+            appVersion = metadata.appVersion?.trim()?.take(MAX_DEVICE_METADATA_LENGTH),
+            osVersion = metadata.osVersion?.trim()?.take(MAX_DEVICE_METADATA_LENGTH),
             nonce = UUID.randomUUID(),
             expiresAt = now + ENROLLMENT_TTL_MS,
             createdAt = now
@@ -175,6 +180,7 @@ class DesktopDeviceSecurityService(
     }
 
     private companion object {
+        const val MAX_DEVICE_METADATA_LENGTH = 50
         const val MAX_CLOCK_SKEW_MS = 300_000L
         const val NONCE_TTL_MS = 300_000L
         const val ENROLLMENT_TTL_MS = 600_000L

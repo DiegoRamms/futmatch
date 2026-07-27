@@ -3,6 +3,9 @@ package com.devapplab.features.device
 import com.devapplab.model.device.ApproveDesktopEnrollmentRequest
 import com.devapplab.model.device.CreateDesktopEnrollmentRequest
 import com.devapplab.model.device.DesktopEnrollmentCreationProof
+import com.devapplab.model.device.DesktopEnrollmentDetailsRequest
+import com.devapplab.model.device.DesktopEnrollmentMetadata
+import com.devapplab.observability.requestContext
 import com.devapplab.model.device.DesktopEnrollmentStatusProof
 import com.devapplab.service.device.DesktopDeviceSecurityService
 import com.devapplab.service.device.DesktopEnrollmentService
@@ -25,12 +28,23 @@ class DesktopDeviceController(
             method = call.request.httpMethod.value,
             path = call.request.path()
         )
-        call.respond(securityService.createEnrollment(request, proof, call.retrieveLocale()))
+        val context = call.requestContext()
+        val metadata = DesktopEnrollmentMetadata(
+            deviceInfo = call.request.header("User-Agent"),
+            appVersion = context.appVersion,
+            osVersion = context.osVersion
+        )
+        call.respond(securityService.createEnrollment(request, proof, metadata, call.retrieveLocale()))
     }
 
     suspend fun approveFromMobile(call: ApplicationCall, adminId: UUID) {
         val request = call.receive<ApproveDesktopEnrollmentRequest>()
         call.respond(enrollmentService.approveFromMobile(request, adminId, call.retrieveLocale()))
+    }
+
+    suspend fun enrollmentDetails(call: ApplicationCall) {
+        val request = call.receive<DesktopEnrollmentDetailsRequest>()
+        call.respond(enrollmentService.detailsForMobile(request, call.retrieveLocale()))
     }
 
     suspend fun revoke(call: ApplicationCall, deviceId: UUID) {

@@ -27,9 +27,28 @@ data class PendingDesktopEnrollment(
     val deviceId: UUID,
     val publicKey: String,
     val label: String,
+    val deviceInfo: String?,
+    val appVersion: String?,
+    val osVersion: String?,
     val nonce: UUID,
     val expiresAt: Long,
     val createdAt: Long
+)
+
+data class DesktopEnrollmentMetadata(
+    val deviceInfo: String?,
+    val appVersion: String?,
+    val osVersion: String?
+)
+
+@Serializable
+data class DesktopEnrollmentDetailsRequest(val enrollmentId: String, val nonce: String)
+
+@Serializable
+data class DesktopEnrollmentDetailsResponse(
+    val deviceInfo: String?,
+    val appVersion: String?,
+    val osVersion: String?
 )
 
 /** Ktor-derived values used to prove possession of the new desktop private key. */

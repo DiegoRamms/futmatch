@@ -19,6 +19,10 @@ fun Route.desktopDeviceAdminRouting() {
             call.requireRole(UserRole.ADMIN)
             call.scope.get<DesktopDeviceController>().approveFromMobile(call, adminId)
         }
+        post("/enrollment-details") {
+            call.requireRole(UserRole.ADMIN)
+            call.scope.get<DesktopDeviceController>().enrollmentDetails(call)
+        }
         delete("/{deviceId}") {
             call.requireRole(UserRole.ADMIN)
             val deviceId = UUID.fromString(call.parameters["deviceId"])

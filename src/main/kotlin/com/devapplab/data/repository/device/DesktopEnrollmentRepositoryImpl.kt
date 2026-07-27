@@ -30,6 +30,9 @@ class DesktopEnrollmentRepositoryImpl : DesktopEnrollmentRepository {
             it[deviceId] = request.deviceId
             it[publicKey] = request.publicKey
             it[label] = request.label
+            it[deviceInfo] = request.deviceInfo
+            it[appVersion] = request.appVersion
+            it[osVersion] = request.osVersion
             it[nonce] = request.nonce
             it[expiresAt] = request.expiresAt
             it[createdAt] = request.createdAt
@@ -48,6 +51,20 @@ class DesktopEnrollmentRepositoryImpl : DesktopEnrollmentRepository {
             (DesktopEnrollmentRequestTable.deviceId eq deviceId) and
                 (DesktopEnrollmentRequestTable.expiresAt greater now)
         }.singleOrNull()?.let(::toPendingDesktopEnrollment)
+    }
+
+    override suspend fun findDetails(enrollmentId: UUID, nonce: UUID, now: Long): DesktopEnrollmentDetails? = dbQuery {
+        DesktopEnrollmentRequestTable.selectAll().where {
+            (DesktopEnrollmentRequestTable.id eq enrollmentId) and
+                (DesktopEnrollmentRequestTable.nonce eq nonce) and
+                (DesktopEnrollmentRequestTable.expiresAt greater now)
+        }.singleOrNull()?.let { row ->
+            DesktopEnrollmentDetails(
+                deviceInfo = row[DesktopEnrollmentRequestTable.deviceInfo],
+                appVersion = row[DesktopEnrollmentRequestTable.appVersion],
+                osVersion = row[DesktopEnrollmentRequestTable.osVersion]
+            )
+        }
     }
 
     override fun consumeAndApprove(
@@ -70,7 +87,10 @@ class DesktopEnrollmentRepositoryImpl : DesktopEnrollmentRepository {
             it[id] = deviceId
             it[userId] = ownerUserId
             it[platform] = DevicePlatform.DESKTOP
-            it[deviceInfo] = enrollment[DesktopEnrollmentRequestTable.label]
+            it[deviceInfo] = enrollment[DesktopEnrollmentRequestTable.deviceInfo]
+                ?: enrollment[DesktopEnrollmentRequestTable.label]
+            it[appVersion] = enrollment[DesktopEnrollmentRequestTable.appVersion]
+            it[osVersion] = enrollment[DesktopEnrollmentRequestTable.osVersion]
             it[isTrusted] = false
             it[isActive] = true
             it[lastUsedAt] = now
@@ -97,6 +117,9 @@ class DesktopEnrollmentRepositoryImpl : DesktopEnrollmentRepository {
         deviceId = row[DesktopEnrollmentRequestTable.deviceId],
         publicKey = row[DesktopEnrollmentRequestTable.publicKey],
         label = row[DesktopEnrollmentRequestTable.label],
+        deviceInfo = row[DesktopEnrollmentRequestTable.deviceInfo],
+        appVersion = row[DesktopEnrollmentRequestTable.appVersion],
+        osVersion = row[DesktopEnrollmentRequestTable.osVersion],
         nonce = row[DesktopEnrollmentRequestTable.nonce],
         expiresAt = row[DesktopEnrollmentRequestTable.expiresAt],
         createdAt = row[DesktopEnrollmentRequestTable.createdAt]
