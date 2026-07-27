@@ -1508,6 +1508,19 @@ class MatchService(
         }
     }
 
+    suspend fun synchronizeMatchStatuses() {
+        val updatedMatchIds = matchRepository.synchronizeMatchStatuses(System.currentTimeMillis())
+        if (updatedMatchIds.isEmpty()) {
+            logger.info("No match status updates required.")
+            return
+        }
+
+        updatedMatchIds.forEach { matchId ->
+            notifyMatchUpdate(matchId)
+        }
+        logger.info("Synchronized match statuses for ${updatedMatchIds.size} matches.")
+    }
+
     private suspend fun sendPaymentWindowWarnings() {
         val now = System.currentTimeMillis()
         val sixHoursInMillis = 6.hours.inWholeMilliseconds
@@ -1594,6 +1607,9 @@ class MatchService(
         if (match != null) {
             val region = resolvePublicRegion(match.fieldCountryCode, match.fieldCityCode)
             publicMatchesCacheService.invalidate(region)
+            if (region != DEFAULT_PUBLIC_REGION) {
+                publicMatchesCacheService.invalidate(DEFAULT_PUBLIC_REGION)
+            }
             if (sendRegionalPush) {
                 sendRegionalMatchesUpdatedPush(region)
             }

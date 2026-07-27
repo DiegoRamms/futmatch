@@ -61,7 +61,7 @@ Creates a new scheduled match.
 | `minPlayersRequired` | Int | Yes | Must be between 1 and `maxPlayers` (inclusive). |
 | `matchPriceInCents` | Long | Yes | Must be greater than 0. Note: Value represents cents (e.g., 500 = $5.00). |
 | `discountIds` | List\<UUID\> | No | Optional list of discount UUIDs applicable to the match. |
-| `status` | Enum | No | Optional initial match status. Valid values: `SCHEDULED`, `IN_PROGRESS`, `COMPLETED`, `CANCELED`. Default: `SCHEDULED`. |
+| `status` | Enum | No | Optional initial match status. Valid values: `SCHEDULED`, `IN_PROGRESS`, `PENDING_RESULT`, `COMPLETED`, `CANCELED`. Default: `SCHEDULED`. |
 | `genderType` | Enum | No | Must be a valid `GenderType` value. Valid values: `MIXED`, `MALE_ONLY`, `FEMALE_ONLY`. Default: `MIXED`. |
 | `playerLevel` | Enum | No | Must be a valid `PlayerLevel` value. Valid values: `ANY`, `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `PROFESSIONAL`. Default: `ANY`. |
 
@@ -156,7 +156,7 @@ Updates an existing match.
 | `minPlayersRequired` | Int | Yes | Must be between 1 and `maxPlayers` (inclusive). |
 | `matchPriceInCents` | Long | Yes | Must be greater than 0. Note: Value represents cents (e.g., 500 = $5.00). |
 | `discountIds` | List\<UUID\> | No | Optional list of discount UUIDs applicable to the match. |
-| `status` | Enum | Yes | Must be a valid `MatchStatus` value. Valid values: `SCHEDULED`, `IN_PROGRESS`, `COMPLETED`, `CANCELED`. |
+| `status` | Enum | Yes | Must be a valid `MatchStatus` value. Valid values: `SCHEDULED`, `IN_PROGRESS`, `PENDING_RESULT`, `COMPLETED`, `CANCELED`. |
 | `genderType` | Enum | Yes | Must be a valid `GenderType` value. Valid values: `MIXED`, `MALE_ONLY`, `FEMALE_ONLY`. |
 | `playerLevel` | Enum | Yes | Must be a valid `PlayerLevel` value. Valid values: `ANY`, `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `PROFESSIONAL`. |
 
@@ -170,6 +170,13 @@ Update uses the same pricing rules as create:
 - the selected minimum players must satisfy the calculated profitable threshold
 
 If the update passes validation, the economic snapshot on the match is refreshed using the current field/config values.
+
+### Match Status Lifecycle
+
+- The 15-minute match scheduler changes a `SCHEDULED` match to `IN_PROGRESS` when `dateTime <= now < dateTimeEnd`.
+- When `dateTimeEnd <= now`, the scheduler changes a `SCHEDULED` or `IN_PROGRESS` match to `PENDING_RESULT`.
+- `PENDING_RESULT` means the match has ended but its organizer has not recorded the final result. `IN_PROGRESS` and `PENDING_RESULT` are excluded from public upcoming-match responses; only `SCHEDULED` matches are returned there. Every transition triggers a public-match cache version update.
+- Only the organizer completion flow changes a match from `PENDING_RESULT` to `COMPLETED` and records scores, attendance, and MVP.
 
 ### Success Response
 
@@ -1173,10 +1180,11 @@ Matches are returned based on the following rules:
 |:------------|:-----------|
 | `SCHEDULED` | Always shown |
 | `IN_PROGRESS` | Always shown |
+| `PENDING_RESULT` | Always shown |
 | `COMPLETED` | Shown if ended within the last **4 days** |
 | `CANCELED` | Shown if ended within the last **4 days** |
 
-After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appear in the response.
+After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appear in the response. `PENDING_RESULT` remains visible until an organizer records the final result.
 
 ### Success Response
 
@@ -1355,12 +1363,12 @@ Gets complete details of a specific match.
 ### Score Fields
 
 - `teamAScore` and `teamBScore` are returned only when `status = COMPLETED`.
-- For `SCHEDULED`, `IN_PROGRESS`, or `CANCELED` matches, both fields are `null`.
+- For `SCHEDULED`, `IN_PROGRESS`, `PENDING_RESULT`, or `CANCELED` matches, both fields are `null`.
 - Scores come from the final result saved by an admin/organizer when completing the match.
 
 ### Team Snapshot Contract
 
-- For `SCHEDULED` and `IN_PROGRESS`, detail consumers should continue using the realtime player source for live roster rendering.
+- For `SCHEDULED`, `IN_PROGRESS`, and `PENDING_RESULT`, detail consumers should continue using the realtime player source for live roster rendering.
 - For `CANCELED` and `COMPLETED`, the backend now returns `teams` populated directly in the detail response.
 - In final states, clients should treat the backend `teams` snapshot as the source of truth and do not need to query Firestore for players.
 - Each player in a completed match includes `attendanceStatus`: `PRESENT` or `NO_SHOW`. The frontend can label `NO_SHOW` players as absent and should not present them as participants in the result.

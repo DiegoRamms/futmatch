@@ -184,6 +184,15 @@ class SignInService(
                         if (isDesktopDevice && desktopDeviceId != providedDeviceId) return@tx null
                         if (desktopDeviceId != null && !isKnownDevice) return@tx null
 
+                        if (desktopDeviceId != null) {
+                            deviceRepository.updateDesktopMetadata(
+                                deviceId = desktopDeviceId,
+                                deviceInfo = deviceInfo,
+                                appVersion = context.appVersion?.trim()?.take(MAX_DEVICE_METADATA_LENGTH),
+                                osVersion = context.osVersion?.trim()?.take(MAX_DEVICE_METADATA_LENGTH)
+                            )
+                        }
+
                         val resolvedDeviceId =
                             if (isKnownDevice) {
                                 providedDeviceId
@@ -241,6 +250,10 @@ class SignInService(
                 result
             }
         }
+    }
+
+    private companion object {
+        const val MAX_DEVICE_METADATA_LENGTH = 50
     }
 
     private suspend fun handleFailedLoginAttemptTx(email: String, locale: Locale, context: AuthRequestContext): AppResult.Failure {

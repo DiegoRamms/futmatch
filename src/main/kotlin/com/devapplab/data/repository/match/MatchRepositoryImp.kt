@@ -413,6 +413,49 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
+    override suspend fun synchronizeMatchStatuses(now: Long): List<UUID> {
+        return dbQuery {
+            val endedMatchIds = MatchTable
+                .select(MatchTable.id)
+                .where {
+                    (MatchTable.status inList listOf(MatchStatus.SCHEDULED, MatchStatus.IN_PROGRESS)) and
+                        (MatchTable.dateTimeEnd lessEq now)
+                }
+                .map { it[MatchTable.id] }
+
+            if (endedMatchIds.isNotEmpty()) {
+                MatchTable.update({
+                    (MatchTable.id inList endedMatchIds) and
+                        (MatchTable.status inList listOf(MatchStatus.SCHEDULED, MatchStatus.IN_PROGRESS))
+                }) {
+                    it[status] = MatchStatus.PENDING_RESULT
+                    it[updatedAt] = now
+                }
+            }
+
+            val startedMatchIds = MatchTable
+                .select(MatchTable.id)
+                .where {
+                    (MatchTable.status eq MatchStatus.SCHEDULED) and
+                        (MatchTable.dateTime lessEq now) and
+                        (MatchTable.dateTimeEnd greater now)
+                }
+                .map { it[MatchTable.id] }
+
+            if (startedMatchIds.isNotEmpty()) {
+                MatchTable.update({
+                    (MatchTable.id inList startedMatchIds) and
+                        (MatchTable.status eq MatchStatus.SCHEDULED)
+                }) {
+                    it[status] = MatchStatus.IN_PROGRESS
+                    it[updatedAt] = now
+                }
+            }
+
+            endedMatchIds + startedMatchIds
+        }
+    }
+
     override suspend fun getUserMatches(userId: UUID): List<MatchWithField> {
         return dbQuery {
             val now = System.currentTimeMillis()
@@ -424,7 +467,11 @@ class MatchRepositoryImp : MatchRepository {
                 .where { 
                     (MatchPlayersTable.userId eq userId) and 
                     (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
-                    ((MatchTable.status inList listOf(MatchStatus.SCHEDULED, MatchStatus.IN_PROGRESS)) or
+                    ((MatchTable.status inList listOf(
+                        MatchStatus.SCHEDULED,
+                        MatchStatus.IN_PROGRESS,
+                        MatchStatus.PENDING_RESULT
+                    )) or
                      (MatchTable.dateTimeEnd greaterEq visiblePastMatchesCutoff))
                 }
                 .orderBy(MatchTable.dateTime to SortOrder.ASC)

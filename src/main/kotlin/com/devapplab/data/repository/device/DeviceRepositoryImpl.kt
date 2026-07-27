@@ -57,6 +57,19 @@ class DeviceRepositoryImpl : DeviceRepository {
         } > 0
     }
 
+    override fun updateDesktopMetadata(
+        deviceId: UUID,
+        deviceInfo: String,
+        appVersion: String?,
+        osVersion: String?
+    ): Boolean = DeviceTable.update({
+        (DeviceTable.id eq deviceId) and (DeviceTable.platform eq DevicePlatform.DESKTOP)
+    }) {
+        it[DeviceTable.deviceInfo] = deviceInfo
+        it[DeviceTable.appVersion] = appVersion
+        it[DeviceTable.osVersion] = osVersion
+    } > 0
+
     override fun deactivateDevicesByUserIdTx(userId: UUID, changedAt: Long): Int =
         DeviceTable.update({ (DeviceTable.userId eq userId) and (DeviceTable.isActive eq true) }) {
             it[isActive] = false

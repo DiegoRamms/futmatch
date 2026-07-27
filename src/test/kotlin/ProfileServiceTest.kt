@@ -386,6 +386,7 @@ private class FakeMatchRepository(
     override suspend fun cancelMatch(matchId: UUID, reason: String): Boolean = error("not used")
     override suspend fun updateMatch(matchId: UUID, match: Match): Boolean = error("not used")
     override suspend fun getPublicMatches(): List<MatchWithField> = error("not used")
+    override suspend fun synchronizeMatchStatuses(now: Long): List<UUID> = error("not used")
     override suspend fun getUserMatches(userId: UUID): List<MatchWithField> = error("not used")
     override suspend fun getMatchById(matchId: UUID): MatchWithField? = error("not used")
     override suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): Boolean = error("not used")
