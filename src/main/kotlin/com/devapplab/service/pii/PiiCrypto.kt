@@ -65,9 +65,11 @@ class PiiCrypto(config: PiiCryptoConfig) {
         return base64Encoder.encodeToString(mac.doFinal("$type:$normalizedValue".toByteArray(StandardCharsets.UTF_8)))
     }
 
-    private fun decodeRequired(value: String, name: String): ByteArray = try {
+    private fun decodeRequired(value: String, name: String): ByteArray = runCatching {
+        standardBase64Decoder.decode(value)
+    }.recoverCatching {
         base64Decoder.decode(value)
-    } catch (error: IllegalArgumentException) {
+    }.getOrElse { error ->
         throw IllegalStateException("$name must be Base64-encoded.", error)
     }
 
@@ -83,5 +85,6 @@ class PiiCrypto(config: PiiCryptoConfig) {
         val secureRandom = SecureRandom()
         val base64Encoder = Base64.getUrlEncoder().withoutPadding()
         val base64Decoder = Base64.getUrlDecoder()
+        val standardBase64Decoder = Base64.getDecoder()
     }
 }

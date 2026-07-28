@@ -5,6 +5,7 @@ import com.devapplab.service.pii.PiiCrypto
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import java.util.Base64
 
 class PiiCryptoTest {
     private val crypto = PiiCrypto(
@@ -38,6 +39,19 @@ class PiiCryptoTest {
         assertEquals(
             crypto.phoneLookup("+525512345678"),
             crypto.phoneLookup(" +525512345678 ")
+        )
+    }
+
+    @Test
+    fun `accepts standard Base64 configuration keys`() {
+        val standardBase64Key = Base64.getEncoder().encodeToString(ByteArray(32) { 0xFB.toByte() })
+
+        PiiCrypto(
+            PiiCryptoConfig(
+                encryptionKeyBase64 = standardBase64Key,
+                lookupPepperBase64 = standardBase64Key,
+                keyVersion = "v1"
+            )
         )
     }
 }
