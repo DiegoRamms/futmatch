@@ -27,7 +27,6 @@ class RegistrationVerifyAttemptRepositoryImpl(private val piiCrypto: PiiCrypto) 
     override fun create(email: String): RegistrationVerifyAttempt {
         val now = System.currentTimeMillis()
         val row = RegistrationVerifyAttemptTable.insert {
-            it[this.email] = null
             it[this.emailLookup] = lookup(email)
             it[attempts] = 1
             it[lastAttemptAt] = now

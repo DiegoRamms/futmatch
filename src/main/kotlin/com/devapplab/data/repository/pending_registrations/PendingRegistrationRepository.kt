@@ -85,10 +85,8 @@ class PendingRegistrationRepositoryImpl(private val piiCrypto: PiiCrypto) : Pend
     }
 
     private fun writePii(statement: UpdateBuilder<*>, email: String, phone: String) {
-        statement[PendingRegistrationTable.email] = null
         statement[PendingRegistrationTable.emailCiphertext] = piiCrypto.encrypt(piiCrypto.normalizeEmail(email))
         statement[PendingRegistrationTable.emailLookup] = piiCrypto.emailLookup(email)
-        statement[PendingRegistrationTable.phone] = null
         statement[PendingRegistrationTable.phoneCiphertext] = piiCrypto.encrypt(piiCrypto.normalizePhone(phone))
         statement[PendingRegistrationTable.phoneLookup] = piiCrypto.phoneLookup(phone)
         statement[PendingRegistrationTable.piiKeyVersion] = piiCrypto.keyVersion

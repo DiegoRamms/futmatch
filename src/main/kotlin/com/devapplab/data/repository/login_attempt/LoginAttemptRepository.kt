@@ -33,7 +33,6 @@ class LoginAttemptRepositoryImpl(private val piiCrypto: PiiCrypto) : LoginAttemp
         val now = System.currentTimeMillis()
 
         val resultRow = LoginAttemptTable.insert {
-            it[this.email] = null
             it[this.emailLookup] = lookup(email)
             it[this.attempts] = 1
             it[this.lastAttemptAt] = now

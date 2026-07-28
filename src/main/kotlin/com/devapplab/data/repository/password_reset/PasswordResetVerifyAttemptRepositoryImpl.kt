@@ -28,7 +28,6 @@ class PasswordResetVerifyAttemptRepositoryImpl(private val piiCrypto: PiiCrypto)
         val now = System.currentTimeMillis()
 
         val row = PasswordResetVerifyAttemptTable.insert {
-            it[this.email] = null
             it[this.emailLookup] = lookup(email)
             it[this.attempts] = 1
             it[this.lastAttemptAt] = now

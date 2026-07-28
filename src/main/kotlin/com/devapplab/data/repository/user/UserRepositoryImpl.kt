@@ -384,10 +384,8 @@ class UserRepositoryImpl(private val piiCrypto: PiiCrypto) : UserRepository {
     }
 
     private fun writePii(statement: UpdateBuilder<*>, email: String, phone: String) {
-        statement[UserTable.email] = null
         statement[UserTable.emailCiphertext] = piiCrypto.encrypt(piiCrypto.normalizeEmail(email))
         statement[UserTable.emailLookup] = piiCrypto.emailLookup(email)
-        statement[UserTable.phone] = null
         statement[UserTable.phoneCiphertext] = piiCrypto.encrypt(piiCrypto.normalizePhone(phone))
         statement[UserTable.phoneLookup] = piiCrypto.phoneLookup(phone)
         statement[UserTable.piiKeyVersion] = piiCrypto.keyVersion
