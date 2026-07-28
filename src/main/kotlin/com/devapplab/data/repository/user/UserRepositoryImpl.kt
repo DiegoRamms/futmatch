@@ -16,22 +16,23 @@ import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.UserHomeProfile
 import com.devapplab.model.user.UserRole
 import com.devapplab.model.user.UserStatus
+import com.devapplab.service.pii.PiiCrypto
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.user.response.OrganizerListItem
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
 
-class UserRepositoryImpl : UserRepository {
+class UserRepositoryImpl(private val piiCrypto: PiiCrypto) : UserRepository {
 
     override fun addUser(user: User): UUID {
         return UserTable.insert {
             it[name] = user.name
             it[lastName] = user.lastName
-            it[email] = user.email
+            writePii(it, user.email, user.phone)
             it[password] = user.password
-            it[phone] = user.phone
             it[status] = user.status
             it[gender] = user.gender
             it[country] = user.country
@@ -47,9 +48,8 @@ class UserRepositoryImpl : UserRepository {
         val resultRow = UserTable.insert {
             it[name] = pendingUser.name
             it[lastName] = pendingUser.lastName
-            it[email] = pendingUser.email
+            writePii(it, pendingUser.email, pendingUser.phone)
             it[password] = pendingUser.password
-            it[phone] = pendingUser.phone
             it[status] = pendingUser.status
             it[gender] = pendingUser.gender
             it[country] = pendingUser.country
@@ -87,17 +87,17 @@ class UserRepositoryImpl : UserRepository {
     }
 
     override fun findByEmail(email: String): UserBaseInfo? {
-        return UserTable.selectAll().where { UserTable.email eq email }
+        return UserTable.selectAll().where { UserTable.emailLookup eq piiCrypto.emailLookup(email) }
             .firstOrNull()
             ?.toUserBaseInfo()
     }
 
     override fun isEmailAlreadyRegistered(email: String): Boolean {
-        return UserTable.selectAll().where { UserTable.email eq email }.any()
+        return UserTable.selectAll().where { UserTable.emailLookup eq piiCrypto.emailLookup(email) }.any()
     }
 
     override suspend fun isPhoneNumberAlreadyRegistered(phone: String): Boolean = dbQuery {
-        UserTable.selectAll().where { UserTable.phone eq phone }.any()
+        UserTable.selectAll().where { UserTable.phoneLookup eq piiCrypto.phoneLookup(phone) }.any()
     }
 
     override suspend fun isEmailVerified(userId: UUID): Boolean = dbQuery {
@@ -107,7 +107,7 @@ class UserRepositoryImpl : UserRepository {
     }
 
     override fun getUserSignInInfo(email: String): UserSignInInfo? {
-        return UserTable.selectAll().where { UserTable.email eq email }.firstOrNull()?.let {
+        return UserTable.selectAll().where { UserTable.emailLookup eq piiCrypto.emailLookup(email) }.firstOrNull()?.let {
             UserSignInInfo(
                 userId = it[UserTable.id],
                 userRole = it[UserTable.role],
@@ -130,9 +130,8 @@ class UserRepositoryImpl : UserRepository {
         UserTable.update({ UserTable.id eq id }) {
             it[name] = updatedUser.name
             it[lastName] = updatedUser.lastName
-            it[email] = updatedUser.email
+            writePii(it, updatedUser.email, updatedUser.phone)
             it[password] = updatedUser.password
-            it[phone] = updatedUser.phone
             it[status] = updatedUser.status
             it[country] = updatedUser.country
             it[birthDate] = updatedUser.birthDate
@@ -324,8 +323,7 @@ class UserRepositoryImpl : UserRepository {
         val updated = UserTable.update({ (UserTable.id eq userId) and (UserTable.status eq UserStatus.ACTIVE) }) {
             it[name] = "Deleted"
             it[lastName] = "User"
-            it[email] = anonymousEmail
-            it[phone] = anonymousPhone
+            writePii(it, anonymousEmail, anonymousPhone)
             it[password] = passwordHash
             it[profilePic] = null
             it[isEmailVerified] = false
@@ -348,9 +346,9 @@ class UserRepositoryImpl : UserRepository {
             id = this[UserTable.id],
             name = this[UserTable.name],
             lastName = this[UserTable.lastName],
-            email = this[UserTable.email],
+            email = decryptRequired(this[UserTable.emailCiphertext], this[UserTable.piiKeyVersion], "users.email_ciphertext"),
             password = this[UserTable.password],
-            phone = this[UserTable.phone],
+            phone = decryptRequired(this[UserTable.phoneCiphertext], this[UserTable.piiKeyVersion], "users.phone_ciphertext"),
             status = this[UserTable.status],
             country = this[UserTable.country],
             birthDate = this[UserTable.birthDate],
@@ -369,8 +367,8 @@ class UserRepositoryImpl : UserRepository {
             id = this[UserTable.id],
             name = this[UserTable.name],
             lastName = this[UserTable.lastName],
-            email = this[UserTable.email],
-            phone = this[UserTable.phone],
+            email = decryptRequired(this[UserTable.emailCiphertext], this[UserTable.piiKeyVersion], "users.email_ciphertext"),
+            phone = decryptRequired(this[UserTable.phoneCiphertext], this[UserTable.piiKeyVersion], "users.phone_ciphertext"),
             status = this[UserTable.status],
             country = this[UserTable.country],
             birthDate = this[UserTable.birthDate],
@@ -384,4 +382,18 @@ class UserRepositoryImpl : UserRepository {
             userRole = this[UserTable.role]
         )
     }
+
+    private fun writePii(statement: UpdateBuilder<*>, email: String, phone: String) {
+        statement[UserTable.email] = null
+        statement[UserTable.emailCiphertext] = piiCrypto.encrypt(piiCrypto.normalizeEmail(email))
+        statement[UserTable.emailLookup] = piiCrypto.emailLookup(email)
+        statement[UserTable.phone] = null
+        statement[UserTable.phoneCiphertext] = piiCrypto.encrypt(piiCrypto.normalizePhone(phone))
+        statement[UserTable.phoneLookup] = piiCrypto.phoneLookup(phone)
+        statement[UserTable.piiKeyVersion] = piiCrypto.keyVersion
+    }
+
+    private fun decryptRequired(ciphertext: String?, keyVersion: String?, field: String): String =
+        ciphertext?.let { piiCrypto.decrypt(it, requireNotNull(keyVersion) { "Missing PII key version for $field." }) }
+            ?: throw IllegalStateException("Missing encrypted value for $field.")
 }

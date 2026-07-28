@@ -4,14 +4,13 @@ import com.devapplab.model.EmailConfig
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.getString
 import io.ktor.client.*
-import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
-import java.util.Locale
+import java.util.*
 
 
 class MailtrapEmailService(
@@ -136,14 +135,14 @@ class MailtrapEmailService(
             }
 
             if (response.status.isSuccess()) {
-                logger.info("Email sent to $to. Status: ${response.status}")
+                logger.info("Email sent. category={} status={}", category, response.status)
                 true
             } else {
-                logger.error("Failed to send email to $to. Status: ${response.status}. Body: ${response.body<String>()}")
+                logger.error("Failed to send email. category={} status={}", category, response.status)
                 false
             }
         } catch (e: Exception) {
-            logger.error("Failed to send email to $to: ${e.message}", e)
+            logger.error("Failed to send email. category={}", category, e)
             false
         }
     }

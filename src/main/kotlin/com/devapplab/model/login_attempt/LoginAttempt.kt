@@ -8,7 +8,6 @@ import java.util.UUID
 data class LoginAttempt(
     @Serializable(with = UUIDSerializer::class)
     val id: UUID,
-    val email: String,
     val attempts: Int,
     val lastAttemptAt: Long,
     val lockedUntil: Long?,

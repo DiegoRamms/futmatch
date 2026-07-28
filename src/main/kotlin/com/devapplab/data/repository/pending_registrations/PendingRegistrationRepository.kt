@@ -4,7 +4,9 @@ import com.devapplab.data.database.pending_registrations.PendingRegistrationTabl
 import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.pending_registration.PendingRegistration
 import com.devapplab.model.user.UserRole
+import com.devapplab.service.pii.PiiCrypto
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.*
 import java.util.*
 
@@ -16,15 +18,14 @@ interface PendingRegistrationRepository {
     fun deleteExpired(timestamp: Long): Int
 }
 
-class PendingRegistrationRepositoryImpl : PendingRegistrationRepository {
+class PendingRegistrationRepositoryImpl(private val piiCrypto: PiiCrypto) : PendingRegistrationRepository {
 
     override fun create(request: RegisterUserRequest, hashedVerificationCode: String, expiresAt: Long): PendingRegistration? {
         return PendingRegistrationTable.insert {
             it[name] = request.name
             it[lastName] = request.lastName
-            it[email] = request.email
+            writePii(it, request.email, request.phone)
             it[password] = request.password
-            it[phone] = request.phone
             it[country] = request.country
             it[birthDate] = request.birthDate
             it[playerPosition] = request.playerPosition
@@ -40,7 +41,7 @@ class PendingRegistrationRepositoryImpl : PendingRegistrationRepository {
     }
 
     override fun findByEmail(email: String): PendingRegistration? {
-        return PendingRegistrationTable.selectAll().where { PendingRegistrationTable.email eq email }
+        return PendingRegistrationTable.selectAll().where { PendingRegistrationTable.emailLookup eq piiCrypto.emailLookup(email) }
             .singleOrNull()
             ?.let(::toPendingRegistration)
     }
@@ -66,9 +67,9 @@ class PendingRegistrationRepositoryImpl : PendingRegistrationRepository {
             id = row[PendingRegistrationTable.id],
             name = row[PendingRegistrationTable.name],
             lastName = row[PendingRegistrationTable.lastName],
-            email = row[PendingRegistrationTable.email],
+            email = decryptRequired(row[PendingRegistrationTable.emailCiphertext], row[PendingRegistrationTable.piiKeyVersion], "pending_registrations.email_ciphertext"),
             password = row[PendingRegistrationTable.password],
-            phone = row[PendingRegistrationTable.phone],
+            phone = decryptRequired(row[PendingRegistrationTable.phoneCiphertext], row[PendingRegistrationTable.piiKeyVersion], "pending_registrations.phone_ciphertext"),
             country = row[PendingRegistrationTable.country],
             birthDate = row[PendingRegistrationTable.birthDate],
             playerPosition = row[PendingRegistrationTable.playerPosition],
@@ -82,5 +83,18 @@ class PendingRegistrationRepositoryImpl : PendingRegistrationRepository {
             updatedAt = row[PendingRegistrationTable.updatedAt]
         )
     }
-}
 
+    private fun writePii(statement: UpdateBuilder<*>, email: String, phone: String) {
+        statement[PendingRegistrationTable.email] = null
+        statement[PendingRegistrationTable.emailCiphertext] = piiCrypto.encrypt(piiCrypto.normalizeEmail(email))
+        statement[PendingRegistrationTable.emailLookup] = piiCrypto.emailLookup(email)
+        statement[PendingRegistrationTable.phone] = null
+        statement[PendingRegistrationTable.phoneCiphertext] = piiCrypto.encrypt(piiCrypto.normalizePhone(phone))
+        statement[PendingRegistrationTable.phoneLookup] = piiCrypto.phoneLookup(phone)
+        statement[PendingRegistrationTable.piiKeyVersion] = piiCrypto.keyVersion
+    }
+
+    private fun decryptRequired(ciphertext: String?, keyVersion: String?, field: String): String =
+        ciphertext?.let { piiCrypto.decrypt(it, requireNotNull(keyVersion) { "Missing PII key version for $field." }) }
+            ?: throw IllegalStateException("Missing encrypted value for $field.")
+}

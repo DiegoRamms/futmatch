@@ -6,6 +6,7 @@ import com.devapplab.model.AppCheckConfig
 import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.StripeConfig
 import com.devapplab.model.WebhookConfig
+import com.devapplab.model.PiiCryptoConfig
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
 import com.devapplab.utils.loadDomainResource
 import com.devapplab.utils.toDomainSet
@@ -16,6 +17,19 @@ import org.slf4j.LoggerFactory
 private val configLogger = LoggerFactory.getLogger("AppCheckConfig")
 
 val configModule = module {
+    single {
+        val config = get<ApplicationConfig>()
+        PiiCryptoConfig(
+            encryptionKeyBase64 = config.property("pii.encryptionKey").getString(),
+            lookupPepperBase64 = config.property("pii.lookupPepper").getString(),
+            keyVersion = config.propertyOrNull("pii.keyVersion")?.getString()?.trim().orEmpty().ifBlank { "v1" },
+            previousEncryptionKeys = config.propertyOrNull("pii.previousEncryptionKeys")?.getString()
+                .orEmpty()
+                .split(',')
+                .mapNotNull { entry -> entry.trim().takeIf(String::isNotBlank)?.split(':', limit = 2) }
+                .associate { (version, key) -> version.trim() to key.trim() }
+        )
+    }
     single {
         val config = get<ApplicationConfig>()
         val enabled = config.propertyOrNull("appCheck.enabled")?.getString()?.toBooleanStrictOrNull() ?: true

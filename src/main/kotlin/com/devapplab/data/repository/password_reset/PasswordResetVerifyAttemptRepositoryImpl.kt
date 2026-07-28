@@ -3,6 +3,7 @@ package com.devapplab.data.repository.password_reset
 import com.devapplab.config.dbQuery
 import com.devapplab.data.database.password_reset.PasswordResetVerifyAttemptTable
 import com.devapplab.model.password_reset.PasswordResetVerifyAttempt
+import com.devapplab.service.pii.PiiCrypto
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -10,7 +11,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 
-class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepository {
+class PasswordResetVerifyAttemptRepositoryImpl(private val piiCrypto: PiiCrypto) : PasswordResetVerifyAttemptRepository {
     private companion object {
         const val ATTEMPT_WINDOW_MS = 15 * 60 * 1000L
     }
@@ -18,7 +19,7 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
     override fun findByEmail(email: String): PasswordResetVerifyAttempt? {
         return PasswordResetVerifyAttemptTable
             .selectAll()
-            .where { PasswordResetVerifyAttemptTable.email eq email }
+            .where { PasswordResetVerifyAttemptTable.emailLookup eq lookup(email) }
             .firstOrNull()
             ?.toDomain()
     }
@@ -27,7 +28,8 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
         val now = System.currentTimeMillis()
 
         val row = PasswordResetVerifyAttemptTable.insert {
-            it[this.email] = email
+            it[this.email] = null
+            it[this.emailLookup] = lookup(email)
             it[this.attempts] = 1
             it[this.lastAttemptAt] = now
             it[this.lockedUntil] = null
@@ -42,7 +44,7 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
     override fun incrementAttempt(email: String, now: Long): PasswordResetVerifyAttempt {
         val lockedRow = PasswordResetVerifyAttemptTable
             .selectAll()
-            .where { PasswordResetVerifyAttemptTable.email eq email }
+            .where { PasswordResetVerifyAttemptTable.emailLookup eq lookup(email) }
             .forUpdate()
             .firstOrNull()
 
@@ -50,7 +52,7 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
             val windowExpired = now - lockedRow[PasswordResetVerifyAttemptTable.lastAttemptAt] > ATTEMPT_WINDOW_MS
             val baseAttempts = if (windowExpired) 0 else lockedRow[PasswordResetVerifyAttemptTable.attempts]
             val newAttempts = baseAttempts + 1
-            PasswordResetVerifyAttemptTable.update({ PasswordResetVerifyAttemptTable.email eq email }) {
+            PasswordResetVerifyAttemptTable.update({ PasswordResetVerifyAttemptTable.emailLookup eq lookup(email) }) {
                 it[this.attempts] = newAttempts
                 it[this.lastAttemptAt] = now
                 if (windowExpired) {
@@ -62,15 +64,15 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
             runCatching { create(email) }.getOrElse {
                 val existing = PasswordResetVerifyAttemptTable
                     .selectAll()
-                    .where { PasswordResetVerifyAttemptTable.email eq email }
+                    .where { PasswordResetVerifyAttemptTable.emailLookup eq lookup(email) }
                     .forUpdate()
                     .firstOrNull()
-                    ?: throw IllegalStateException("Verify attempt row missing after concurrent create for email=$email")
+                    ?: throw IllegalStateException("Password reset verify attempt row missing after concurrent create.")
 
                 val windowExpired = now - existing[PasswordResetVerifyAttemptTable.lastAttemptAt] > ATTEMPT_WINDOW_MS
                 val baseAttempts = if (windowExpired) 0 else existing[PasswordResetVerifyAttemptTable.attempts]
                 val newAttempts = baseAttempts + 1
-                PasswordResetVerifyAttemptTable.update({ PasswordResetVerifyAttemptTable.email eq email }) {
+                PasswordResetVerifyAttemptTable.update({ PasswordResetVerifyAttemptTable.emailLookup eq lookup(email) }) {
                     it[this.attempts] = newAttempts
                     it[this.lastAttemptAt] = now
                     if (windowExpired) {
@@ -82,13 +84,13 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
         }
 
         return findByEmail(email)
-            ?: throw IllegalStateException("Verify attempt row missing after increment for email=$email")
+            ?: throw IllegalStateException("Password reset verify attempt row missing after increment.")
     }
 
     override fun updateLockoutIfLater(email: String, lockUntil: Long): Boolean {
         val existing = PasswordResetVerifyAttemptTable
             .selectAll()
-            .where { PasswordResetVerifyAttemptTable.email eq email }
+            .where { PasswordResetVerifyAttemptTable.emailLookup eq lookup(email) }
             .forUpdate()
             .firstOrNull()
             ?: return false
@@ -96,14 +98,14 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
         val currentLockUntil = existing[PasswordResetVerifyAttemptTable.lockedUntil]
         if (currentLockUntil != null && currentLockUntil >= lockUntil) return false
 
-        return PasswordResetVerifyAttemptTable.update({ PasswordResetVerifyAttemptTable.email eq email }) {
+        return PasswordResetVerifyAttemptTable.update({ PasswordResetVerifyAttemptTable.emailLookup eq lookup(email) }) {
             it[this.lockedUntil] = lockUntil
             it[updatedAt] = System.currentTimeMillis()
         } > 0
     }
 
     override fun delete(email: String): Boolean {
-        return PasswordResetVerifyAttemptTable.deleteWhere { PasswordResetVerifyAttemptTable.email eq email } > 0
+        return PasswordResetVerifyAttemptTable.deleteWhere { PasswordResetVerifyAttemptTable.emailLookup eq lookup(email) } > 0
     }
 
     override suspend fun deleteSafe(email: String): Boolean = dbQuery {
@@ -113,7 +115,6 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
     private fun ResultRow.toDomain(): PasswordResetVerifyAttempt {
         return PasswordResetVerifyAttempt(
             id = this[PasswordResetVerifyAttemptTable.id],
-            email = this[PasswordResetVerifyAttemptTable.email],
             attempts = this[PasswordResetVerifyAttemptTable.attempts],
             lastAttemptAt = this[PasswordResetVerifyAttemptTable.lastAttemptAt],
             lockedUntil = this[PasswordResetVerifyAttemptTable.lockedUntil],
@@ -121,4 +122,6 @@ class PasswordResetVerifyAttemptRepositoryImpl : PasswordResetVerifyAttemptRepos
             updatedAt = this[PasswordResetVerifyAttemptTable.updatedAt]
         )
     }
+
+    private fun lookup(email: String): String = piiCrypto.emailLookup(email)
 }

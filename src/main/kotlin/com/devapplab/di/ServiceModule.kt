@@ -40,6 +40,7 @@ import com.devapplab.service.payment.PaymentServiceFactory
 import com.devapplab.service.payment.PendingMatchPaymentService
 import com.devapplab.service.payment.StripePaymentService
 import com.devapplab.service.payment.StripeWebhookService
+import com.devapplab.service.pii.PiiCrypto
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -48,6 +49,7 @@ val serviceModule = module {
 
     singleOf(::AuthMetrics)
     singleOf(::PaymentMetrics)
+    singleOf(::PiiCrypto)
     singleOf(::UserService)
     singleOf(::AdminUserService)
     singleOf(::FirebaseAppCheckService)

@@ -8,9 +8,14 @@ object PendingRegistrationTable : Table("pending_registrations") {
     val id = javaUUID("id").autoGenerate()
     val name = varchar("name", USER_NAME_MAX_LENGTH)
     val lastName = varchar("last_name", USER_LAST_NAME_MAX_LENGTH)
-    val email = varchar("email", USER_EMAIL_MAX_LENGTH).uniqueIndex()
+    val email = varchar("email", USER_EMAIL_MAX_LENGTH).nullable().uniqueIndex()
+    val emailCiphertext = text("email_ciphertext").nullable()
+    val emailLookup = varchar("email_lookup", 64).nullable().uniqueIndex()
     val password = varchar("password", 255) // Hashed password
-    val phone = varchar("phone", USER_PHONE_MAX_LENGTH)
+    val phone = varchar("phone", USER_PHONE_MAX_LENGTH).nullable()
+    val phoneCiphertext = text("phone_ciphertext").nullable()
+    val phoneLookup = varchar("phone_lookup", 64).nullable().uniqueIndex()
+    val piiKeyVersion = varchar("pii_key_version", 32).nullable()
     val country = varchar("country", USER_COUNTRY_MAX_LENGTH)
     val birthDate = long("birth_date") // Unix timestamp
     val playerPosition = enumeration<PlayerPosition>("player_position")
