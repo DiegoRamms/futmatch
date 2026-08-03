@@ -32,7 +32,7 @@ class PendingRegistrationRepositoryImpl(private val piiCrypto: PiiCrypto) : Pend
             it[gender] = request.gender
             it[profilePic] = request.profilePic
             it[level] = request.level
-            it[userRole] = UserRole.ORGANIZER //TODO remove this line ,the deault should be UserRole.PLAYER this is just for development
+            it[userRole] = UserRole.PLAYER
             it[verificationCode] = hashedVerificationCode
             it[PendingRegistrationTable.expiresAt] = expiresAt
             it[createdAt] = System.currentTimeMillis()

@@ -740,11 +740,15 @@ Gets a list of matches associated with a specific field.
 
 ## 7. Get All Matches
 
-Gets a list of all available matches.
+Gets a list of every match, regardless of status.
 
 -   **Method:** `GET`
 -   **Path:** `/match/admin/matches`
--   **Required Role:** `ADMIN` or `ORGANIZER`
+-   **Required Role:** `ADMIN`
+
+`GET /match/organizer/matches` is the organizer equivalent. It requires the `ORGANIZER` role and returns every match assigned to the authenticated organizer, regardless of status.
+
+Both endpoints include `SCHEDULED`, `IN_PROGRESS`, `PENDING_RESULT`, `COMPLETED`, and `CANCELED` matches. The client is responsible for grouping the returned matches into its sections.
 
 ### Success Response
 
