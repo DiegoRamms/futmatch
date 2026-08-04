@@ -8,11 +8,13 @@ import com.devapplab.model.StripeConfig
 import com.devapplab.model.WebhookConfig
 import com.devapplab.model.PiiCryptoConfig
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
+import com.devapplab.service.auth.mfa.MfaTestBypassConfig
 import com.devapplab.utils.loadDomainResource
 import com.devapplab.utils.toDomainSet
 import io.ktor.server.config.ApplicationConfig
 import org.koin.dsl.module
 import org.slf4j.LoggerFactory
+import java.util.UUID
 
 private val configLogger = LoggerFactory.getLogger("AppCheckConfig")
 
@@ -79,6 +81,18 @@ val configModule = module {
             timeWindowHours = config.property("mfa.lockout.timeWindowHours").getString().toLong(),
             lockDurationMinutes = config.property("mfa.lockout.lockDurationMinutes").getString().toInt()
         )
+    }
+    single {
+        // TODO: Remove this development-only MFA bypass configuration after iOS MFA testing is complete.
+        val config = get<ApplicationConfig>()
+        val isDevelopment = config.propertyOrNull("ktor.development")?.getString()?.toBooleanStrictOrNull() ?: false
+        val configuredUserIds = config.propertyOrNull("mfa.testBypass.userIds")?.getString().orEmpty()
+            .split(',')
+            .mapNotNull { value -> value.trim().takeIf(String::isNotEmpty) }
+            .map { UUID.fromString(it) }
+            .toSet()
+
+        MfaTestBypassConfig(userIds = if (isDevelopment) configuredUserIds else emptySet())
     }
     single {
         val config = get<ApplicationConfig>()
