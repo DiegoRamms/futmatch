@@ -12,7 +12,8 @@ object PendingRegistrationTable : Table("pending_registrations") {
     val emailLookup = varchar("email_lookup", 64).nullable().uniqueIndex()
     val password = varchar("password", 255) // Hashed password
     val phoneCiphertext = text("phone_ciphertext").nullable()
-    val phoneLookup = varchar("phone_lookup", 64).nullable().uniqueIndex()
+    // A pending registration does not prove ownership of a phone number.
+    val phoneLookup = varchar("phone_lookup", 64).nullable()
     val piiKeyVersion = varchar("pii_key_version", 32).nullable()
     val country = varchar("country", USER_COUNTRY_MAX_LENGTH)
     val birthDate = long("birth_date") // Unix timestamp

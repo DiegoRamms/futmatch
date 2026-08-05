@@ -13,7 +13,8 @@ object UserTable : Table("users") {
     val emailLookup = varchar("email_lookup", 64).nullable().uniqueIndex()
     val password = text("password")
     val phoneCiphertext = text("phone_ciphertext").nullable()
-    val phoneLookup = varchar("phone_lookup", 64).nullable().uniqueIndex()
+    // Phone ownership is not verified yet, so it cannot be a unique identity.
+    val phoneLookup = varchar("phone_lookup", 64).nullable()
     val piiKeyVersion = varchar("pii_key_version", 32).nullable()
     val status = enumerationByName("status", USER_STATUS_MAX_LENGTH, UserStatus::class)
     val country = varchar("country", USER_COUNTRY_MAX_LENGTH)

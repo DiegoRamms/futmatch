@@ -127,7 +127,7 @@ fun Application.configureDatabase() {
 
             val dangerousStatements = migrationStatements.filter {
                 val normalized = it.trim().uppercase()
-                normalized.startsWith("DROP ")
+                normalized.startsWith("DROP ") && !normalized.startsWith("DROP INDEX ")
             }
 
             if (dangerousStatements.isNotEmpty()) {
