@@ -8,6 +8,8 @@ import com.devapplab.model.field.request.CreateFieldRequest
 import com.devapplab.model.field.request.FieldPricingCustomRequest
 import com.devapplab.model.field.request.FieldPricingEstimateRequest
 import com.devapplab.model.field.request.UpdateFieldRequest
+import com.devapplab.observability.AppLogSeverity
+import com.devapplab.observability.appEvent
 import com.devapplab.observability.requestContext
 import com.devapplab.utils.respond
 import com.devapplab.utils.respondRedirect
@@ -16,11 +18,14 @@ import com.devapplab.utils.toUUIDOrNull
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.request.*
+import org.slf4j.LoggerFactory
 import java.util.*
 
 class FieldController(
     private val fieldService: com.devapplab.service.field.FieldService
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     suspend fun createField(call: ApplicationCall) {
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<CreateFieldRequest>()
@@ -113,15 +118,40 @@ class FieldController(
     }
 
     suspend fun getFieldPricingEstimate(call: ApplicationCall) {
+        val context = call.requestContext()
+        logger.appEvent(
+            severity = AppLogSeverity.INFO,
+            event = "field.pricing_estimate.trace",
+            context = context,
+            outcome = "in_progress",
+            message = "Pricing estimate request reached controller",
+            extra = mapOf("stage" to "controller_started", "fieldIdParameter" to call.parameters["fieldId"])
+        )
         val locale: Locale = call.retrieveLocale()
         val fieldId = call.parameters["fieldId"]?.toUUIDOrNull()
             ?: throw NotFoundException("Can't find field id")
         val request = call.receive<FieldPricingEstimateRequest>()
+        logger.appEvent(
+            severity = AppLogSeverity.INFO,
+            event = "field.pricing_estimate.trace",
+            context = context,
+            outcome = "in_progress",
+            message = "Pricing estimate request body received",
+            extra = mapOf("stage" to "request_body_received", "fieldId" to fieldId, "maxPlayers" to request.maxPlayers)
+        )
         val result = fieldService.getFieldPricingEstimate(
             locale = locale,
             fieldId = fieldId,
             maxPlayers = request.maxPlayers,
-            context = call.requestContext()
+            context = context
+        )
+        logger.appEvent(
+            severity = AppLogSeverity.INFO,
+            event = "field.pricing_estimate.trace",
+            context = context,
+            outcome = "in_progress",
+            message = "Pricing estimate service completed; responding",
+            extra = mapOf("stage" to "service_completed", "fieldId" to fieldId, "maxPlayers" to request.maxPlayers)
         )
         call.respond(result)
     }

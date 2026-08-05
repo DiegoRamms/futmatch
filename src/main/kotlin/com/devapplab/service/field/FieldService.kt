@@ -8,6 +8,8 @@ import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.mapper.toResponse
 import com.devapplab.model.field.response.*
 import com.devapplab.observability.AppRequestContext
+import com.devapplab.observability.AppLogSeverity
+import com.devapplab.observability.appEvent
 import com.devapplab.observability.appFailure
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
@@ -488,6 +490,20 @@ class FieldService(
         maxPlayers: Int,
         context: AppRequestContext
     ): AppResult<FieldPricingEstimateResponse> {
+        val startedAtNanos = System.nanoTime()
+        fun trace(stage: String, extra: Map<String, Any?> = emptyMap()) {
+            logger.appEvent(
+                severity = AppLogSeverity.INFO,
+                event = "field.pricing_estimate.trace",
+                context = context,
+                outcome = "in_progress",
+                message = "Pricing estimate reached $stage",
+                durationMs = (System.nanoTime() - startedAtNanos) / 1_000_000,
+                extra = mapOf("stage" to stage, "fieldId" to fieldId, "maxPlayers" to maxPlayers) + extra
+            )
+        }
+
+        trace("service_started")
         val field = fieldRepository.getFieldById(fieldId) ?: run {
             logger.appRejected(
                 event = "field.pricing_estimate_failed",
@@ -498,6 +514,8 @@ class FieldService(
             )
             return locale.createNotFoundError()
         }
+
+        trace("field_loaded", mapOf("fieldCapacity" to field.capacity, "fieldCost" to field.price, "organizerFee" to field.organizerFee))
 
         if (maxPlayers !in 1..field.capacity) {
             logger.appRejected(
@@ -519,9 +537,18 @@ class FieldService(
         }
 
         val pricingConfig = matchPricingConfigProvider.get()
+        trace(
+            "pricing_config_loaded",
+            mapOf(
+                "maxPricePerPlayerInCents" to pricingConfig.maxPricePerPlayerInCents,
+                "pricingOptionsStepInCents" to pricingConfig.pricingOptionsStepInCents,
+                "priceRoundingStepCents" to pricingConfig.priceRoundingStepCents
+            )
+        )
         val fieldCostInCents = field.price.multiply(BigDecimal(100)).longValueExact()
         val organizerFeeInCents = field.organizerFee.multiply(BigDecimal(100)).longValueExact()
         val pricingPolicy = MatchPricingPolicyResolver.resolve(pricingConfig, field)
+        trace("pricing_policy_resolved")
         val estimate = MatchPricingCalculator.buildPricingEstimate(
             policy = pricingPolicy,
             inputs = MatchPricingInputs(
@@ -531,6 +558,7 @@ class FieldService(
                 maxPlayers = maxPlayers
             )
         )
+        trace("pricing_calculated", mapOf("pricingOptionsCount" to estimate.pricingOptions.size))
 
         val response = FieldPricingEstimateResponse(
             fieldId = field.id ?: fieldId,
@@ -562,6 +590,7 @@ class FieldService(
             event = "field.pricing_estimate_created",
             context = context,
             statusCode = HttpStatusCode.OK.value,
+            durationMs = (System.nanoTime() - startedAtNanos) / 1_000_000,
             extra = mapOf("fieldId" to fieldId, "maxPlayers" to maxPlayers)
         )
         return AppResult.Success(response)
