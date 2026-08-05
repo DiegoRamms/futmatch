@@ -56,7 +56,6 @@ val serviceModule = module {
     singleOf(::ProfileService)
     singleOf(::RegistrationService)
     singleOf(::AuthenticatedResponseGenerator)
-    // TODO: Remove the MFA test-bypass dependency from SignInService after iOS MFA testing is complete.
     singleOf(::SignInService)
     singleOf(::PasswordResetService)
     singleOf(::AuthTokenManagementService)

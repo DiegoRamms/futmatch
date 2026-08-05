@@ -29,7 +29,6 @@ import com.devapplab.observability.authEvent
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.mfa.LoginMfaChallengeTokenService
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
-import com.devapplab.service.auth.mfa.MfaTestBypassConfig
 import com.devapplab.service.auth.state.SignInDeviceDecision
 import com.devapplab.service.auth.state.SignInPreCheck
 import com.devapplab.service.email.EmailService
@@ -63,7 +62,6 @@ class SignInService(
     private val loginMfaVerifyAttemptRepository: LoginMfaVerifyAttemptRepository,
     private val loginMfaChallengeTokenService: LoginMfaChallengeTokenService,
     private val mfaRateLimitConfig: MfaRateLimitConfig,
-    private val mfaTestBypassConfig: MfaTestBypassConfig,
     private val authenticatedResponseGenerator: AuthenticatedResponseGenerator,
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -202,9 +200,7 @@ class SignInService(
                                 authRepository.createDevice(user.userId, deviceInfo, isTrusted = false)
                             }
 
-                        // TODO: Remove the temporary iOS MFA testing bypass and this config dependency.
-                        val bypassesMfaForTesting = mfaTestBypassConfig.appliesTo(user.userId)
-                        val needsMfa = !bypassesMfaForTesting && (!isKnownDevice || !isTrustedDevice || !user.isEmailVerified)
+                        val needsMfa = !isKnownDevice || !isTrustedDevice || !user.isEmailVerified
 
                         SignInDeviceDecision(
                             deviceId = resolvedDeviceId,
@@ -218,18 +214,6 @@ class SignInService(
                         StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
                     )
                 } ?: return locale.respondInvalidSignInCredentialsError()
-
-                if (!deviceDecision.needsMfa && mfaTestBypassConfig.appliesTo(user.userId)) {
-                    logger.authEvent(
-                        severity = AuthLogSeverity.WARN,
-                        event = "auth.sign_in.mfa_bypassed_for_testing",
-                        context = context,
-                        outcome = "mfa_bypassed",
-                        reason = "development_test_allowlist",
-                        userId = user.userId,
-                        deviceId = deviceDecision.deviceId
-                    )
-                }
 
                 if (deviceDecision.needsMfa) {
                     val challengeToken = runCatching {
