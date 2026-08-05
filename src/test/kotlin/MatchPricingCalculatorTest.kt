@@ -66,6 +66,21 @@ class MatchPricingCalculatorTest {
     }
 
     @Test
+    fun `estimate completes when the upper search bound is aligned to the rounding step`() {
+        val estimate = MatchPricingCalculator.buildPricingEstimate(
+            policy = policy,
+            inputs = MatchPricingInputs(
+                fieldCostInCents = 110_000,
+                organizerFeeInCents = 20_000,
+                fieldCapacity = 10,
+                maxPlayers = 10
+            )
+        )
+
+        assertEquals(17_000, estimate.recommendedOption.pricePerPlayerInCents)
+    }
+
+    @Test
     fun `minimum profitable players is calculated from provided price`() {
         val minimumPlayers = MatchPricingCalculator.minimumPlayersRequired(
             policy = policy,

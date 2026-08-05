@@ -6,24 +6,27 @@ import kotlin.math.max
 object MatchPricingCalculator {
     fun buildPricingEstimate(
         policy: MatchPricingPolicy,
-        inputs: MatchPricingInputs
+        inputs: MatchPricingInputs,
+        deadlineNanos: Long? = null
     ): MatchPricingEstimate {
         validateInputs(policy, inputs)
 
-        val recommendedPrice = recommendedPricePerPlayer(policy, inputs)
+        val recommendedPrice = recommendedPricePerPlayer(policy, inputs, deadlineNanos)
         val recommendedOption = calculateOption(
             policy = policy,
             inputs = inputs,
             pricePerPlayerInCents = recommendedPrice,
             label = FieldPricingOptionLabel.RECOMMENDED,
-            isRecommended = true
+            isRecommended = true,
+            deadlineNanos = deadlineNanos
         )
 
         val pricingOptions = buildPricingOptions(
             policy = policy,
             inputs = inputs,
             recommendedPrice = recommendedPrice,
-            recommendedOption = recommendedOption
+            recommendedOption = recommendedOption,
+            deadlineNanos = deadlineNanos
         )
 
         return MatchPricingEstimate(
@@ -64,20 +67,24 @@ object MatchPricingCalculator {
         inputs: MatchPricingInputs,
         pricePerPlayerInCents: Long,
         label: FieldPricingOptionLabel,
-        isRecommended: Boolean
+        isRecommended: Boolean,
+        deadlineNanos: Long? = null
     ): MatchPricingOption {
+        checkDeadline(deadlineNanos)
         val breakEvenPlayersRequired = minimumPlayersRequired(
             policy = policy,
             inputs = inputs,
             pricePerPlayerInCents = pricePerPlayerInCents,
-            targetMode = TargetMode.BREAK_EVEN
+            targetMode = TargetMode.BREAK_EVEN,
+            deadlineNanos = deadlineNanos
         )
 
         val minimumPlayersToStart = minimumPlayersRequired(
             policy = policy,
             inputs = inputs,
             pricePerPlayerInCents = pricePerPlayerInCents,
-            targetMode = TargetMode.MINIMUM_PROFIT
+            targetMode = TargetMode.MINIMUM_PROFIT,
+            deadlineNanos = deadlineNanos
         )
 
         val playersForBreakdown = minimumPlayersToStart ?: inputs.maxPlayers
@@ -114,11 +121,13 @@ object MatchPricingCalculator {
         policy: MatchPricingPolicy,
         inputs: MatchPricingInputs,
         pricePerPlayerInCents: Long,
-        targetMode: TargetMode
+        targetMode: TargetMode,
+        deadlineNanos: Long? = null
     ): Int? {
         if (inputs.maxPlayers <= 0 || pricePerPlayerInCents <= 0) return null
 
         return (1..inputs.maxPlayers).firstOrNull { players ->
+            checkDeadline(deadlineNanos)
             isProfitable(
                 policy = policy,
                 fieldCostInCents = inputs.fieldCostInCents,
@@ -178,38 +187,47 @@ object MatchPricingCalculator {
         )
     }
 
-    private fun recommendedPricePerPlayer(policy: MatchPricingPolicy, inputs: MatchPricingInputs): Long {
-        var low = policy.priceRoundingStepCents
-        var high = max(
+    private fun recommendedPricePerPlayer(
+        policy: MatchPricingPolicy,
+        inputs: MatchPricingInputs,
+        deadlineNanos: Long?
+    ): Long {
+        val step = policy.priceRoundingStepCents
+        val maximumPriceToSearch = max(
             policy.maxPricePerPlayerInCents,
             inputs.fieldCostInCents + inputs.organizerFeeInCents + targetProfitInCents(policy, inputs.fieldCostInCents)
         )
+        var lowStep = 1L
+        var highStep = ceilDiv(maximumPriceToSearch, step)
 
-        while (low < high) {
-            val mid = roundUpToStep((low + high) / 2, policy.priceRoundingStepCents)
+        while (lowStep < highStep) {
+            checkDeadline(deadlineNanos)
+            val midStep = lowStep + (highStep - lowStep) / 2
+            val midPrice = midStep * step
             if (isProfitable(
                     policy = policy,
                     fieldCostInCents = inputs.fieldCostInCents,
                     organizerFeeInCents = inputs.organizerFeeInCents,
                     players = inputs.maxPlayers,
-                    pricePerPlayerInCents = mid,
+                    pricePerPlayerInCents = midPrice,
                     targetMode = TargetMode.MINIMUM_PROFIT
                 )
             ) {
-                high = mid
+                highStep = midStep
             } else {
-                low = mid + policy.priceRoundingStepCents
+                lowStep = midStep + 1
             }
         }
 
-        return roundUpToStep(low, policy.priceRoundingStepCents)
+        return lowStep * step
     }
 
     private fun buildPricingOptions(
         policy: MatchPricingPolicy,
         inputs: MatchPricingInputs,
         recommendedPrice: Long,
-        recommendedOption: MatchPricingOption
+        recommendedOption: MatchPricingOption,
+        deadlineNanos: Long?
     ): List<MatchPricingOption> {
         val minimumSuggestedPrice = roundUpToStep(
             max(recommendedPrice - (2 * policy.pricingOptionsStepInCents), policy.pricingOptionsStepInCents),
@@ -218,10 +236,13 @@ object MatchPricingCalculator {
 
         val optionPrices = linkedSetOf<Long>()
 
-        generateSequence(minimumSuggestedPrice) { current ->
-            val next = current + policy.pricingOptionsStepInCents
-            next.takeIf { it <= policy.maxPricePerPlayerInCents }
-        }.forEach { optionPrices += it }
+        var price = minimumSuggestedPrice
+        while (price <= policy.maxPricePerPlayerInCents) {
+            checkDeadline(deadlineNanos)
+            optionPrices += price
+            if (price > Long.MAX_VALUE - policy.pricingOptionsStepInCents) break
+            price += policy.pricingOptionsStepInCents
+        }
 
         if (policy.maxPricePerPlayerInCents !in optionPrices) {
             optionPrices += policy.maxPricePerPlayerInCents
@@ -235,6 +256,7 @@ object MatchPricingCalculator {
             .toList()
             .sorted()
             .map { price ->
+                checkDeadline(deadlineNanos)
                 calculateOption(
                     policy = policy,
                     inputs = inputs,
@@ -244,7 +266,8 @@ object MatchPricingCalculator {
                     } else {
                         FieldPricingOptionLabel.SUGGESTED
                     },
-                    isRecommended = price == recommendedPrice
+                    isRecommended = price == recommendedPrice,
+                    deadlineNanos = deadlineNanos
                 )
             }
             .ifEmpty { listOf(recommendedOption) }
@@ -279,8 +302,16 @@ object MatchPricingCalculator {
 
     private fun ceilDiv(value: Long, divisor: Long): Long = (value + divisor - 1) / divisor
 
+    private fun checkDeadline(deadlineNanos: Long?) {
+        if (deadlineNanos != null && System.nanoTime() > deadlineNanos) {
+            throw PricingCalculationTimeoutException()
+        }
+    }
+
     private const val BASIS_POINTS = 10_000L
 }
+
+class PricingCalculationTimeoutException : RuntimeException("Pricing calculation exceeded its time limit")
 
 data class MatchPricingPolicy(
     val futmatchProfitBps: Int,

@@ -18,6 +18,8 @@ import com.devapplab.service.match.*
 import com.devapplab.utils.*
 import io.ktor.http.*
 import io.ktor.http.content.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 import java.util.*
@@ -31,6 +33,7 @@ class FieldService(
 
     private val maxImagesPerField = 4
     private val baseStoragePath = "futmatch/fields"
+    private val pricingEstimateTimeoutMs = 1_000L
 
     suspend fun createField(field: Field, context: AppRequestContext): AppResult<FieldResponse> {
         val fielResponse = fieldRepository.createField(field).toResponse()
@@ -549,15 +552,39 @@ class FieldService(
         val organizerFeeInCents = field.organizerFee.multiply(BigDecimal(100)).longValueExact()
         val pricingPolicy = MatchPricingPolicyResolver.resolve(pricingConfig, field)
         trace("pricing_policy_resolved")
-        val estimate = MatchPricingCalculator.buildPricingEstimate(
-            policy = pricingPolicy,
-            inputs = MatchPricingInputs(
-                fieldCostInCents = fieldCostInCents,
-                organizerFeeInCents = organizerFeeInCents,
-                fieldCapacity = field.capacity,
-                maxPlayers = maxPlayers
+        val estimate = try {
+            val deadlineNanos = System.nanoTime() + pricingEstimateTimeoutMs * 1_000_000
+            withContext(Dispatchers.Default) {
+                MatchPricingCalculator.buildPricingEstimate(
+                    policy = pricingPolicy,
+                    inputs = MatchPricingInputs(
+                        fieldCostInCents = fieldCostInCents,
+                        organizerFeeInCents = organizerFeeInCents,
+                        fieldCapacity = field.capacity,
+                        maxPlayers = maxPlayers
+                    ),
+                    deadlineNanos = deadlineNanos
+                )
+            }
+        } catch (exception: PricingCalculationTimeoutException) {
+            logger.appFailure(
+                event = "field.pricing_estimate_failed",
+                context = context,
+                reason = "calculation_timeout",
+                statusCode = HttpStatusCode.GatewayTimeout.value,
+                durationMs = (System.nanoTime() - startedAtNanos) / 1_000_000,
+                extra = mapOf(
+                    "fieldId" to fieldId,
+                    "maxPlayers" to maxPlayers,
+                    "timeoutMs" to pricingEstimateTimeoutMs
+                ),
+                throwable = exception
             )
-        )
+            return locale.createError(
+                status = HttpStatusCode.GatewayTimeout,
+                errorCode = ErrorCode.GENERAL_ERROR
+            )
+        }
         trace("pricing_calculated", mapOf("pricingOptionsCount" to estimate.pricingOptions.size))
 
         val response = FieldPricingEstimateResponse(
