@@ -25,6 +25,7 @@ data class MatchDetailResponse(
     val teamAScore: Int? = null,
     val teamBScore: Int? = null,
     val goalBreakdown: MatchGoalBreakdownResponse? = null,
+    val bestPlayer: MatchBestPlayerResponse? = null,
     val maxPlayers: Int,
     val availableSpots: Int,
     val teams: TeamSummaryResponse,
@@ -56,4 +57,11 @@ data class PlayerGoalResponse(
     val userId: UUID,
     val name: String,
     val goals: Int
+)
+
+@Serializable
+data class MatchBestPlayerResponse(
+    @Serializable(with = UUIDSerializer::class)
+    val userId: UUID,
+    val name: String
 )

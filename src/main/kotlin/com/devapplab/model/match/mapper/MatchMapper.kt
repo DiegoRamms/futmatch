@@ -118,6 +118,15 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
     } else {
         null
     }
+    val bestPlayer = if (this.status == MatchStatus.COMPLETED) {
+        this.bestPlayerId?.let { bestPlayerId ->
+            players.find { it.userId == bestPlayerId }?.let { player ->
+                MatchBestPlayerResponse(userId = player.userId, name = player.name)
+            }
+        }
+    } else {
+        null
+    }
 
     return MatchDetailResponse(
         id = this.matchId,
@@ -133,6 +142,7 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
         teamAScore = scores.first,
         teamBScore = scores.second,
         goalBreakdown = goalBreakdown,
+        bestPlayer = bestPlayer,
         maxPlayers = this.maxPlayers,
         availableSpots = if (availableSpots < 0) 0 else availableSpots,
         teams = teams,

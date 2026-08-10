@@ -94,6 +94,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(result)
     }
 
+    @Deprecated("Match detail SSE is deprecated. Use GET /match/{matchId} instead.")
     suspend fun streamMatchDetail(call: ApplicationCall) {
         val matchId = UUID.fromString(call.parameters["matchId"])
         val locale = call.retrieveLocale()

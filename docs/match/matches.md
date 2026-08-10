@@ -1317,6 +1317,7 @@ Gets complete details of a specific match.
         "teamAScore": null,
         "teamBScore": null,
         "goalBreakdown": null,
+        "bestPlayer": null,
         "maxPlayers": 14,
         "availableSpots": 4,
         "teams": {
@@ -1405,6 +1406,20 @@ Example for a completed match:
             ],
             "externalGoals": 0
         }
+    }
+}
+```
+
+### Best Player
+
+- `bestPlayer` is returned only when `status = COMPLETED`; otherwise it is `null`.
+- It identifies the MVP selected when the match was completed.
+
+```json
+{
+    "bestPlayer": {
+        "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "name": "Juan P."
     }
 }
 ```
@@ -1625,7 +1640,9 @@ Allows a user to leave a match they previously joined.
 
 ---
 
-## 13. Match Detail Stream (SSE)
+## 13. Match Detail Stream (SSE) — Deprecated
+
+> This endpoint is deprecated. Do not use it for new client work; use `GET /match/{matchId}` instead. It remains temporarily available for existing clients.
 
 Establishes a persistent **Server-Sent Events (SSE)** connection to receive real-time updates about a match.
 

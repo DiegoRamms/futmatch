@@ -692,6 +692,7 @@ class MatchRepositoryImp : MatchRepository {
                 fieldRules = matchFieldLocationRow[FieldTable.rules],
                 teamAScore = matchFieldLocationRow.getOrNull(MatchResultsTable.teamAScore),
                 teamBScore = matchFieldLocationRow.getOrNull(MatchResultsTable.teamBScore),
+                bestPlayerId = matchFieldLocationRow.getOrNull(MatchResultsTable.bestPlayerId),
                 fieldImages = currentFieldImages,
                 players = players,
                 discounts = discounts

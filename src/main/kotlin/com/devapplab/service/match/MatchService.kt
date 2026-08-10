@@ -1764,6 +1764,7 @@ class MatchService(
             PlayerLevel.PROFESSIONAL -> 4
         }
 
+    @Deprecated("Match detail SSE is deprecated. Use getMatchDetail instead.")
     fun streamMatchDetail(locale: Locale, matchId: UUID): Flow<String> = flow {
         var last: String? = null
 
