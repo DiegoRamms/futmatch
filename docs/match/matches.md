@@ -1316,6 +1316,7 @@ Gets complete details of a specific match.
         "status": "SCHEDULED",
         "teamAScore": null,
         "teamBScore": null,
+        "goalBreakdown": null,
         "maxPlayers": 14,
         "availableSpots": 4,
         "teams": {
@@ -1369,6 +1370,44 @@ Gets complete details of a specific match.
 - `teamAScore` and `teamBScore` are returned only when `status = COMPLETED`.
 - For `SCHEDULED`, `IN_PROGRESS`, `PENDING_RESULT`, or `CANCELED` matches, both fields are `null`.
 - Scores come from the final result saved by an admin/organizer when completing the match.
+
+### Goal Breakdown
+
+- `goalBreakdown` is returned only when `status = COMPLETED`; otherwise it is `null`.
+- `playerGoals` lists each attending Futmatch player who scored at least one goal.
+- `externalGoals` contains the goals already included in the final score that were assigned to external players for that team.
+- For each team, `sum(playerGoals.goals) + externalGoals` equals its final score.
+
+Example for a completed match:
+
+```json
+{
+    "teamAScore": 4,
+    "teamBScore": 2,
+    "goalBreakdown": {
+        "teamA": {
+            "playerGoals": [
+                {
+                    "userId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                    "name": "Juan P.",
+                    "goals": 3
+                }
+            ],
+            "externalGoals": 1
+        },
+        "teamB": {
+            "playerGoals": [
+                {
+                    "userId": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+                    "name": "Maria L.",
+                    "goals": 2
+                }
+            ],
+            "externalGoals": 0
+        }
+    }
+}
+```
 
 ### Team Snapshot Contract
 

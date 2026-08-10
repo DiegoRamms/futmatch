@@ -24,6 +24,7 @@ data class MatchDetailResponse(
     val status: MatchStatus,
     val teamAScore: Int? = null,
     val teamBScore: Int? = null,
+    val goalBreakdown: MatchGoalBreakdownResponse? = null,
     val maxPlayers: Int,
     val availableSpots: Int,
     val teams: TeamSummaryResponse,
@@ -35,4 +36,24 @@ data class MatchDetailResponse(
     val description: String,
     val rules: String,
     val fieldImages: List<FieldImageResponse> = emptyList()
+)
+
+@Serializable
+data class MatchGoalBreakdownResponse(
+    val teamA: TeamGoalBreakdownResponse,
+    val teamB: TeamGoalBreakdownResponse
+)
+
+@Serializable
+data class TeamGoalBreakdownResponse(
+    val playerGoals: List<PlayerGoalResponse>,
+    val externalGoals: Int
+)
+
+@Serializable
+data class PlayerGoalResponse(
+    @Serializable(with = UUIDSerializer::class)
+    val userId: UUID,
+    val name: String,
+    val goals: Int
 )

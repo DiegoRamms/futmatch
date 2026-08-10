@@ -93,7 +93,7 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
     )
 }
 
-fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
+fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = emptyList()): MatchDetailResponse {
     val prices = calculatePrices()
     val location = buildLocation()
     val availableSpots = this.maxPlayers - this.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }.size
@@ -113,6 +113,11 @@ fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
     } else {
         emptyTeams
     }
+    val goalBreakdown = if (this.status == MatchStatus.COMPLETED && this.teamAScore != null && this.teamBScore != null) {
+        buildGoalBreakdown(playerGoals)
+    } else {
+        null
+    }
 
     return MatchDetailResponse(
         id = this.matchId,
@@ -127,6 +132,7 @@ fun MatchWithField.toMatchDetailResponse(): MatchDetailResponse {
         status = this.status,
         teamAScore = scores.first,
         teamBScore = scores.second,
+        goalBreakdown = goalBreakdown,
         maxPlayers = this.maxPlayers,
         availableSpots = if (availableSpots < 0) 0 else availableSpots,
         teams = teams,
@@ -178,6 +184,36 @@ private fun MatchWithField.buildTeamSummary(): TeamSummaryResponse {
         players = teamB.map { PlayerSummary(it.userId, it.avatarUrl, it.gender, it.name, it.country, it.status, it.attendanceStatus) }
     )
     return TeamSummaryResponse(teamASummary, teamBSummary)
+}
+
+private fun MatchWithField.buildGoalBreakdown(playerGoals: List<MatchPlayerGoal>): MatchGoalBreakdownResponse {
+    val playersById = players.associateBy { it.userId }
+    val goalsByTeam = playerGoals.mapNotNull { playerGoal ->
+        val player = playersById[playerGoal.userId]
+        if (playerGoal.goalsCount <= 0 || player == null || player.attendanceStatus == AttendanceStatus.NO_SHOW) {
+            null
+        } else {
+            player.team to PlayerGoalResponse(
+                userId = player.userId,
+                name = player.name,
+                goals = playerGoal.goalsCount
+            )
+        }
+    }
+
+    val teamAPlayerGoals = goalsByTeam.filter { it.first == TeamType.A }.map { it.second }
+    val teamBPlayerGoals = goalsByTeam.filter { it.first == TeamType.B }.map { it.second }
+
+    return MatchGoalBreakdownResponse(
+        teamA = TeamGoalBreakdownResponse(
+            playerGoals = teamAPlayerGoals,
+            externalGoals = (teamAScore ?: 0) - teamAPlayerGoals.sumOf { it.goals }
+        ),
+        teamB = TeamGoalBreakdownResponse(
+            playerGoals = teamBPlayerGoals,
+            externalGoals = (teamBScore ?: 0) - teamBPlayerGoals.sumOf { it.goals }
+        )
+    )
 }
 
 private fun MatchWithField.buildLocation(): Location? {

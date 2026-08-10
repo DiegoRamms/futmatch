@@ -479,7 +479,12 @@ class MatchService(
             )
             }
 
-        val matchDetailResponse = match.toMatchDetailResponse()
+        val playerGoals = if (match.status == MatchStatus.COMPLETED) {
+            matchRepository.getMatchPlayerGoals(matchId)
+        } else {
+            emptyList()
+        }
+        val matchDetailResponse = match.toMatchDetailResponse(playerGoals)
 
         val resolvedImages = matchDetailResponse.fieldImages.map { image ->
             val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
@@ -497,7 +502,12 @@ class MatchService(
     private suspend fun getMatchDetailJson(locale: Locale, matchId: UUID): String {
         val match = matchRepository.getMatchById(matchId)
         return if (match != null) {
-            val matchDetailResponse = match.toMatchDetailResponse()
+            val playerGoals = if (match.status == MatchStatus.COMPLETED) {
+                matchRepository.getMatchPlayerGoals(matchId)
+            } else {
+                emptyList()
+            }
+            val matchDetailResponse = match.toMatchDetailResponse(playerGoals)
 
             val resolvedImages = matchDetailResponse.fieldImages.map { image ->
                 val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
