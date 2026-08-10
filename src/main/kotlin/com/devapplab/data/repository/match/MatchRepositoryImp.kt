@@ -1127,7 +1127,8 @@ class MatchRepositoryImp : MatchRepository {
     override suspend fun getMatchPlayerGoals(matchId: UUID): List<MatchPlayerGoal> {
         return dbQuery {
             MatchPlayerGoalsTable
-                .select(MatchPlayerGoalsTable.matchId eq matchId)
+                .selectAll()
+                .where { MatchPlayerGoalsTable.matchId eq matchId }
                 .map { row ->
                     MatchPlayerGoal(
                         id = row[MatchPlayerGoalsTable.id],
