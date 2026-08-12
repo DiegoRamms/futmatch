@@ -25,7 +25,7 @@ Use the `Accept-Language` header to receive localized validation and error messa
 
 ## 1. List Admins and Organizers
 
-Returns a paginated list of users filtered by role and optional status. By default, it returns accounts with the `ADMIN` or `ORGANIZER` role in every status.
+Returns a paginated list of users filtered by role and optional status. Deleted/anonymized accounts are always excluded. By default, it returns accounts with the `ADMIN` or `ORGANIZER` role in every remaining status.
 
 - **Method:** `GET`
 - **Path:** `/admin/users`

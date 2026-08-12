@@ -272,7 +272,12 @@ class UserRepositoryImpl(private val piiCrypto: PiiCrypto) : UserRepository {
         roles: Set<UserRole>,
         statuses: Set<UserStatus>
     ): AdminManagedUsersPage {
-        var managedUsersFilter: Op<Boolean> = UserTable.role inList roles.toList()
+        // Deleted accounts are anonymized and must not be exposed in the admin list,
+        // even when a caller explicitly includes the DELETED status filter.
+        var managedUsersFilter: Op<Boolean> =
+            (UserTable.role inList roles.toList()) and
+                (UserTable.status neq UserStatus.DELETED) and
+                UserTable.deletedAt.isNull()
         if (statuses.isNotEmpty()) {
             managedUsersFilter = managedUsersFilter and (UserTable.status inList statuses.toList())
         }
