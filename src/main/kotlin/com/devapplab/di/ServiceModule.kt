@@ -2,6 +2,7 @@ package com.devapplab.di
 
 import com.devapplab.service.UserService
 import com.devapplab.service.AdminUserService
+import com.devapplab.service.admin.DashboardService
 import com.devapplab.observability.AuthMetrics
 import com.devapplab.observability.PaymentMetrics
 import com.devapplab.service.appcheck.FirebaseAppCheckService
@@ -52,6 +53,7 @@ val serviceModule = module {
     singleOf(::PiiCrypto)
     singleOf(::UserService)
     singleOf(::AdminUserService)
+    singleOf(::DashboardService)
     singleOf(::FirebaseAppCheckService)
     singleOf(::ProfileService)
     singleOf(::RegistrationService)

@@ -2,6 +2,7 @@ package com.devapplab.config
 
 import com.devapplab.features.auth.authRouting
 import com.devapplab.features.admin.adminUserRouting
+import com.devapplab.features.admin.adminDashboardRouting
 import com.devapplab.features.admin.desktopDeviceAdminRouting
 import com.devapplab.features.cron.cronRouting
 import com.devapplab.features.device.deviceRouting
@@ -155,6 +156,7 @@ fun Application.configureRouting() {
             appCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService) {
                 rateLimit(RateLimitName(RateLimitType.PROTECTED.value)) {
                     userRouting()
+                    adminDashboardRouting()
                     adminUserRouting()
                     desktopDeviceAdminRouting()
                     fieldRouting()

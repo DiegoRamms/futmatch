@@ -3,6 +3,8 @@ package com.devapplab.di
 import com.devapplab.data.repository.*
 import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.auth.AuthRepositoryImpl
+import com.devapplab.data.repository.admin.DashboardRepository
+import com.devapplab.data.repository.admin.DashboardRepositoryImpl
 import com.devapplab.data.repository.config.MatchPricingConfigRepository
 import com.devapplab.data.repository.config.MatchPricingConfigRepositoryImpl
 import com.devapplab.data.repository.cleanup.ProfileImageCleanupRepository
@@ -50,6 +52,7 @@ import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 val repositoryModule = module {
+    singleOf(::DashboardRepositoryImpl) { bind<DashboardRepository>() }
     singleOf(::UserRepositoryImpl) { bind<UserRepository>() }
     singleOf(::RefreshTokenRepositoryImp) { bind<RefreshTokenRepository>() }
     singleOf(::DeviceRepositoryImpl) { bind<DeviceRepository>() }

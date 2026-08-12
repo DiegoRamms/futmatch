@@ -2,6 +2,7 @@ package com.devapplab.di
 
 import com.devapplab.features.auth.AuthController
 import com.devapplab.features.admin.AdminUserController
+import com.devapplab.features.admin.AdminDashboardController
 import com.devapplab.features.cron.CronController
 import com.devapplab.features.device.DeviceController
 import com.devapplab.features.device.DesktopDeviceController
@@ -19,6 +20,7 @@ import org.koin.module.requestScope
 
 val controllerModule = module {
     requestScope {
+        scopedOf(::AdminDashboardController)
         scopedOf(::AuthController)
         scopedOf(::AdminUserController)
         scopedOf(::UserController)
