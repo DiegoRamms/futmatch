@@ -18,6 +18,8 @@ import com.devapplab.service.auth.AuthTokenManagementService
 import com.devapplab.service.auth.PasswordResetService
 import com.devapplab.service.auth.RegistrationService
 import com.devapplab.service.auth.SignInService
+import com.devapplab.service.auth.google.GoogleAuthService
+import com.devapplab.service.auth.google.GoogleRegistrationService
 import com.devapplab.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -27,6 +29,8 @@ import java.util.*
 class AuthController(
     private val registrationService: RegistrationService,
     private val signInService: SignInService,
+    private val googleAuthService: GoogleAuthService,
+    private val googleRegistrationService: GoogleRegistrationService,
     private val passwordResetService: PasswordResetService,
     private val authTokenManagementService: AuthTokenManagementService
 ) {
@@ -64,6 +68,23 @@ class AuthController(
         val request = call.receive<SignInRequest>()
         val desktopDeviceId = call.attributes.getOrNull(DesktopVerifiedDeviceIdKey)
         val result = signInService.signIn(locale, request, jwtConfig, deviceInfo, context, desktopDeviceId)
+        call.respond(result)
+    }
+
+    suspend fun resolveGoogleAuth(call: ApplicationCall, jwtConfig: JWTConfig) {
+        val locale = call.retrieveLocale()
+        val context = call.toAuthRequestContext()
+        val deviceInfo = call.getUserAgentHeader()
+        val request = call.receive<GoogleAuthResolveRequest>()
+        val result = googleAuthService.resolve(request, jwtConfig, locale, deviceInfo, context)
+        call.respond(result)
+    }
+
+    suspend fun registerWithGoogle(call: ApplicationCall, jwtConfig: JWTConfig) {
+        val locale = call.retrieveLocale()
+        val context = call.toAuthRequestContext()
+        val request = call.receive<GoogleRegistrationRequest>()
+        val result = googleRegistrationService.register(request, jwtConfig, locale, call.getUserAgentHeader(), context)
         call.respond(result)
     }
 

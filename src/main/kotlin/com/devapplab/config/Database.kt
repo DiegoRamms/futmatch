@@ -33,6 +33,7 @@ import com.devapplab.data.database.pending_registrations.RegistrationVerifyAttem
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.data.database.user.UserPaymentProfileTable
 import com.devapplab.data.database.user.UserTable
+import com.devapplab.data.database.auth.AuthIdentityTable
 import io.ktor.server.application.*
 import io.ktor.server.config.ApplicationConfig
 import kotlinx.coroutines.Dispatchers
@@ -76,6 +77,7 @@ fun Application.configureDatabase() {
 
     val allTables = arrayOf(
         UserTable,
+        AuthIdentityTable,
         DeviceTable,
         DesktopDeviceTable,
         DesktopEnrollmentRequestTable,

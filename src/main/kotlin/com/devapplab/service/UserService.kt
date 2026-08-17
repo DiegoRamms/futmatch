@@ -71,7 +71,7 @@ class UserService(
         }
         val user = dbExecutor.tx { userRepository.getUserSignInInfoById(userId) }
             ?: return locale.createError(status = HttpStatusCode.NotFound)
-        if (user.status != UserStatus.ACTIVE || !hashingService.verify(password.trim(), user.password)) {
+        if (user.status != UserStatus.ACTIVE || user.password == null || !hashingService.verify(password.trim(), user.password)) {
             logger.appRejected(
                 event = "user.account.deletion.rejected", context = context, reason = "invalid_password",
                 userId = userId, statusCode = HttpStatusCode.Unauthorized.value

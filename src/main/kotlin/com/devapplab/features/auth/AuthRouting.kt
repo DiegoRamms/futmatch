@@ -47,6 +47,22 @@ fun Route.authRouting() {
             }
         }
 
+        rateLimit(configuration = RateLimitName(RateLimitType.SIGN_IN.value)) {
+            post("/google/resolve") {
+                val authController = call.scope.get<AuthController>()
+                val jwtConfig = application.getJWTConfig()
+                authController.resolveGoogleAuth(call, jwtConfig)
+            }
+        }
+
+        rateLimit(configuration = RateLimitName(RateLimitType.MFA_VERIFY_REGISTRATION_COMPLETE.value)) {
+            post("/google/register") {
+                val authController = call.scope.get<AuthController>()
+                val jwtConfig = application.getJWTConfig()
+                authController.registerWithGoogle(call, jwtConfig)
+            }
+        }
+
         rateLimit(configuration = RateLimitName(RateLimitType.MFA_SEND.value)) {
             post("/mfa/send") {
                 val authController = call.scope.get<AuthController>()

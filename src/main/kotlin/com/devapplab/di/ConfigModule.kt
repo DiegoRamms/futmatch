@@ -7,6 +7,7 @@ import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.StripeConfig
 import com.devapplab.model.WebhookConfig
 import com.devapplab.model.PiiCryptoConfig
+import com.devapplab.model.auth.GoogleAuthConfig
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
 import com.devapplab.utils.loadDomainResource
 import com.devapplab.utils.toDomainSet
@@ -17,6 +18,19 @@ import org.slf4j.LoggerFactory
 private val configLogger = LoggerFactory.getLogger("AppCheckConfig")
 
 val configModule = module {
+    single {
+        val config = get<ApplicationConfig>()
+        val webClientId = config.propertyOrNull("googleAuth.webClientId")
+            ?.getString()
+            ?.trim()
+            .orEmpty()
+
+        require(webClientId.isNotBlank()) {
+            "GOOGLE_OAUTH_WEB_CLIENT_ID is required for Google authentication."
+        }
+
+        GoogleAuthConfig(webClientId = webClientId)
+    }
     single {
         val config = get<ApplicationConfig>()
         PiiCryptoConfig(

@@ -11,7 +11,7 @@ object UserTable : Table("users") {
     val lastName = varchar("last_name", USER_LAST_NAME_MAX_LENGTH)
     val emailCiphertext = text("email_ciphertext").nullable()
     val emailLookup = varchar("email_lookup", 64).nullable().uniqueIndex()
-    val password = text("password")
+    val password = text("password").nullable()
     val phoneCiphertext = text("phone_ciphertext").nullable()
     // Phone ownership is not verified yet, so it cannot be a unique identity.
     val phoneLookup = varchar("phone_lookup", 64).nullable()

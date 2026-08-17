@@ -92,6 +92,32 @@ class PasswordResetService(
             return genericSuccessResponse
         }
 
+        val hasPassword = runCatching {
+            dbExecutor.tx { userRepository.getUserSignInInfoById(user.id)?.password != null }
+        }.getOrElse { error ->
+            logger.authEvent(
+                AuthLogSeverity.ERROR,
+                "auth.password_reset.request.failed",
+                context,
+                "failed",
+                "db_error",
+                userId = user.id,
+                throwable = error
+            )
+            return genericSuccessResponse
+        }
+        if (!hasPassword) {
+            logger.authEvent(
+                AuthLogSeverity.INFO,
+                "auth.password_reset.request.rejected",
+                context,
+                "rejected",
+                "password_auth_not_configured",
+                userId = user.id
+            )
+            return genericSuccessResponse
+        }
+
         val code = MfaUtils.generateCode()
         val expiresAt = MfaUtils.calculateExpiration(300)
         val hashedMfaCode = hashingService.hashOpaqueToken(code)

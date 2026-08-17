@@ -155,7 +155,7 @@ class AdminUserService(
     ): AppResult<String> {
         val admin = dbExecutor.tx { userRepository.getUserSignInInfoById(adminId) }
             ?: return locale.createError(status = HttpStatusCode.Unauthorized)
-        if (admin.status != UserStatus.ACTIVE || hashingService == null || !hashingService.verify(password.trim(), admin.password)) {
+        if (admin.status != UserStatus.ACTIVE || admin.password == null || hashingService == null || !hashingService.verify(password.trim(), admin.password)) {
             return locale.createError(
                 StringResourcesKey.ADMIN_USER_DELETE_INVALID_PASSWORD_TITLE,
                 StringResourcesKey.ADMIN_USER_DELETE_INVALID_PASSWORD_DESCRIPTION,

@@ -12,6 +12,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.io.readByteArray
 import org.slf4j.LoggerFactory
 import java.util.*
+import java.io.ByteArrayOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class ImageServiceImp(config: ApplicationConfig) : ImageService {
 
@@ -138,6 +141,40 @@ class ImageServiceImp(config: ApplicationConfig) : ImageService {
         }
     }
 
+    override suspend fun saveGoogleProfileImage(sourceUrl: String, path: String): ImageData? {
+        return runCatching {
+            val source = URL(sourceUrl)
+            require(source.protocol == "https" && source.host.isAllowedGoogleImageHost())
+            val connection = (source.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 5_000
+                readTimeout = 5_000
+                instanceFollowRedirects = false
+                requestMethod = "GET"
+            }
+            require(connection.responseCode == HttpURLConnection.HTTP_OK)
+            val contentType = connection.contentType?.substringBefore(';')?.lowercase(Locale.ROOT)
+            require(contentType in allowedMimeTypes)
+            require(connection.contentLengthLong in 1..MAX_GOOGLE_PROFILE_IMAGE_BYTES)
+            val bytes = connection.inputStream.use { input ->
+                val output = ByteArrayOutputStream(connection.contentLength)
+                input.copyTo(output)
+                output.toByteArray()
+            }
+            require(bytes.size <= MAX_GOOGLE_PROFILE_IMAGE_BYTES)
+            val upload = withContext(Dispatchers.IO) {
+                cloudinary.uploader().upload(bytes, ObjectUtils.asMap(
+                    "folder", path.trim('/'), "resource_type", "image", "type", "authenticated", "access_mode", "authenticated"
+                ))
+            }
+            ImageData(
+                upload["public_id"] as String,
+                ImageMeta(contentType!!, upload["width"] as Int, upload["height"] as Int, (upload["bytes"] as Int).toLong(), upload["etag"] as? String ?: "")
+            )
+        }.onFailure { error ->
+            logger.warn("Google profile image import failed: {}", error.javaClass.simpleName)
+        }.getOrNull()
+    }
+
     override fun getImageUrl(publicId: String): String {
         // Generate a signed URL for authenticated resource
         return cloudinary.url()
@@ -146,4 +183,11 @@ class ImageServiceImp(config: ApplicationConfig) : ImageService {
             .signed(true)
             .generate(publicId)
     }
+
+    private companion object {
+        const val MAX_GOOGLE_PROFILE_IMAGE_BYTES = 5L * 1024 * 1024
+    }
 }
+
+private fun String.isAllowedGoogleImageHost(): Boolean =
+    this == "googleusercontent.com" || endsWith(".googleusercontent.com")

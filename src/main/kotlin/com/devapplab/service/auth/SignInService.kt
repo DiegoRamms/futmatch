@@ -134,7 +134,7 @@ class SignInService(
 
         val user = (preCheck as SignInPreCheck.Ok).user
 
-        val credentialsOk = user != null && hashingService.verify(signInRequest.password, user.password)
+        val credentialsOk = user?.password != null && hashingService.verify(signInRequest.password, user.password)
         if (!credentialsOk) {
             logger.authRejected("auth.sign_in.failed", context, "invalid_credentials", statusCode = HttpStatusCode.Unauthorized.value, durationMs = System.currentTimeMillis() - startTime)
             return handleFailedLoginAttemptTx(email, locale, context)

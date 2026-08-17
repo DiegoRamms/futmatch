@@ -8,6 +8,8 @@ import com.devapplab.features.location.validation.validate
 import com.devapplab.features.match.validation.validate
 import com.devapplab.features.user.validation.validate
 import com.devapplab.model.auth.request.ForgotPasswordRequest
+import com.devapplab.model.auth.request.GoogleAuthResolveRequest
+import com.devapplab.model.auth.request.GoogleRegistrationRequest
 import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.request.SignOutRequest
@@ -43,6 +45,12 @@ fun Application.configureRequestValidation() {
             request.validate()
         }
         validate<SignInRequest> { request ->
+            request.validate()
+        }
+        validate<GoogleAuthResolveRequest> { request ->
+            request.validate()
+        }
+        validate<GoogleRegistrationRequest> { request ->
             request.validate()
         }
         validate<ForgotPasswordRequest> { request ->

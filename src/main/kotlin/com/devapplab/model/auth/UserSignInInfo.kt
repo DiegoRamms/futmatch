@@ -7,7 +7,7 @@ import java.util.*
 data class UserSignInInfo(
     val userId: UUID,
     val userRole: UserRole,
-    val password: String,
+    val password: String?,
     val status: UserStatus,
     val isEmailVerified: Boolean,
 )
