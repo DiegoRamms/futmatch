@@ -11,6 +11,7 @@ import com.devapplab.data.repository.mfa.LoginMfaChallengeRepository
 import com.devapplab.data.repository.mfa.LoginMfaVerifyAttemptRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.cleanup.ProfileImageCleanupRepository
+import com.devapplab.data.repository.auth.AuthIdentityRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerPosition
@@ -54,6 +55,7 @@ class UserService(
     private val loginMfaChallengeRepository: LoginMfaChallengeRepository,
     private val loginMfaVerifyAttemptRepository: LoginMfaVerifyAttemptRepository,
     private val passwordResetTokenRepository: PasswordResetTokenRepository,
+    private val authIdentityRepository: AuthIdentityRepository,
     private val profileImageCleanupRepository: ProfileImageCleanupRepository,
     private val hashingService: HashingService,
     private val imageService: ImageService,
@@ -111,6 +113,7 @@ class UserService(
             loginMfaChallengeRepository.revokeActiveByUserTx(userId, now)
             loginMfaVerifyAttemptRepository.deleteByUserIdTx(userId)
             passwordResetTokenRepository.deleteByUserId(userId)
+            authIdentityRepository.deleteByUserIdTx(userId)
             true to cleanupJobId
         } ?: return locale.createError(
             StringResourcesKey.ACCOUNT_DELETION_BLOCKED_TITLE,

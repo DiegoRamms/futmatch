@@ -4,9 +4,11 @@ import com.devapplab.data.database.auth.AuthIdentityTable
 import com.devapplab.model.auth.identity.AuthIdentity
 import com.devapplab.model.auth.identity.AuthProvider
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import java.util.UUID
 
 interface AuthIdentityRepository {
     fun findByProviderSubjectTx(
@@ -17,7 +19,9 @@ interface AuthIdentityRepository {
 
     fun createTx(identity: AuthIdentity): AuthIdentity
 
-    fun updateLastAuthenticatedAtTx(identityId: java.util.UUID, authenticatedAt: Long): Boolean
+    fun updateLastAuthenticatedAtTx(identityId: UUID, authenticatedAt: Long): Boolean
+
+    fun deleteByUserIdTx(userId: UUID): Int
 }
 
 class AuthIdentityRepositoryImpl : AuthIdentityRepository {
@@ -51,11 +55,14 @@ class AuthIdentityRepositoryImpl : AuthIdentityRepository {
         return row.toAuthIdentity()
     }
 
-    override fun updateLastAuthenticatedAtTx(identityId: java.util.UUID, authenticatedAt: Long): Boolean {
+    override fun updateLastAuthenticatedAtTx(identityId: UUID, authenticatedAt: Long): Boolean {
         return AuthIdentityTable.update({ AuthIdentityTable.id eq identityId }) {
             it[lastAuthenticatedAt] = authenticatedAt
         } > 0
     }
+
+    override fun deleteByUserIdTx(userId: UUID): Int =
+        AuthIdentityTable.deleteWhere { AuthIdentityTable.userId eq userId }
 }
 
 private fun ResultRow.toAuthIdentity(): AuthIdentity = AuthIdentity(
