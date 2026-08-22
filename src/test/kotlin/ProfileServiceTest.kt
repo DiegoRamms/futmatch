@@ -294,6 +294,7 @@ private class FakeImageService : ImageService {
     override suspend fun saveImages(multiPartData: MultiPartData, path: String) = error("not used")
     override suspend fun deleteImages(path: String) = error("not used")
     override fun getImageUrl(publicId: String): String = "https://cdn.example.com/$publicId"
+    override suspend fun saveGoogleProfileImage(sourceUrl: String, path: String) = error("not used")
 }
 
 private class FakeUserRepository(

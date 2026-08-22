@@ -7,6 +7,7 @@ import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.StripeConfig
 import com.devapplab.model.WebhookConfig
 import com.devapplab.model.PiiCryptoConfig
+import com.devapplab.model.auth.AppleAuthConfig
 import com.devapplab.model.auth.GoogleAuthConfig
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
 import com.devapplab.utils.loadDomainResource
@@ -30,6 +31,20 @@ val configModule = module {
         }
 
         GoogleAuthConfig(webClientId = webClientId)
+    }
+    single {
+        val config = get<ApplicationConfig>()
+        val clientId = config.propertyOrNull("appleAuth.clientId")?.getString()?.trim().orEmpty()
+        val teamId = config.propertyOrNull("appleAuth.teamId")?.getString()?.trim().orEmpty()
+        val keyId = config.propertyOrNull("appleAuth.keyId")?.getString()?.trim().orEmpty()
+        val privateKeyBase64 = config.propertyOrNull("appleAuth.privateKeyBase64")?.getString()?.trim().orEmpty()
+
+        require(clientId.isNotBlank()) { "APPLE_SIGN_IN_CLIENT_ID is required for Apple authentication." }
+        require(teamId.isNotBlank()) { "APPLE_SIGN_IN_TEAM_ID is required for Apple authentication." }
+        require(keyId.isNotBlank()) { "APPLE_SIGN_IN_KEY_ID is required for Apple authentication." }
+        require(privateKeyBase64.isNotBlank()) { "APPLE_SIGN_IN_PRIVATE_KEY_BASE64 is required for Apple authentication." }
+
+        AppleAuthConfig(clientId = clientId, teamId = teamId, keyId = keyId, privateKeyBase64 = privateKeyBase64)
     }
     single {
         val config = get<ApplicationConfig>()

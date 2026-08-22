@@ -5,6 +5,8 @@ import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.auth.AuthRepositoryImpl
 import com.devapplab.data.repository.auth.AuthIdentityRepository
 import com.devapplab.data.repository.auth.AuthIdentityRepositoryImpl
+import com.devapplab.data.repository.auth.AppleAuthTokenRepository
+import com.devapplab.data.repository.auth.AppleAuthTokenRepositoryImpl
 import com.devapplab.data.repository.admin.DashboardRepository
 import com.devapplab.data.repository.admin.DashboardRepositoryImpl
 import com.devapplab.data.repository.config.MatchPricingConfigRepository
@@ -65,6 +67,7 @@ val repositoryModule = module {
     singleOf(::LoginMfaVerifyAttemptRepositoryImpl) { bind<LoginMfaVerifyAttemptRepository>() }
     singleOf(::AuthRepositoryImpl) { bind<AuthRepository>() }
     singleOf(::AuthIdentityRepositoryImpl) { bind<AuthIdentityRepository>() }
+    singleOf(::AppleAuthTokenRepositoryImpl) { bind<AppleAuthTokenRepository>() }
     singleOf(::FieldRepositoryImp) { bind<FieldRepository>() }
     singleOf(::MatchRepositoryImp) { bind<MatchRepository>() }
     singleOf(::MatchRefundFailureRepositoryImpl) { bind<MatchRefundFailureRepository>() }
