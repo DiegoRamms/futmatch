@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory
 private val configLogger = LoggerFactory.getLogger("AppCheckConfig")
 
 val configModule = module {
-    single {
+    single(createdAtStart = true) {
         val config = get<ApplicationConfig>()
         val webClientId = config.propertyOrNull("googleAuth.webClientId")
             ?.getString()
@@ -32,7 +32,7 @@ val configModule = module {
 
         GoogleAuthConfig(webClientId = webClientId)
     }
-    single {
+    single(createdAtStart = true) {
         val config = get<ApplicationConfig>()
         val clientId = config.propertyOrNull("appleAuth.clientId")?.getString()?.trim().orEmpty()
         val teamId = config.propertyOrNull("appleAuth.teamId")?.getString()?.trim().orEmpty()
@@ -59,7 +59,7 @@ val configModule = module {
                 .associate { (version, key) -> version.trim() to key.trim() }
         )
     }
-    single {
+    single(createdAtStart = true) {
         val config = get<ApplicationConfig>()
         val enabled = config.propertyOrNull("appCheck.enabled")?.getString()?.toBooleanStrictOrNull() ?: true
         val enforce = config.propertyOrNull("appCheck.enforce")?.getString()?.toBooleanStrictOrNull() ?: true
