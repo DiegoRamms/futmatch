@@ -10,12 +10,18 @@ Apple authentication is available to iOS clients using `AuthenticationServices` 
 APPLE_SIGN_IN_CLIENT_ID=com.futmatch.client
 APPLE_SIGN_IN_TEAM_ID=<10-character Apple Developer Team ID>
 APPLE_SIGN_IN_KEY_ID=<Key ID of the Sign in with Apple key>
-APPLE_SIGN_IN_PRIVATE_KEY_BASE64=<base64 of the downloaded .p8 file's full contents>
+APPLE_SIGN_IN_PRIVATE_KEY_BASE64=<base64 body of the downloaded .p8 file, PEM header/footer and newlines stripped>
 ```
 
 `APPLE_SIGN_IN_CLIENT_ID` is the app's bundle id — in the native iOS flow the bundle id is both the token's `aud` claim and the `client_id` used to exchange an authorization code. No Services ID is required unless the same accounts must also sign in from web or Android.
 
 The `.p8` file is downloaded once from the Apple Developer portal (Keys ▸ Sign in with Apple) and cannot be re-downloaded; store it securely outside the repo. It is used to sign a short-lived ES256 `client_secret` JWT for Apple's token endpoint — never sent to the client, never logged.
+
+To produce `APPLE_SIGN_IN_PRIVATE_KEY_BASE64` from the downloaded file, strip its PEM header/footer and newlines (that's already the base64 of the DER-encoded key — no re-encoding needed):
+
+```bash
+grep -v -- '-----' AuthKey_XXXXXXXXXX.p8 | tr -d '\n'
+```
 
 ## Verified claims
 

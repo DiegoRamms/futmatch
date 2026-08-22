@@ -14,9 +14,19 @@ import java.util.Date
  * static secret. Signed with the `.p8` private key from the Apple Developer portal;
  * `iss`/`kid` identify the team and key, `sub` is the bundle id (the app's `client_id`
  * in the native flow), `aud` is fixed to Apple's issuer.
+ *
+ * `config.privateKeyBase64` is expected to be just the base64 body of the `.p8`
+ * PEM file — i.e. the `.p8` file with the `-----BEGIN/END PRIVATE KEY-----`
+ * header/footer lines and newlines stripped, NOT that content re-encoded in
+ * base64 again. Since PEM already *is* base64(DER) wrapped in those markers,
+ * stripping them is enough to get valid base64 directly:
+ * `grep -v -- '-----' AuthKey_XXXXXXXXXX.p8 | tr -d '\n'`
  */
 class AppleClientSecretSigner(private val config: AppleAuthConfig) {
-    private val privateKey: ECPrivateKey by lazy { parsePrivateKey(config.privateKeyBase64) }
+    private val privateKey: ECPrivateKey by lazy {
+        val der = Base64.getDecoder().decode(config.privateKeyBase64)
+        KeyFactory.getInstance("EC").generatePrivate(PKCS8EncodedKeySpec(der)) as ECPrivateKey
+    }
 
     fun sign(): String {
         val now = Date()
@@ -29,18 +39,6 @@ class AppleClientSecretSigner(private val config: AppleAuthConfig) {
             .withAudience(APPLE_TOKEN_AUDIENCE)
             .withSubject(config.clientId)
             .sign(Algorithm.ECDSA256(null, privateKey))
-    }
-
-    private fun parsePrivateKey(privateKeyBase64: String): ECPrivateKey {
-        val pemText = String(Base64.getDecoder().decode(privateKeyBase64), Charsets.UTF_8)
-        val der = Base64.getDecoder().decode(
-            pemText
-                .replace("-----BEGIN PRIVATE KEY-----", "")
-                .replace("-----END PRIVATE KEY-----", "")
-                .replace("\\s".toRegex(), "")
-        )
-        val keyFactory = KeyFactory.getInstance("EC")
-        return keyFactory.generatePrivate(PKCS8EncodedKeySpec(der)) as ECPrivateKey
     }
 
     private companion object {
