@@ -11,7 +11,9 @@ import com.devapplab.data.repository.mfa.LoginMfaChallengeRepository
 import com.devapplab.data.repository.mfa.LoginMfaVerifyAttemptRepository
 import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.cleanup.ProfileImageCleanupRepository
+import com.devapplab.data.repository.auth.AppleAuthTokenRepository
 import com.devapplab.data.repository.auth.AuthIdentityRepository
+import com.devapplab.model.auth.identity.AuthProvider
 import com.devapplab.model.AppResult
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerPosition
@@ -30,10 +32,16 @@ import com.devapplab.model.payment.PaymentHistoryItem
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
+import com.devapplab.service.auth.apple.AppleIdTokenVerifier
+import com.devapplab.service.auth.apple.AppleIdTokenVerificationResult
+import com.devapplab.service.auth.apple.AppleTokenExchangeService
+import com.devapplab.service.auth.google.GoogleIdTokenVerifier
+import com.devapplab.service.auth.google.GoogleIdTokenVerificationResult
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.match.MatchVisibilityRules
 import com.devapplab.service.payment.PaymentServiceFactory
+import com.devapplab.service.pii.PiiCrypto
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.getString
@@ -56,15 +64,20 @@ class UserService(
     private val loginMfaVerifyAttemptRepository: LoginMfaVerifyAttemptRepository,
     private val passwordResetTokenRepository: PasswordResetTokenRepository,
     private val authIdentityRepository: AuthIdentityRepository,
+    private val appleAuthTokenRepository: AppleAuthTokenRepository,
     private val profileImageCleanupRepository: ProfileImageCleanupRepository,
     private val hashingService: HashingService,
     private val imageService: ImageService,
-    private val paymentServiceFactory: PaymentServiceFactory
+    private val paymentServiceFactory: PaymentServiceFactory,
+    private val googleIdTokenVerifier: GoogleIdTokenVerifier,
+    private val appleIdTokenVerifier: AppleIdTokenVerifier,
+    private val appleTokenExchangeService: AppleTokenExchangeService,
+    private val piiCrypto: PiiCrypto
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    suspend fun deleteAccount(userId: UUID, password: String, confirmation: String, locale: Locale, context: AppRequestContext): AppResult<String> {
-        if (confirmation.trim().uppercase() != DeleteAccountRequest.REQUIRED_CONFIRMATION) {
+    suspend fun deleteAccount(userId: UUID, request: DeleteAccountRequest, locale: Locale, context: AppRequestContext): AppResult<String> {
+        if (request.confirmation.trim().uppercase() != DeleteAccountRequest.REQUIRED_CONFIRMATION) {
             return locale.createError(
                 StringResourcesKey.ACCOUNT_DELETION_CONFIRMATION_REQUIRED,
                 StringResourcesKey.ACCOUNT_DELETION_CONFIRMATION_REQUIRED,
@@ -73,7 +86,17 @@ class UserService(
         }
         val user = dbExecutor.tx { userRepository.getUserSignInInfoById(userId) }
             ?: return locale.createError(status = HttpStatusCode.NotFound)
-        if (user.status != UserStatus.ACTIVE || user.password == null || !hashingService.verify(password.trim(), user.password)) {
+
+        // Social accounts (`password == null`) have nothing for `hashingService.verify`
+        // to check, so they re-prove ownership with a fresh token from their provider
+        // instead — the same shape `/auth/{provider}/resolve` already accepts.
+        val reauthenticated = if (request.provider != null) {
+            verifySocialReauthentication(userId, request)
+        } else {
+            user.status == UserStatus.ACTIVE && user.password != null &&
+                hashingService.verify(request.password.orEmpty().trim(), user.password)
+        }
+        if (!reauthenticated) {
             logger.appRejected(
                 event = "user.account.deletion.rejected", context = context, reason = "invalid_password",
                 userId = userId, statusCode = HttpStatusCode.Unauthorized.value
@@ -88,6 +111,28 @@ class UserService(
         return performAccountDeletion(userId, locale, context)
     }
 
+    /**
+     * The `(issuer, sub)` pair a fresh identity token verifies to must resolve, in
+     * `auth_identities`, to this exact `userId` — proving both that the token is
+     * genuine and that it belongs to the account being deleted, not some other
+     * social identity the caller happens to control.
+     */
+    private suspend fun verifySocialReauthentication(userId: UUID, request: DeleteAccountRequest): Boolean {
+        val provider = request.provider ?: return false
+        val identityToken = request.identityToken.orEmpty()
+
+        val verifiedIdentity = when (provider) {
+            AuthProvider.GOOGLE -> (googleIdTokenVerifier.verify(identityToken) as? GoogleIdTokenVerificationResult.Valid)
+                ?.identity?.let { it.issuer to it.subject }
+            AuthProvider.APPLE -> (appleIdTokenVerifier.verify(identityToken, request.nonce.orEmpty()) as? AppleIdTokenVerificationResult.Valid)
+                ?.identity?.let { it.issuer to it.subject }
+        } ?: return false
+
+        val (issuer, subject) = verifiedIdentity
+        val ownedIdentity = dbExecutor.tx { authIdentityRepository.findByProviderSubjectTx(provider, issuer, subject) }
+        return ownedIdentity?.userId == userId
+    }
+
     suspend fun deleteAccountByAdministrator(targetUserId: UUID, locale: Locale, context: AppRequestContext): AppResult<String> =
         performAccountDeletion(targetUserId, locale, context)
 
@@ -95,6 +140,13 @@ class UserService(
         val now = System.currentTimeMillis()
         val deletedPasswordHash = hashingService.hash(UUID.randomUUID().toString())
         val profilePic = dbExecutor.tx { userRepository.getUserById(userId)?.profilePic }
+
+        // Revoking is a network call, so it happens outside the deletion transaction
+        // below — and before it, so a slow/failed revoke never blocks the deletion
+        // itself. Apple's App Review requires this on account deletion (5.1.1(v));
+        // Google needs no equivalent step here.
+        revokeAppleTokenIfPresent(userId, context)
+
         val deletionResult = dbExecutor.tx {
             if (userRepository.hasAccountDeletionBlockersTx(userId)) return@tx null
             val updated = userRepository.anonymizeAccountTx(
@@ -114,6 +166,7 @@ class UserService(
             loginMfaVerifyAttemptRepository.deleteByUserIdTx(userId)
             passwordResetTokenRepository.deleteByUserId(userId)
             authIdentityRepository.deleteByUserIdTx(userId)
+            appleAuthTokenRepository.deleteByUserIdTx(userId)
             true to cleanupJobId
         } ?: return locale.createError(
             StringResourcesKey.ACCOUNT_DELETION_BLOCKED_TITLE,
@@ -130,6 +183,32 @@ class UserService(
             statusCode = HttpStatusCode.OK.value
         )
         return AppResult.Success(locale.getString(StringResourcesKey.ACCOUNT_DELETION_SUCCESS_MESSAGE))
+    }
+
+    /**
+     * Best-effort: decrypts the stored refresh token (if any) and revokes it with
+     * Apple. A missing token, a decrypt failure, or a failed revoke call are all
+     * logged and swallowed — the account still gets deleted either way, this only
+     * affects whether Apple itself considers the grant revoked.
+     */
+    private suspend fun revokeAppleTokenIfPresent(userId: UUID, context: AppRequestContext) {
+        val stored = dbExecutor.tx { appleAuthTokenRepository.findByUserIdTx(userId) } ?: return
+        runCatching {
+            val refreshToken = piiCrypto.decrypt(stored.refreshTokenCiphertext, stored.piiKeyVersion)
+            val revoked = appleTokenExchangeService.revoke(refreshToken)
+            if (!revoked) {
+                logger.appRejected(
+                    event = "user.account.deletion.apple_revoke_failed", context = context,
+                    reason = "revoke_rejected", userId = userId
+                )
+            }
+        }.onFailure { error ->
+            logger.appRejected(
+                event = "user.account.deletion.apple_revoke_failed", context = context,
+                reason = "revoke_threw", userId = userId,
+                extra = mapOf("errorType" to error.javaClass.simpleName)
+            )
+        }
     }
 
     suspend fun getUserById(userId: UUID?, locale: Locale, context: AppRequestContext): AppResult<UserResponse> {

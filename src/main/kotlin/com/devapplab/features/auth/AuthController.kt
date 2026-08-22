@@ -18,6 +18,8 @@ import com.devapplab.service.auth.AuthTokenManagementService
 import com.devapplab.service.auth.PasswordResetService
 import com.devapplab.service.auth.RegistrationService
 import com.devapplab.service.auth.SignInService
+import com.devapplab.service.auth.apple.AppleAuthService
+import com.devapplab.service.auth.apple.AppleRegistrationService
 import com.devapplab.service.auth.google.GoogleAuthService
 import com.devapplab.service.auth.google.GoogleRegistrationService
 import com.devapplab.utils.*
@@ -31,6 +33,8 @@ class AuthController(
     private val signInService: SignInService,
     private val googleAuthService: GoogleAuthService,
     private val googleRegistrationService: GoogleRegistrationService,
+    private val appleAuthService: AppleAuthService,
+    private val appleRegistrationService: AppleRegistrationService,
     private val passwordResetService: PasswordResetService,
     private val authTokenManagementService: AuthTokenManagementService
 ) {
@@ -85,6 +89,23 @@ class AuthController(
         val context = call.toAuthRequestContext()
         val request = call.receive<GoogleRegistrationRequest>()
         val result = googleRegistrationService.register(request, jwtConfig, locale, call.getUserAgentHeader(), context)
+        call.respond(result)
+    }
+
+    suspend fun resolveAppleAuth(call: ApplicationCall, jwtConfig: JWTConfig) {
+        val locale = call.retrieveLocale()
+        val context = call.toAuthRequestContext()
+        val deviceInfo = call.getUserAgentHeader()
+        val request = call.receive<AppleAuthResolveRequest>()
+        val result = appleAuthService.resolve(request, jwtConfig, locale, deviceInfo, context)
+        call.respond(result)
+    }
+
+    suspend fun registerWithApple(call: ApplicationCall, jwtConfig: JWTConfig) {
+        val locale = call.retrieveLocale()
+        val context = call.toAuthRequestContext()
+        val request = call.receive<AppleRegistrationRequest>()
+        val result = appleRegistrationService.register(request, jwtConfig, locale, call.getUserAgentHeader(), context)
         call.respond(result)
     }
 

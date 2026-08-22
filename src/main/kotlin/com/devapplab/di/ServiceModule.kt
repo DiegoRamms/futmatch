@@ -12,6 +12,11 @@ import com.devapplab.service.auth.AuthTokenManagementService
 import com.devapplab.service.auth.PasswordResetService
 import com.devapplab.service.auth.RegistrationService
 import com.devapplab.service.auth.SignInService
+import com.devapplab.service.auth.apple.AppleClientSecretSigner
+import com.devapplab.service.auth.apple.AppleIdTokenVerifier
+import com.devapplab.service.auth.apple.AppleAuthService
+import com.devapplab.service.auth.apple.AppleRegistrationService
+import com.devapplab.service.auth.apple.AppleTokenExchangeService
 import com.devapplab.service.auth.google.GoogleIdTokenVerifier
 import com.devapplab.service.auth.google.GoogleAuthService
 import com.devapplab.service.auth.google.GoogleRegistrationService
@@ -65,6 +70,11 @@ val serviceModule = module {
     singleOf(::GoogleIdTokenVerifier)
     singleOf(::GoogleAuthService)
     singleOf(::GoogleRegistrationService)
+    singleOf(::AppleIdTokenVerifier)
+    singleOf(::AppleClientSecretSigner)
+    singleOf(::AppleTokenExchangeService)
+    singleOf(::AppleAuthService)
+    singleOf(::AppleRegistrationService)
     singleOf(::PasswordResetService)
     singleOf(::AuthTokenManagementService)
     singleOf(::HashingServiceImpl) { bind<com.devapplab.service.hashing.HashingService>() }

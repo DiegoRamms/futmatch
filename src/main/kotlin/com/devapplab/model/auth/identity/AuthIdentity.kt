@@ -3,7 +3,8 @@ package com.devapplab.model.auth.identity
 import java.util.UUID
 
 enum class AuthProvider {
-    GOOGLE
+    GOOGLE,
+    APPLE
 }
 
 data class AuthIdentity(

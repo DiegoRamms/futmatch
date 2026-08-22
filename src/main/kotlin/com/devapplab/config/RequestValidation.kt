@@ -7,6 +7,8 @@ import com.devapplab.features.field.validation.validate
 import com.devapplab.features.location.validation.validate
 import com.devapplab.features.match.validation.validate
 import com.devapplab.features.user.validation.validate
+import com.devapplab.model.auth.request.AppleAuthResolveRequest
+import com.devapplab.model.auth.request.AppleRegistrationRequest
 import com.devapplab.model.auth.request.ForgotPasswordRequest
 import com.devapplab.model.auth.request.GoogleAuthResolveRequest
 import com.devapplab.model.auth.request.GoogleRegistrationRequest
@@ -51,6 +53,12 @@ fun Application.configureRequestValidation() {
             request.validate()
         }
         validate<GoogleRegistrationRequest> { request ->
+            request.validate()
+        }
+        validate<AppleAuthResolveRequest> { request ->
+            request.validate()
+        }
+        validate<AppleRegistrationRequest> { request ->
             request.validate()
         }
         validate<ForgotPasswordRequest> { request ->

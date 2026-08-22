@@ -20,6 +20,8 @@ enum class StringResourcesKey(val value: String) {
     AUTH_SIGN_IN_EMAIL_NOT_VERIFIED_DESCRIPTION("auth_sign_in_email_not_verified_description"),
     AUTH_DEVICE_INFO_REQUIRED_TITLE("auth_device_info_required_title"),
     AUTH_DEVICE_INFO_REQUIRED_DESCRIPTION("auth_device_info_required_description"),
+    AUTH_APPLE_EMAIL_UNAVAILABLE_TITLE("auth_apple_email_unavailable_title"),
+    AUTH_APPLE_EMAIL_UNAVAILABLE_DESCRIPTION("auth_apple_email_unavailable_description"),
     AUTH_USER_NOT_FOUND_TITLE("auth_user_not_found_title"),
     AUTH_USER_NOT_FOUND_DESCRIPTION("auth_user_not_found_description"),
     ACCOUNT_DELETION_PASSWORD_REQUIRED("account_deletion_password_required"),

@@ -84,7 +84,7 @@ class UserController(private val service: UserService) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<DeleteAccountRequest>()
-        val result = service.deleteAccount(userId, request.password, request.confirmation, locale, call.requestContext())
+        val result = service.deleteAccount(userId, request, locale, call.requestContext())
         call.respond(result)
     }
 }

@@ -27,6 +27,8 @@ Before changing contracts or request/response flows, read the relevant local doc
   - /Users/diego/ServerKtorProjects/futmatch/docs/auth/authentication.md
   - /Users/diego/ServerKtorProjects/futmatch/docs/auth/client_auth_migration_summary.md
   - /Users/diego/ServerKtorProjects/futmatch/docs/auth/login_mfa_legacy_removal.md
+  - /Users/diego/ServerKtorProjects/futmatch/docs/auth/google_authentication.md
+  - /Users/diego/ServerKtorProjects/futmatch/docs/auth/apple_authentication.md
 - Device endpoint contract:
   - /Users/diego/ServerKtorProjects/futmatch/docs/device/device_endpoints.md
 - Logging and observability standard:
@@ -46,6 +48,7 @@ Important current backend behavior:
 - `refresh` no longer depends on `userId/deviceId` in the request body
 - `refresh` now uses `X-Refresh-Token` as the primary credential
 - refresh token persistence now tracks explicit `status` and `statusReason` lifecycle metadata
+- Social sign-in: `/auth/google/*` and `/auth/apple/*` sit alongside password sign-in. Both create `users.password = null` accounts keyed by `auth_identities (provider, issuer, provider_subject)`; Google trusts the token's own claims, Apple additionally requires a nonce match and, at register, a client-supplied name (Apple's token carries none). Apple registration also exchanges the client's `authorizationCode` for a refresh token, stored encrypted in `apple_auth_tokens`, needed to revoke access on account deletion.
 
 When touching auth or session code, keep docs aligned.
 
