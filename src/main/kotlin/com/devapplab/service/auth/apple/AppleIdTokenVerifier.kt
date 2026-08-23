@@ -36,7 +36,10 @@ class AppleIdTokenVerifier(
 
         return runCatching {
             val decoded = JWT.decode(idToken)
-            if (decoded.algorithm != "RS256" || decoded.type != "JWT") {
+            // Unlike Google, Apple's identity token header carries no `typ` claim at
+            // all (just `{"kid":..., "alg":"RS256"}`) — requiring `typ == "JWT"` here,
+            // copied from the Google verifier, rejected every real Apple token.
+            if (decoded.algorithm != "RS256") {
                 return AppleIdTokenVerificationResult.Invalid("invalid_token_format")
             }
 
