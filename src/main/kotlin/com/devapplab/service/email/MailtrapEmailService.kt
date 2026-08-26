@@ -117,6 +117,29 @@ class MailtrapEmailService(
         )
     }
 
+    override suspend fun sendAccountDeletedEmail(to: String, locale: Locale): Boolean = withContext(Dispatchers.IO) {
+        if (!isAllowedRecipient(to)) return@withContext false
+
+        val title = locale.getString(StringResourcesKey.EMAIL_ACCOUNT_DELETED_TITLE)
+        val message = locale.getString(StringResourcesKey.EMAIL_ACCOUNT_DELETED_MESSAGE)
+        val subject = locale.getString(StringResourcesKey.EMAIL_ACCOUNT_DELETED_SUBJECT)
+        val footerText = locale.getString(StringResourcesKey.EMAIL_FOOTER_TEXT)
+
+        val htmlContent = getNotificationHtmlTemplate(
+            title = title,
+            message = message,
+            footerText = footerText
+        )
+
+        sendEmail(
+            to = to,
+            subject = subject,
+            text = message,
+            html = htmlContent,
+            category = "Account Deleted"
+        )
+    }
+
     private suspend fun sendEmail(to: String, subject: String, text: String, html: String, category: String): Boolean {
         return try {
             val requestBody = MailtrapRequest(

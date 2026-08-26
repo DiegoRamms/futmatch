@@ -31,11 +31,13 @@ import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.auth.apple.AppleTokenExchangeService
+import com.devapplab.service.email.EmailService
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.match.MatchVisibilityRules
 import com.devapplab.service.payment.PaymentServiceFactory
 import com.devapplab.service.pii.PiiCrypto
+import com.devapplab.service.user.state.AccountDeletionResult
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import com.devapplab.utils.getString
@@ -64,7 +66,8 @@ class UserService(
     private val imageService: ImageService,
     private val paymentServiceFactory: PaymentServiceFactory,
     private val appleTokenExchangeService: AppleTokenExchangeService,
-    private val piiCrypto: PiiCrypto
+    private val piiCrypto: PiiCrypto,
+    private val emailService: EmailService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -85,8 +88,6 @@ class UserService(
     private suspend fun performAccountDeletion(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<String> {
         val now = System.currentTimeMillis()
         val deletedPasswordHash = hashingService.hash(UUID.randomUUID().toString())
-        val profilePic = dbExecutor.tx { userRepository.getUserById(userId)?.profilePic }
-
         // Revoking is a network call, so it happens outside the deletion transaction
         // below — and before it, so a slow/failed revoke never blocks the deletion
         // itself. Apple's App Review requires this on account deletion (5.1.1(v));
@@ -94,12 +95,13 @@ class UserService(
         revokeAppleTokenIfPresent(userId, context)
 
         val deletionResult = dbExecutor.tx {
+            val user = userRepository.getUserById(userId) ?: return@tx null
             if (userRepository.hasAccountDeletionBlockersTx(userId)) return@tx null
             val updated = userRepository.anonymizeAccountTx(
                 userId, "deleted+$userId@deleted.invalid", "deleted-$userId", deletedPasswordHash, now
             )
             if (!updated) return@tx null
-            val cleanupJobId = profilePic?.takeIf(String::isNotBlank)?.let { fileName ->
+            val cleanupJobId = user.profilePic?.takeIf(String::isNotBlank)?.let { fileName ->
                 profileImageCleanupRepository.enqueueTx(
                     publicId = "${Constants.BASE_USER_STORAGE_PATH}/$userId/$fileName",
                     now = now
@@ -113,14 +115,27 @@ class UserService(
             passwordResetTokenRepository.deleteByUserId(userId)
             authIdentityRepository.deleteByUserIdTx(userId)
             appleAuthTokenRepository.deleteByUserIdTx(userId)
-            true to cleanupJobId
+            AccountDeletionResult(email = user.email, profilePic = user.profilePic, cleanupJobId = cleanupJobId)
         } ?: return locale.createError(
             StringResourcesKey.ACCOUNT_DELETION_BLOCKED_TITLE,
             StringResourcesKey.ACCOUNT_DELETION_BLOCKED_DESCRIPTION,
             status = HttpStatusCode.Conflict
         )
 
-        val cleanupJobId = deletionResult.second
+        val cleanupJobId = deletionResult.cleanupJobId
+        val profilePic = deletionResult.profilePic
+        val emailResult = runCatching {
+            emailService.sendAccountDeletedEmail(deletionResult.email, locale)
+        }
+        if (emailResult.getOrNull() != true) {
+            logger.appRejected(
+                event = "user.account.deletion.email_failed", context = context,
+                reason = "email_send_failed", userId = userId,
+                extra = emailResult.exceptionOrNull()?.let { error ->
+                    mapOf("errorType" to error.javaClass.simpleName)
+                }.orEmpty()
+            )
+        }
         if (!profilePic.isNullOrBlank() && imageService.deleteImages("${Constants.BASE_USER_STORAGE_PATH}/$userId/$profilePic")) {
             cleanupJobId?.let { profileImageCleanupRepository.markCompleted(it, System.currentTimeMillis()) }
         }

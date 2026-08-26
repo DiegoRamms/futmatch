@@ -7,4 +7,5 @@ interface EmailService {
     suspend fun sendMfaPasswordResetEmail(to: String, code: String, locale: Locale): Boolean
     suspend fun sendRegistrationEmail(to: String, code: String, locale: Locale): Boolean
     suspend fun sendPasswordChangedEmail(to: String, locale: Locale): Boolean
+    suspend fun sendAccountDeletedEmail(to: String, locale: Locale): Boolean
 }

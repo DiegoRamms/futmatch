@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.util.Locale
 
+@Suppress("Unused")
 class EmailServiceImpl : EmailService {
 
     override suspend fun sendMfaCodeEmail(to: String, code: String, locale: Locale): Boolean =
@@ -54,6 +55,18 @@ class EmailServiceImpl : EmailService {
                 true
             } catch (e: Exception) {
                 logger.error("Error al enviar email de contraseña actualizada: ${e.message}")
+                false
+            }
+        }
+
+    override suspend fun sendAccountDeletedEmail(to: String, locale: Locale): Boolean =
+        withContext(Dispatchers.IO) {
+            val logger = LoggerFactory.getLogger(this::class.java)
+            try {
+                logger.info("[TEST] Sending account-deleted notification.")
+                true
+            } catch (e: Exception) {
+                logger.error("Error sending account-deleted email: ${e.message}")
                 false
             }
         }
