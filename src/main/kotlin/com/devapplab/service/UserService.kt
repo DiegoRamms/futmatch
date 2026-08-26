@@ -13,12 +13,10 @@ import com.devapplab.data.repository.password_reset.PasswordResetTokenRepository
 import com.devapplab.data.repository.cleanup.ProfileImageCleanupRepository
 import com.devapplab.data.repository.auth.AppleAuthTokenRepository
 import com.devapplab.data.repository.auth.AuthIdentityRepository
-import com.devapplab.model.auth.identity.AuthProvider
 import com.devapplab.model.AppResult
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserBaseInfo
-import com.devapplab.model.user.UserStatus
 import com.devapplab.model.user.request.DeleteAccountRequest
 import com.devapplab.model.auth.RefreshTokenStatusReason
 import com.devapplab.model.user.response.HomeLastMatchSection
@@ -32,11 +30,7 @@ import com.devapplab.model.payment.PaymentHistoryItem
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
-import com.devapplab.service.auth.apple.AppleIdTokenVerifier
-import com.devapplab.service.auth.apple.AppleIdTokenVerificationResult
 import com.devapplab.service.auth.apple.AppleTokenExchangeService
-import com.devapplab.service.auth.google.GoogleIdTokenVerifier
-import com.devapplab.service.auth.google.GoogleIdTokenVerificationResult
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.hashing.HashingService
 import com.devapplab.service.match.MatchVisibilityRules
@@ -69,68 +63,20 @@ class UserService(
     private val hashingService: HashingService,
     private val imageService: ImageService,
     private val paymentServiceFactory: PaymentServiceFactory,
-    private val googleIdTokenVerifier: GoogleIdTokenVerifier,
-    private val appleIdTokenVerifier: AppleIdTokenVerifier,
     private val appleTokenExchangeService: AppleTokenExchangeService,
     private val piiCrypto: PiiCrypto
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     suspend fun deleteAccount(userId: UUID, request: DeleteAccountRequest, locale: Locale, context: AppRequestContext): AppResult<String> {
-        if (request.confirmation.trim().uppercase() != DeleteAccountRequest.REQUIRED_CONFIRMATION) {
+        if (!DeleteAccountRequest.isValidConfirmation(request.confirmation)) {
             return locale.createError(
                 StringResourcesKey.ACCOUNT_DELETION_CONFIRMATION_REQUIRED,
                 StringResourcesKey.ACCOUNT_DELETION_CONFIRMATION_REQUIRED,
                 status = HttpStatusCode.BadRequest
             )
         }
-        val user = dbExecutor.tx { userRepository.getUserSignInInfoById(userId) }
-            ?: return locale.createError(status = HttpStatusCode.NotFound)
-
-        // Social accounts (`password == null`) have nothing for `hashingService.verify`
-        // to check, so they re-prove ownership with a fresh token from their provider
-        // instead — the same shape `/auth/{provider}/resolve` already accepts.
-        val reauthenticated = if (request.provider != null) {
-            verifySocialReauthentication(userId, request)
-        } else {
-            user.status == UserStatus.ACTIVE && user.password != null &&
-                hashingService.verify(request.password.orEmpty().trim(), user.password)
-        }
-        if (!reauthenticated) {
-            logger.appRejected(
-                event = "user.account.deletion.rejected", context = context, reason = "invalid_password",
-                userId = userId, statusCode = HttpStatusCode.Unauthorized.value
-            )
-            return locale.createError(
-                StringResourcesKey.ACCOUNT_DELETION_INVALID_PASSWORD_TITLE,
-                StringResourcesKey.ACCOUNT_DELETION_INVALID_PASSWORD_DESCRIPTION,
-                status = HttpStatusCode.Unauthorized
-            )
-        }
-
         return performAccountDeletion(userId, locale, context)
-    }
-
-    /**
-     * The `(issuer, sub)` pair a fresh identity token verifies to must resolve, in
-     * `auth_identities`, to this exact `userId` — proving both that the token is
-     * genuine and that it belongs to the account being deleted, not some other
-     * social identity the caller happens to control.
-     */
-    private suspend fun verifySocialReauthentication(userId: UUID, request: DeleteAccountRequest): Boolean {
-        val provider = request.provider ?: return false
-        val identityToken = request.identityToken.orEmpty()
-
-        val verifiedIdentity = when (provider) {
-            AuthProvider.GOOGLE -> (googleIdTokenVerifier.verify(identityToken) as? GoogleIdTokenVerificationResult.Valid)
-                ?.identity?.let { it.issuer to it.subject }
-            AuthProvider.APPLE -> (appleIdTokenVerifier.verify(identityToken, request.nonce.orEmpty()) as? AppleIdTokenVerificationResult.Valid)
-                ?.identity?.let { it.issuer to it.subject }
-        } ?: return false
-
-        val (issuer, subject) = verifiedIdentity
-        val ownedIdentity = dbExecutor.tx { authIdentityRepository.findByProviderSubjectTx(provider, issuer, subject) }
-        return ownedIdentity?.userId == userId
     }
 
     suspend fun deleteAccountByAdministrator(targetUserId: UUID, locale: Locale, context: AppRequestContext): AppResult<String> =
