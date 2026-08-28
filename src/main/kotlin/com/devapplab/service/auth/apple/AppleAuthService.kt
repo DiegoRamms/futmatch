@@ -3,6 +3,7 @@ package com.devapplab.service.auth.apple
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.auth.AuthIdentityRepository
 import com.devapplab.data.repository.auth.AuthRepository
+import com.devapplab.data.repository.auth.SocialLinkAttemptRepository
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
@@ -18,6 +19,7 @@ import com.devapplab.observability.AuthLogSeverity
 import com.devapplab.observability.AuthRequestContext
 import com.devapplab.observability.authEvent
 import com.devapplab.service.auth.AuthenticatedResponseGenerator
+import com.devapplab.service.auth.SocialLinkAttemptTokenService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.HttpStatusCode
@@ -34,6 +36,8 @@ class AppleAuthService(
     private val userRepository: UserRepository,
     private val deviceRepository: DeviceRepository,
     private val authRepository: AuthRepository,
+    private val socialLinkAttemptRepository: SocialLinkAttemptRepository,
+    private val socialLinkAttemptTokenService: SocialLinkAttemptTokenService,
     private val authenticatedResponseGenerator: AuthenticatedResponseGenerator
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -75,7 +79,17 @@ class AppleAuthService(
                     provider = AuthProvider.APPLE,
                     issuer = verifiedIdentity.issuer,
                     providerSubject = verifiedIdentity.subject
-                ) ?: return@tx AppleResolveLookup.SignUpRequired
+                ) ?: run {
+                    val email = verifiedIdentity.email ?: return@tx AppleResolveLookup.SignUpRequired
+                    if (verifiedIdentity.isPrivateEmail) return@tx AppleResolveLookup.SignUpRequired
+                    val existing = userRepository.getUserSignInInfo(email)
+                    if (existing?.password != null && existing.isEmailVerified && existing.status == UserStatus.ACTIVE) {
+                        val (plainToken, tokenHash) = socialLinkAttemptTokenService.generate()
+                        socialLinkAttemptRepository.createTx(tokenHash, existing.userId, AuthProvider.APPLE, verifiedIdentity.issuer, verifiedIdentity.subject, System.currentTimeMillis() + 10 * 60_000, System.currentTimeMillis())
+                        return@tx AppleResolveLookup.LinkRequired(plainToken)
+                    }
+                    return@tx AppleResolveLookup.SignUpRequired
+                }
 
                 val user = userRepository.getUserSignInInfoById(authIdentity.userId)
                     ?: return@tx AppleResolveLookup.UserMissing
@@ -129,6 +143,8 @@ class AppleAuthService(
                 )
                 AppResult.Success(AppleAuthResolveResponse(flow = AppleAuthFlow.SIGN_UP_REQUIRED))
             }
+
+            is AppleResolveLookup.LinkRequired -> AppResult.Success(AppleAuthResolveResponse(flow = AppleAuthFlow.LINK_REQUIRED, linkAttemptToken = lookup.token))
 
             AppleResolveLookup.UserMissing -> {
                 logger.authEvent(
@@ -235,6 +251,7 @@ class AppleAuthService(
 
     private sealed interface AppleResolveLookup {
         data object SignUpRequired : AppleResolveLookup
+        data class LinkRequired(val token: String) : AppleResolveLookup
         data object UserMissing : AppleResolveLookup
         data object MissingDeviceInfo : AppleResolveLookup
         data class InactiveUser(val status: UserStatus, val userId: UUID) : AppleResolveLookup

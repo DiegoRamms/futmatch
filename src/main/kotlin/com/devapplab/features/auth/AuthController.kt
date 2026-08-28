@@ -18,6 +18,7 @@ import com.devapplab.service.auth.AuthTokenManagementService
 import com.devapplab.service.auth.PasswordResetService
 import com.devapplab.service.auth.RegistrationService
 import com.devapplab.service.auth.SignInService
+import com.devapplab.service.auth.SocialLinkService
 import com.devapplab.service.auth.apple.AppleAuthService
 import com.devapplab.service.auth.apple.AppleRegistrationService
 import com.devapplab.service.auth.google.GoogleAuthService
@@ -36,7 +37,8 @@ class AuthController(
     private val appleAuthService: AppleAuthService,
     private val appleRegistrationService: AppleRegistrationService,
     private val passwordResetService: PasswordResetService,
-    private val authTokenManagementService: AuthTokenManagementService
+    private val authTokenManagementService: AuthTokenManagementService,
+    private val socialLinkService: SocialLinkService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -106,6 +108,21 @@ class AuthController(
         val context = call.toAuthRequestContext()
         val request = call.receive<AppleRegistrationRequest>()
         val result = appleRegistrationService.register(request, jwtConfig, locale, call.getUserAgentHeader(), context)
+        call.respond(result)
+    }
+
+    suspend fun startSocialLink(call: ApplicationCall) {
+        val result = socialLinkService.start(call.receive(), call.retrieveLocale())
+        call.respond(result)
+    }
+
+    suspend fun confirmGoogleSocialLink(call: ApplicationCall, jwtConfig: JWTConfig) {
+        val result = socialLinkService.confirmGoogle(call.receive(), jwtConfig, call.retrieveLocale(), call.getUserAgentHeader())
+        call.respond(result)
+    }
+
+    suspend fun confirmAppleSocialLink(call: ApplicationCall, jwtConfig: JWTConfig) {
+        val result = socialLinkService.confirmApple(call.receive(), jwtConfig, call.retrieveLocale(), call.getUserAgentHeader())
         call.respond(result)
     }
 

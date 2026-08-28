@@ -79,6 +79,16 @@ fun Route.authRouting() {
             }
         }
 
+        rateLimit(configuration = RateLimitName(RateLimitType.SIGN_IN.value)) {
+            post("/social-link/start") { call.scope.get<AuthController>().startSocialLink(call) }
+            post("/social-link/google/confirm") {
+                call.scope.get<AuthController>().confirmGoogleSocialLink(call, application.getJWTConfig())
+            }
+            post("/social-link/apple/confirm") {
+                call.scope.get<AuthController>().confirmAppleSocialLink(call, application.getJWTConfig())
+            }
+        }
+
         rateLimit(configuration = RateLimitName(RateLimitType.MFA_SEND.value)) {
             post("/mfa/send") {
                 val authController = call.scope.get<AuthController>()

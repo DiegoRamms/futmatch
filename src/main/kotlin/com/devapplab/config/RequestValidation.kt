@@ -15,6 +15,9 @@ import com.devapplab.model.auth.request.GoogleRegistrationRequest
 import com.devapplab.model.auth.request.RegisterUserRequest
 import com.devapplab.model.auth.request.SignInRequest
 import com.devapplab.model.auth.request.SignOutRequest
+import com.devapplab.model.auth.request.StartSocialLinkRequest
+import com.devapplab.model.auth.request.ConfirmGoogleSocialLinkRequest
+import com.devapplab.model.auth.request.ConfirmAppleSocialLinkRequest
 import com.devapplab.model.auth.response.RefreshJWTRequest
 import com.devapplab.model.device.UpdateFcmTokenRequest
 import com.devapplab.model.device.ApproveDesktopEnrollmentRequest
@@ -61,6 +64,9 @@ fun Application.configureRequestValidation() {
         validate<AppleRegistrationRequest> { request ->
             request.validate()
         }
+        validate<StartSocialLinkRequest> { request -> request.validate() }
+        validate<ConfirmGoogleSocialLinkRequest> { request -> request.validate() }
+        validate<ConfirmAppleSocialLinkRequest> { request -> request.validate() }
         validate<ForgotPasswordRequest> { request ->
             request.validate()
         }

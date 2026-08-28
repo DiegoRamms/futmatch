@@ -90,6 +90,9 @@ class MfaCodeRepositoryImpl : MfaCodeRepository {
             .singleOrNull()
     }
 
+    override fun findByIdTx(codeId: UUID): MfaData? = MfaCodeTable.selectAll()
+        .where { MfaCodeTable.id eq codeId }.singleOrNull()?.toMfaData()
+
     override fun markAsVerified(codeId: UUID): Boolean {
         return MfaCodeTable.update({ MfaCodeTable.id eq codeId }) {
             it[verified] = true

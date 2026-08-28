@@ -35,6 +35,7 @@ import com.devapplab.data.database.user.UserPaymentProfileTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.data.database.auth.AuthIdentityTable
 import com.devapplab.data.database.auth.AppleAuthTokenTable
+import com.devapplab.data.database.auth.SocialLinkAttemptTable
 import io.ktor.server.application.*
 import io.ktor.server.config.ApplicationConfig
 import kotlinx.coroutines.Dispatchers
@@ -80,6 +81,7 @@ fun Application.configureDatabase() {
         UserTable,
         AuthIdentityTable,
         AppleAuthTokenTable,
+        SocialLinkAttemptTable,
         DeviceTable,
         DesktopDeviceTable,
         DesktopEnrollmentRequestTable,

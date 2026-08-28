@@ -52,6 +52,7 @@ Request:
 Responses:
 
 - `SIGN_UP_REQUIRED`: no Google identity exists; the client must continue the Google onboarding flow.
+- `LINK_REQUIRED`: the verified Google email matches an existing email/password account. The response includes a short-lived `linkAttemptToken`; the client must complete the password + MFA linking flow before Google is added as a sign-in method.
 - `AUTHENTICATED`: an existing active account is found and the response includes the normal Futmatch access token, refresh token, Firebase token, and device ID.
 
 ## Register Google account
@@ -80,7 +81,7 @@ The endpoint validates a fresh ID token and creates the user, Google identity, a
 
 If a retry finds the same Google identity, it resolves and returns the existing session instead of creating a duplicate account.
 
-An email already owned by a different account is rejected; no automatic identity linking is performed.
+An email already owned by a different account is never linked automatically. The client must finish the explicit password + MFA social-link flow first.
 
 ## Profile image selection
 

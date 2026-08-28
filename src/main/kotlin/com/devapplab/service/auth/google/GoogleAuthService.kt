@@ -3,6 +3,7 @@ package com.devapplab.service.auth.google
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.auth.AuthIdentityRepository
 import com.devapplab.data.repository.auth.AuthRepository
+import com.devapplab.data.repository.auth.SocialLinkAttemptRepository
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.model.AppResult
@@ -18,6 +19,7 @@ import com.devapplab.observability.AuthLogSeverity
 import com.devapplab.observability.AuthRequestContext
 import com.devapplab.observability.authEvent
 import com.devapplab.service.auth.AuthenticatedResponseGenerator
+import com.devapplab.service.auth.SocialLinkAttemptTokenService
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.HttpStatusCode
@@ -34,6 +36,8 @@ class GoogleAuthService(
     private val userRepository: UserRepository,
     private val deviceRepository: DeviceRepository,
     private val authRepository: AuthRepository,
+    private val socialLinkAttemptRepository: SocialLinkAttemptRepository,
+    private val socialLinkAttemptTokenService: SocialLinkAttemptTokenService,
     private val authenticatedResponseGenerator: AuthenticatedResponseGenerator
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -75,7 +79,15 @@ class GoogleAuthService(
                     provider = AuthProvider.GOOGLE,
                     issuer = verifiedIdentity.issuer,
                     providerSubject = verifiedIdentity.subject
-                ) ?: return@tx GoogleResolveLookup.SignUpRequired
+                ) ?: run {
+                    val existing = userRepository.getUserSignInInfo(verifiedIdentity.email)
+                    if (existing?.password != null && existing.isEmailVerified && existing.status == UserStatus.ACTIVE) {
+                        val (plainToken, tokenHash) = socialLinkAttemptTokenService.generate()
+                        socialLinkAttemptRepository.createTx(tokenHash, existing.userId, AuthProvider.GOOGLE, verifiedIdentity.issuer, verifiedIdentity.subject, System.currentTimeMillis() + 10 * 60_000, System.currentTimeMillis())
+                        return@tx GoogleResolveLookup.LinkRequired(plainToken)
+                    }
+                    return@tx GoogleResolveLookup.SignUpRequired
+                }
 
                 val user = userRepository.getUserSignInInfoById(authIdentity.userId)
                     ?: return@tx GoogleResolveLookup.UserMissing
@@ -129,6 +141,8 @@ class GoogleAuthService(
                 )
                 AppResult.Success(GoogleAuthResolveResponse(flow = GoogleAuthFlow.SIGN_UP_REQUIRED))
             }
+
+            is GoogleResolveLookup.LinkRequired -> AppResult.Success(GoogleAuthResolveResponse(flow = GoogleAuthFlow.LINK_REQUIRED, linkAttemptToken = lookup.token))
 
             GoogleResolveLookup.UserMissing -> {
                 logger.authEvent(
@@ -235,6 +249,7 @@ class GoogleAuthService(
 
     private sealed interface GoogleResolveLookup {
         data object SignUpRequired : GoogleResolveLookup
+        data class LinkRequired(val token: String) : GoogleResolveLookup
         data object UserMissing : GoogleResolveLookup
         data object MissingDeviceInfo : GoogleResolveLookup
         data class InactiveUser(val status: UserStatus, val userId: UUID) : GoogleResolveLookup

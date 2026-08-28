@@ -64,6 +64,7 @@ Request:
 Responses:
 
 - `SIGN_UP_REQUIRED`: no Apple identity exists; the client must continue the Apple onboarding flow.
+- `LINK_REQUIRED`: a non-private, verified Apple email matches an existing email/password account. The client must complete the password + MFA social-link flow before Apple is added as a sign-in method.
 - `AUTHENTICATED`: an existing active account is found and the response includes the normal Futmatch access token, refresh token, Firebase token, and device ID.
 
 ## Register Apple account
@@ -97,7 +98,7 @@ The endpoint validates a fresh identity token, creates the user and Apple identi
 
 If a retry finds the same Apple identity, it resolves and returns the existing session instead of creating a duplicate account.
 
-An email already owned by a different account is rejected; no automatic identity linking is performed.
+An email already owned by a different account is never linked automatically. Apple private relay addresses are not candidates for automatic matching; an explicit password + MFA linking flow is required.
 
 ## Client draft and reauthentication
 

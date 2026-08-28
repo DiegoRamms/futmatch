@@ -12,6 +12,8 @@ import com.devapplab.service.auth.AuthTokenManagementService
 import com.devapplab.service.auth.PasswordResetService
 import com.devapplab.service.auth.RegistrationService
 import com.devapplab.service.auth.SignInService
+import com.devapplab.service.auth.SocialLinkAttemptTokenService
+import com.devapplab.service.auth.SocialLinkService
 import com.devapplab.service.auth.apple.AppleClientSecretSigner
 import com.devapplab.service.auth.apple.AppleIdTokenVerifier
 import com.devapplab.service.auth.apple.AppleAuthService
@@ -67,6 +69,8 @@ val serviceModule = module {
     singleOf(::RegistrationService)
     singleOf(::AuthenticatedResponseGenerator)
     singleOf(::SignInService)
+    singleOf(::SocialLinkAttemptTokenService)
+    singleOf(::SocialLinkService)
     singleOf(::GoogleIdTokenVerifier)
     singleOf(::GoogleAuthService)
     singleOf(::GoogleRegistrationService)
