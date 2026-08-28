@@ -132,7 +132,8 @@ class RegistrationService(
             SimpleResponse(
                 success = true,
                 message = locale.getString(StringResourcesKey.REGISTRATION_EMAIL_SENT_MESSAGE),
-                resendCodeTimeInSeconds = RegistrationPolicy.RESEND_COOLDOWN.inWholeSeconds
+                resendCodeTimeInSeconds = RegistrationPolicy.RESEND_COOLDOWN.inWholeSeconds,
+                expiresInSeconds = RegistrationPolicy.EXPIRATION_DURATION.inWholeSeconds
             )
         )
     }
@@ -366,7 +367,8 @@ class RegistrationService(
                         SimpleResponse(
                             success = true,
                             message = locale.getString(StringResourcesKey.REGISTRATION_RESEND_SUCCESS_MESSAGE),
-                            resendCodeTimeInSeconds = RegistrationPolicy.RESEND_COOLDOWN.inWholeSeconds
+                            resendCodeTimeInSeconds = RegistrationPolicy.RESEND_COOLDOWN.inWholeSeconds,
+                            expiresInSeconds = RegistrationPolicy.EXPIRATION_DURATION.inWholeSeconds
                         )
                     )
                 }.getOrElse { error ->

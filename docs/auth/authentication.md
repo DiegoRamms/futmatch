@@ -88,7 +88,8 @@ Initiates the registration process and sends a verification code to the user's e
     "data": {
         "success": true,
         "message": "Verification code sent to your email.",
-        "resendCodeTimeInSeconds": 60
+        "resendCodeTimeInSeconds": 60,
+        "expiresInSeconds": 3600
     }
 }
 ```
@@ -162,7 +163,8 @@ Resends the verification code if it has expired or was not received.
     "data": {
         "success": true,
         "message": "Verification code resent successfully.",
-        "resendCodeTimeInSeconds": 60
+        "resendCodeTimeInSeconds": 60,
+        "expiresInSeconds": 3600
     }
 }
 ```
@@ -524,7 +526,8 @@ Verifies the password reset code and returns a temporary `resetToken`.
 {
     "status": "success",
     "data": {
-        "resetToken": "a_single_use_reset_token"
+        "resetToken": "a_single_use_reset_token",
+        "expiresInSeconds": 600
     }
 }
 ```

@@ -6,5 +6,6 @@ import kotlinx.serialization.Serializable
 data class SimpleResponse(
     val success: Boolean,
     val message: String,
-    val resendCodeTimeInSeconds: Long? = null
+    val resendCodeTimeInSeconds: Long? = null,
+    val expiresInSeconds: Long? = null
 )

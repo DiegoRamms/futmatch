@@ -302,7 +302,12 @@ class PasswordResetService(
             ResetMfaResult.UserNotFound -> locale.respondInvalidMfaCodeError()
             ResetMfaResult.InvalidCode -> locale.respondInvalidMfaCodeError()
             ResetMfaResult.Locked -> locale.respondInvalidMfaCodeError()
-            is ResetMfaResult.Success -> AppResult.Success(VerifyResetMfaResponse(result.resetToken))
+            is ResetMfaResult.Success -> AppResult.Success(
+                VerifyResetMfaResponse(
+                    resetToken = result.resetToken,
+                    expiresInSeconds = ((tokenData.expiresAt - System.currentTimeMillis()) / 1_000).coerceAtLeast(0)
+                )
+            )
         }
     }
 

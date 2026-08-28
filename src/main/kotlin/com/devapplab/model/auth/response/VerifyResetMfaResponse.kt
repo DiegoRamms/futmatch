@@ -4,5 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class VerifyResetMfaResponse(
-    val resetToken: String
+    val resetToken: String,
+    val expiresInSeconds: Long
 )
