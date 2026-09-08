@@ -3,6 +3,7 @@ package com.devapplab.data.repository.payment
 import com.devapplab.config.dbQuery
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchTable
+import com.devapplab.data.database.field.FieldTable
 import com.devapplab.data.database.payments.MatchPlayerPaymentsTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.match.MatchPlayerStatus
@@ -49,8 +50,36 @@ class PaymentRepositoryImp : PaymentRepository {
                 it[this.failureCode] = failureCode
                 it[this.failureMessage] = failureMessage
                 it[this.updatedAt] = System.currentTimeMillis()
+                if (status == PaymentAttemptStatus.SUCCEEDED) it[this.paidAt] = System.currentTimeMillis()
+                if (status == PaymentAttemptStatus.REFUNDED) it[this.refundedAt] = System.currentTimeMillis()
             } > 0
         }
+    }
+
+    override suspend fun updatePaymentCardDetails(providerPaymentId: String, brand: String, last4: String): Boolean = dbQuery {
+        MatchPlayerPaymentsTable.update({ MatchPlayerPaymentsTable.providerPaymentId eq providerPaymentId }) {
+            it[cardBrand] = brand
+            it[cardLast4] = last4
+        } > 0
+    }
+
+    override suspend fun getAdminUserPaymentHistory(userId: UUID, page: Int, pageSize: Int): AdminUserPaymentHistoryPage = dbQuery {
+        val filter = MatchPlayersTable.userId eq userId
+        val totalExpression = MatchPlayerPaymentsTable.id.count()
+        val total = (MatchPlayerPaymentsTable innerJoin MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
+            .select(totalExpression).where { filter }.single()[totalExpression]
+        val items = (MatchPlayerPaymentsTable innerJoin MatchPlayersTable innerJoin MatchTable innerJoin FieldTable)
+            .selectAll().where { filter }
+            .orderBy(MatchPlayerPaymentsTable.updatedAt, SortOrder.DESC)
+            .limit(page * pageSize)
+            .map { row -> AdminUserPaymentHistoryItem(
+                id = row[MatchPlayerPaymentsTable.id], fieldName = row[FieldTable.name], matchStartsAt = row[MatchTable.dateTime],
+                amount = row[MatchPlayerPaymentsTable.amount], currency = row[MatchPlayerPaymentsTable.currency], status = row[MatchPlayerPaymentsTable.status],
+                statusUpdatedAt = row[MatchPlayerPaymentsTable.updatedAt], paidAt = row[MatchPlayerPaymentsTable.paidAt],
+                cardBrand = row[MatchPlayerPaymentsTable.cardBrand], cardLast4 = row[MatchPlayerPaymentsTable.cardLast4], refundedAt = row[MatchPlayerPaymentsTable.refundedAt]
+            ) }
+            .drop((page - 1) * pageSize)
+        AdminUserPaymentHistoryPage(items, total)
     }
 
     override suspend fun getMatchPlayerIdByPaymentId(providerPaymentId: String): UUID? {

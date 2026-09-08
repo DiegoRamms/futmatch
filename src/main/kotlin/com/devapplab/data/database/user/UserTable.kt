@@ -24,11 +24,13 @@ object UserTable : Table("users") {
     val profilePic = text("profile_pic").nullable()
     val level = enumerationByName("level", USER_PLAYER_LEVEL_MAX_LENGTH, PlayerLevel::class)
     val isEmailVerified = bool("is_email_verified").default(false)
+    val emailVerifiedAt = long("email_verified_at").nullable()
     val isNotificationsEnabled = bool("is_notifications_enabled").default(true)
     val locale = varchar("locale", 10).default(LocaleTag.LAN_TAG_MX.value)
     val role = enumerationByName("role", USER_ROLE_MAX_LENGTH, UserRole::class)
     val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
     val updatedAt = long("updated_at").clientDefault { System.currentTimeMillis() }
+    val accessUpdatedAt = long("access_updated_at").nullable()
     val deletedAt = long("deleted_at").nullable()
     val anonymizedAt = long("anonymized_at").nullable()
 

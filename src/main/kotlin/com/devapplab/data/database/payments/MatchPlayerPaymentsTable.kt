@@ -22,6 +22,10 @@ object MatchPlayerPaymentsTable : Table("match_player_payments") {
 
     val amount = decimal("amount", 10, 2)
     val currency = varchar("currency", 3).default("MXN")
+    val cardBrand = varchar("card_brand", 32).nullable()
+    val cardLast4 = varchar("card_last4", 4).nullable()
+    val paidAt = long("paid_at").nullable()
+    val refundedAt = long("refunded_at").nullable()
 
     val failureCode = varchar("failure_code", 64).nullable()
     val failureMessage = varchar("failure_message", 255).nullable()

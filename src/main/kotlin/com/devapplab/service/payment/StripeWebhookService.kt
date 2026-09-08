@@ -184,6 +184,7 @@ class StripeWebhookService(
 
     private suspend fun handlePaymentSucceeded(paymentIntent: PaymentIntent) {
         val paymentIntentId = paymentIntent.id ?: return
+        saveCardDetails(paymentIntent)
         logger.info("💰 payment_intent.succeeded. paymentIntentId={}", paymentIntentId)
         val previousStatus = paymentRepository.getPaymentByProviderId(paymentIntentId)?.status
 
@@ -260,6 +261,7 @@ class StripeWebhookService(
      */
     private suspend fun handleAmountCapturableUpdated(paymentIntent: PaymentIntent) {
         val paymentIntentId = paymentIntent.id ?: return
+        saveCardDetails(paymentIntent)
         logger.info("🟡 payment_intent.amount_capturable_updated. paymentIntentId={}, status={}", paymentIntentId, paymentIntent.status)
         val previousStatus = paymentRepository.getPaymentByProviderId(paymentIntentId)?.status
 
@@ -405,6 +407,14 @@ class StripeWebhookService(
             }
             matchPlayerRealtimeService.updateMatchPlayers(matchId.toString(), MatchPlayerList(firestorePlayers))
         }
+    }
+
+    private suspend fun saveCardDetails(paymentIntent: PaymentIntent) {
+        val paymentIntentId = paymentIntent.id ?: return
+        val card = paymentIntent.latestChargeObject?.paymentMethodDetails?.card ?: return
+        val brand = card.brand ?: return
+        val last4 = card.last4 ?: return
+        paymentRepository.updatePaymentCardDetails(paymentIntentId, brand, last4)
     }
 
     private fun resolvePlayerAvatarUrl(userId: UUID, avatarValue: String?): String? {

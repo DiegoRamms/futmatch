@@ -6,6 +6,7 @@ import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.AdminManagedUsersPage
+import com.devapplab.model.user.AdminUserDetails
 import com.devapplab.model.user.User
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.UserHomeProfile
@@ -46,6 +47,7 @@ interface UserRepository {
         roles: Set<UserRole>,
         statuses: Set<UserStatus>
     ): AdminManagedUsersPage
+    fun getAdminUserDetails(userId: UUID, now: Long): AdminUserDetails?
     fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean
     fun hasAccountDeletionBlockersTx(userId: UUID): Boolean
     fun anonymizeAccountTx(userId: UUID, anonymousEmail: String, anonymousPhone: String, passwordHash: String, now: Long): Boolean

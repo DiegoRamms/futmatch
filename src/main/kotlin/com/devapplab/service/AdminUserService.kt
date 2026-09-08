@@ -3,14 +3,24 @@ package com.devapplab.service
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.RefreshTokenRepository
 import com.devapplab.data.repository.user.UserRepository
+import com.devapplab.data.repository.payment.PaymentRepository
 import com.devapplab.model.AppResult
 import com.devapplab.model.auth.RefreshTokenStatusReason
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.user.AdminUserDetails
 import com.devapplab.model.user.UserRole
 import com.devapplab.model.user.UserStatus
 import com.devapplab.model.user.request.UpdateManagedUserAccessRequest
 import com.devapplab.model.user.response.AdminManagedUserPageResponse
 import com.devapplab.model.user.response.AdminManagedUserResponse
+import com.devapplab.model.user.response.AdminUserAccountResponse
+import com.devapplab.model.user.response.AdminUserDetailsResponse
+import com.devapplab.model.user.response.AdminUserDeviceResponse
+import com.devapplab.model.user.response.AdminUserParticipationResponse
+import com.devapplab.model.user.response.AdminUserSecurityResponse
+import com.devapplab.model.user.response.AdminUserPaymentHistoryPageResponse
+import com.devapplab.model.user.response.AdminUserPaymentHistoryItemResponse
+import com.devapplab.model.user.response.AdminUserPaymentMethodResponse
 import com.devapplab.model.user.response.AdminUserDeletionPreviewResponse
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
@@ -31,7 +41,8 @@ class AdminUserService(
     private val refreshTokenRepository: RefreshTokenRepository,
     private val imageService: ImageService,
     private val hashingService: HashingService? = null,
-    private val userService: UserService? = null
+    private val userService: UserService? = null,
+    private val paymentRepository: PaymentRepository? = null
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -138,6 +149,36 @@ class AdminUserService(
         }
     }
 
+    suspend fun getManagedUserDetails(
+        targetUserId: UUID,
+        locale: Locale
+    ): AppResult<AdminUserDetailsResponse> {
+        val details = dbExecutor.tx {
+            userRepository.getAdminUserDetails(targetUserId, System.currentTimeMillis())
+        } ?: return locale.createError(status = HttpStatusCode.NotFound)
+
+        return AppResult.Success(toDetailsResponse(details))
+    }
+
+    suspend fun getManagedUserPaymentHistory(targetUserId: UUID, page: Int, locale: Locale): AppResult<AdminUserPaymentHistoryPageResponse> {
+        if (page !in 1..1_000) return locale.createError(status = HttpStatusCode.BadRequest)
+        val userExists = dbExecutor.tx { userRepository.getUserById(targetUserId) != null }
+        if (!userExists) return locale.createError(status = HttpStatusCode.NotFound)
+        val result = paymentRepository?.getAdminUserPaymentHistory(targetUserId, page, PAYMENT_HISTORY_PAGE_SIZE)
+            ?: return locale.createError(status = HttpStatusCode.InternalServerError)
+        return AppResult.Success(AdminUserPaymentHistoryPageResponse(
+            items = result.items.map { item ->
+                AdminUserPaymentHistoryItemResponse(
+                    id = item.id, fieldName = item.fieldName, matchStartsAt = item.matchStartsAt,
+                    amountInCents = item.amount.movePointRight(2).longValueExact(), currency = item.currency, status = item.status,
+                    statusUpdatedAt = item.statusUpdatedAt, paidAt = item.paidAt,
+                    method = item.cardBrand?.let { brand -> item.cardLast4?.let { last4 -> AdminUserPaymentMethodResponse(brand, last4) } },
+                    refundedAt = item.refundedAt
+                )
+            }, page = page, pageSize = PAYMENT_HISTORY_PAGE_SIZE, total = result.total
+        ))
+    }
+
     suspend fun getDeletionPreview(adminId: UUID, targetUserId: UUID, locale: Locale): AppResult<AdminUserDeletionPreviewResponse> {
         val target = dbExecutor.tx { userRepository.getUserById(targetUserId) }
             ?: return locale.createError(status = HttpStatusCode.NotFound)
@@ -207,6 +248,54 @@ class AdminUserService(
         )
     }
 
+    private fun toDetailsResponse(details: AdminUserDetails): AdminUserDetailsResponse {
+        val user = details.user
+        val profilePicUrl = user.profilePic?.let { fileName ->
+            imageService.getImageUrl("${Constants.BASE_USER_STORAGE_PATH}/${user.id}/$fileName")
+        }
+        return AdminUserDetailsResponse(
+            id = user.id,
+            name = user.name,
+            lastName = user.lastName,
+            email = user.email,
+            phone = user.phone,
+            country = user.country,
+            birthDate = user.birthDate,
+            gender = user.gender,
+            profilePic = profilePicUrl,
+            role = user.userRole,
+            status = user.status,
+            isEmailVerified = user.isEmailVerified,
+            createdAt = user.createdAt,
+            account = AdminUserAccountResponse(
+                emailVerifiedAt = details.emailVerifiedAt,
+                accessUpdatedAt = details.accessUpdatedAt
+            ),
+            security = AdminUserSecurityResponse(
+                activeSessionCount = details.activeSessionCount,
+                failedLoginAttempts = details.failedLoginAttempts,
+                lockedUntil = details.lockedUntil
+            ),
+            participation = AdminUserParticipationResponse(
+                upcomingMatchesCount = details.upcomingMatchesCount,
+                completedMatchesCount = details.completedMatchesCount
+            ),
+            devices = details.devices.map { device ->
+                AdminUserDeviceResponse(
+                    id = device.id,
+                    platform = device.platform,
+                    deviceInfo = device.deviceInfo,
+                    appVersion = device.appVersion,
+                    osVersion = device.osVersion,
+                    isTrusted = device.isTrusted,
+                    isActive = device.isActive,
+                    lastUsedAt = device.lastUsedAt,
+                    createdAt = device.createdAt
+                )
+            }
+        )
+    }
+
     private fun <T : Enum<T>> parseEnumFilter(
         values: List<String>?,
         entries: Iterable<T>,
@@ -246,5 +335,6 @@ class AdminUserService(
 
     private companion object {
         val DEFAULT_MANAGED_ROLES = setOf(UserRole.ADMIN, UserRole.ORGANIZER)
+        const val PAYMENT_HISTORY_PAGE_SIZE = 5
     }
 }

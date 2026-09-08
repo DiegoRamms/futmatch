@@ -264,6 +264,40 @@ class ProfileServiceTest {
         assertEquals(2, (result as AppResult.Success).data.page)
     }
 
+    @Test
+    fun `getManagedUserDetails returns account security and participation data`() = kotlinx.coroutines.runBlocking {
+        val user = fakeUser(UUID.randomUUID())
+        val repository = FakeUserRepository(
+            user = user,
+            details = AdminUserDetails(
+                user = user,
+                emailVerifiedAt = 100L,
+                accessUpdatedAt = 200L,
+                activeSessionCount = 2,
+                failedLoginAttempts = 1,
+                lockedUntil = 300L,
+                upcomingMatchesCount = 4,
+                completedMatchesCount = 7,
+                devices = emptyList()
+            )
+        )
+        val service = AdminUserService(
+            dbExecutor = FakeDbExecutor(),
+            userRepository = repository,
+            refreshTokenRepository = FakeRefreshTokenRepository(),
+            imageService = FakeImageService()
+        )
+
+        val result = service.getManagedUserDetails(user.id, Locale.US) as AppResult.Success
+
+        assertEquals(100L, result.data.account.emailVerifiedAt)
+        assertEquals(200L, result.data.account.accessUpdatedAt)
+        assertEquals(2L, result.data.security.activeSessionCount)
+        assertEquals(1, result.data.security.failedLoginAttempts)
+        assertEquals(4L, result.data.participation.upcomingMatchesCount)
+        assertEquals(7L, result.data.participation.completedMatchesCount)
+    }
+
     private fun fakeUser(userId: UUID): UserBaseInfo {
         return UserBaseInfo(
             id = userId,
@@ -299,7 +333,8 @@ private class FakeImageService : ImageService {
 
 private class FakeUserRepository(
     var user: UserBaseInfo?,
-    private val activeAdminCount: Long = 2
+    private val activeAdminCount: Long = 2,
+    private val details: AdminUserDetails? = null
 ) : UserRepository {
     var requestedRoles: Set<UserRole>? = null
     var requestedStatuses: Set<UserStatus>? = null
@@ -336,6 +371,7 @@ private class FakeUserRepository(
         requestedStatuses = statuses
         return AdminManagedUsersPage(items = emptyList(), total = 0)
     }
+    override fun getAdminUserDetails(userId: UUID, now: Long): AdminUserDetails? = details
     override suspend fun getActiveAdminIds(): List<UUID> = error("not used")
     override fun countActiveAdminsTx(): Long = activeAdminCount
     override suspend fun getUserLocalesByIds(userIds: List<UUID>): Map<UUID, String> = error("not used")

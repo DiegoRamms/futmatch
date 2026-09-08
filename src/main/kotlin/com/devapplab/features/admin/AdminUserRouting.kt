@@ -16,6 +16,16 @@ fun Route.adminUserRouting() {
             call.scope.get<AdminUserController>().getManagedUsers(call)
         }
 
+        get("/{userId}") {
+            call.requireRole(UserRole.ADMIN)
+            call.scope.get<AdminUserController>().getManagedUserDetails(call)
+        }
+
+        get("/{userId}/payment-history") {
+            call.requireRole(UserRole.ADMIN)
+            call.scope.get<AdminUserController>().getManagedUserPaymentHistory(call)
+        }
+
         patch("/{userId}/access") {
             call.requireRole(UserRole.ADMIN)
             call.scope.get<AdminUserController>().updateManagedUserAccess(call)

@@ -3,12 +3,18 @@ package com.devapplab.data.repository.user
 import com.devapplab.config.dbQuery
 import com.devapplab.data.database.user.UserPaymentProfileTable
 import com.devapplab.data.database.user.UserTable
+import com.devapplab.data.database.device.DeviceTable
+import com.devapplab.data.database.login_attempt.LoginAttemptTable
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchTable
+import com.devapplab.data.database.refresh_token.RefreshTokenTable
 import com.devapplab.model.auth.UserSignInInfo
+import com.devapplab.model.auth.RefreshTokenStatus
 import com.devapplab.model.payment.PaymentProvider
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.AdminManagedUsersPage
+import com.devapplab.model.user.AdminUserDetails
+import com.devapplab.model.user.AdminUserDevice
 import com.devapplab.model.user.PendingUser
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.User
@@ -59,6 +65,7 @@ class UserRepositoryImpl(private val piiCrypto: PiiCrypto) : UserRepository {
             it[level] = pendingUser.level
             it[role] = pendingUser.userRole
             it[isEmailVerified] = pendingUser.isEmailVerified
+            it[emailVerifiedAt] = pendingUser.createdAt.takeIf { pendingUser.isEmailVerified }
             it[createdAt] = pendingUser.createdAt
             it[updatedAt] = pendingUser.updatedAt
         }.resultedValues?.firstOrNull()  ?: throw IllegalStateException("Create User Error")
@@ -215,9 +222,11 @@ class UserRepositoryImpl(private val piiCrypto: PiiCrypto) : UserRepository {
     }
 
     override fun markEmailAsVerified(userId: UUID): Boolean {
+        val now = System.currentTimeMillis()
         return UserTable.update({ UserTable.id eq userId }) {
             it[isEmailVerified] = true
-            it[updatedAt] = System.currentTimeMillis()
+            it[emailVerifiedAt] = now
+            it[updatedAt] = now
         } > 0
     }
 
@@ -296,11 +305,71 @@ class UserRepositoryImpl(private val piiCrypto: PiiCrypto) : UserRepository {
         return AdminManagedUsersPage(items = items, total = total)
     }
 
+    override fun getAdminUserDetails(userId: UUID, now: Long): AdminUserDetails? {
+        val userRow = UserTable.selectAll().where { UserTable.id eq userId }.singleOrNull() ?: return null
+        val user = userRow.toUserBaseInfo()
+        val activeSessionCount = RefreshTokenTable.id.count()
+        val upcomingMatchesCount = MatchPlayersTable.userId.count()
+        val completedMatchesCount = MatchPlayersTable.userId.count()
+        val loginAttempt = LoginAttemptTable.select(LoginAttemptTable.attempts, LoginAttemptTable.lockedUntil)
+            .where { LoginAttemptTable.emailLookup eq piiCrypto.emailLookup(user.email) }
+            .singleOrNull()
+
+        return AdminUserDetails(
+            user = user,
+            emailVerifiedAt = userRow[UserTable.emailVerifiedAt],
+            accessUpdatedAt = userRow[UserTable.accessUpdatedAt],
+            activeSessionCount = RefreshTokenTable.select(activeSessionCount)
+                .where {
+                    (RefreshTokenTable.userId eq userId) and
+                        (RefreshTokenTable.status eq RefreshTokenStatus.ACTIVE.name) and
+                        (RefreshTokenTable.expiresAt greater now)
+                }
+                .single()[activeSessionCount],
+            failedLoginAttempts = loginAttempt?.get(LoginAttemptTable.attempts) ?: 0,
+            lockedUntil = loginAttempt?.get(LoginAttemptTable.lockedUntil),
+            upcomingMatchesCount = (MatchPlayersTable innerJoin MatchTable)
+                .select(upcomingMatchesCount)
+                .where {
+                    (MatchPlayersTable.userId eq userId) and
+                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                        (MatchTable.status inList listOf(MatchStatus.SCHEDULED, MatchStatus.IN_PROGRESS))
+                }
+                .single()[upcomingMatchesCount],
+            completedMatchesCount = (MatchPlayersTable innerJoin MatchTable)
+                .select(completedMatchesCount)
+                .where {
+                    (MatchPlayersTable.userId eq userId) and
+                        (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
+                        (MatchTable.status eq MatchStatus.COMPLETED)
+                }
+                .single()[completedMatchesCount],
+            devices = DeviceTable.selectAll()
+                .where { DeviceTable.userId eq userId }
+                .orderBy(DeviceTable.lastUsedAt, SortOrder.DESC)
+                .map { row ->
+                    AdminUserDevice(
+                        id = row[DeviceTable.id],
+                        platform = row[DeviceTable.platform],
+                        deviceInfo = row[DeviceTable.deviceInfo],
+                        appVersion = row[DeviceTable.appVersion],
+                        osVersion = row[DeviceTable.osVersion],
+                        isTrusted = row[DeviceTable.isTrusted],
+                        isActive = row[DeviceTable.isActive],
+                        lastUsedAt = row[DeviceTable.lastUsedAt],
+                        createdAt = row[DeviceTable.createdAt]
+                    )
+                }
+        )
+    }
+
     override fun updateManagedUserAccess(userId: UUID, role: UserRole, status: UserStatus): Boolean {
+        val now = System.currentTimeMillis()
         return UserTable.update({ UserTable.id eq userId }) {
             it[UserTable.role] = role
             it[UserTable.status] = status
-            it[updatedAt] = System.currentTimeMillis()
+            it[updatedAt] = now
+            it[accessUpdatedAt] = now
         } > 0
     }
 

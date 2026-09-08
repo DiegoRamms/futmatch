@@ -23,6 +23,8 @@ interface PaymentRepository {
         failureCode: String? = null,
         failureMessage: String? = null
     ): Boolean
+    suspend fun updatePaymentCardDetails(providerPaymentId: String, brand: String, last4: String): Boolean
+    suspend fun getAdminUserPaymentHistory(userId: UUID, page: Int, pageSize: Int): AdminUserPaymentHistoryPage
 
     suspend fun getMatchPlayerIdByPaymentId(providerPaymentId: String): UUID?
 
@@ -73,4 +75,19 @@ data class MatchPlayerPaymentInfo(
     val amount: BigDecimal?,
     val currency: String?,
     val provider: PaymentProvider?
+)
+
+data class AdminUserPaymentHistoryPage(val items: List<AdminUserPaymentHistoryItem>, val total: Long)
+data class AdminUserPaymentHistoryItem(
+    val id: UUID,
+    val fieldName: String,
+    val matchStartsAt: Long,
+    val amount: BigDecimal,
+    val currency: String,
+    val status: PaymentAttemptStatus,
+    val statusUpdatedAt: Long,
+    val paidAt: Long?,
+    val cardBrand: String?,
+    val cardLast4: String?,
+    val refundedAt: Long?
 )

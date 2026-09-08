@@ -44,6 +44,20 @@ class AdminUserController(private val service: AdminUserService) {
         call.respond(result)
     }
 
+    suspend fun getManagedUserDetails(call: ApplicationCall) {
+        val targetUserId = call.parameters["userId"]?.toUUIDOrNull()
+            ?: throw NotFoundException("Managed user was not found")
+        val result = service.getManagedUserDetails(targetUserId, call.retrieveLocale())
+        call.respond(result)
+    }
+
+    suspend fun getManagedUserPaymentHistory(call: ApplicationCall) {
+        val targetUserId = call.parameters["userId"]?.toUUIDOrNull() ?: throw NotFoundException("Managed user was not found")
+        val pageValue = call.request.queryParameters["page"]
+        val page = pageValue?.toIntOrNull() ?: if (pageValue == null) 1 else 0
+        call.respond(service.getManagedUserPaymentHistory(targetUserId, page, call.retrieveLocale()))
+    }
+
     suspend fun getDeletionPreview(call: ApplicationCall) {
         val targetUserId = call.parameters["userId"]?.toUUIDOrNull()
             ?: throw NotFoundException("Managed user was not found")
