@@ -2,6 +2,9 @@ package com.devapplab.di
 
 import com.devapplab.service.UserService
 import com.devapplab.service.AdminUserService
+import com.devapplab.service.payment.PaymentCardDetailsService
+import com.devapplab.service.payment.StripePaymentCardReader
+import com.devapplab.service.payment.StripePaymentCardReaderImpl
 import com.devapplab.service.admin.DashboardService
 import com.devapplab.observability.AuthMetrics
 import com.devapplab.observability.PaymentMetrics
@@ -63,6 +66,8 @@ val serviceModule = module {
     singleOf(::PiiCrypto)
     singleOf(::UserService)
     singleOf(::AdminUserService)
+    singleOf(::PaymentCardDetailsService)
+    single<StripePaymentCardReader> { StripePaymentCardReaderImpl() }
     singleOf(::DashboardService)
     singleOf(::FirebaseAppCheckService)
     singleOf(::ProfileService)

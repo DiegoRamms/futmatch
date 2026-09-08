@@ -152,7 +152,13 @@ class StripeWebhookService(
 
         // 2) Retrieve from Stripe (IO) - Always fetch to ensure latest state and avoid deserialization issues
         return withContext(Dispatchers.IO) {
-            runCatching { PaymentIntent.retrieve(piId) }
+            runCatching {
+                PaymentIntent.retrieve(
+                    piId,
+                    com.stripe.param.PaymentIntentRetrieveParams.builder().addExpand("latest_charge").build(),
+                    null
+                )
+            }
                 .onFailure {
                     logger.error(
                         "🔥 Failed to retrieve PaymentIntent from Stripe. eventId={}, piId={}",
@@ -412,9 +418,14 @@ class StripeWebhookService(
     private suspend fun saveCardDetails(paymentIntent: PaymentIntent) {
         val paymentIntentId = paymentIntent.id ?: return
         val card = paymentIntent.latestChargeObject?.paymentMethodDetails?.card ?: return
-        val brand = card.brand ?: return
-        val last4 = card.last4 ?: return
-        paymentRepository.updatePaymentCardDetails(paymentIntentId, brand, last4)
+        val details = validPaymentCard(card.brand, card.last4) ?: return
+        try {
+            paymentRepository.updatePaymentCardDetails(paymentIntentId, details.brand, details.last4)
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            logger.warn("Webhook card cache update failed. type={}", error.javaClass.simpleName)
+        }
     }
 
     private fun resolvePlayerAvatarUrl(userId: UUID, avatarValue: String?): String? {

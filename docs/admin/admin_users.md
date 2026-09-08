@@ -159,6 +159,8 @@ Returns the detail data required by the administrative user profile. It includes
 
 Returns five payment attempts per page, ordered by the latest status change. Each item includes the field name, match start time, amount in cents, payment status, payment/refund timestamps, and the masked card details when Stripe has supplied them. No provider identifiers or payment secrets are returned.
 
+Card details are read from the local database first. For missing details on Stripe payments, the backend retrieves the payment's expanded latest charge and caches only the brand and last four digits. Recovery is limited to the requested page (up to five concurrent requests), with connection/read timeouts and no automatic network retries. Provider or cache failures do not prevent returning payment history. A payment without card details returns a null method and can be checked again on a later request. Historical cards are recovered on demand; no bulk migration is performed. Webhooks also expand the latest charge to populate new payments. Card caching does not change payment status, amounts, dates, or page ordering.
+
 ```json
 {
   "data": {

@@ -89,5 +89,7 @@ data class AdminUserPaymentHistoryItem(
     val paidAt: Long?,
     val cardBrand: String?,
     val cardLast4: String?,
-    val refundedAt: Long?
+    val refundedAt: Long?,
+    val provider: PaymentProvider = PaymentProvider.STRIPE,
+    val providerPaymentId: String? = null
 )

@@ -20,13 +20,17 @@ import com.devapplab.model.user.response.AdminUserParticipationResponse
 import com.devapplab.model.user.response.AdminUserSecurityResponse
 import com.devapplab.model.user.response.AdminUserPaymentHistoryPageResponse
 import com.devapplab.model.user.response.AdminUserPaymentHistoryItemResponse
-import com.devapplab.model.user.response.AdminUserPaymentMethodResponse
 import com.devapplab.model.user.response.AdminUserDeletionPreviewResponse
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.hashing.HashingService
+import com.devapplab.service.payment.PaymentCardDetailsService
+import com.devapplab.service.payment.validPaymentCard
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import com.devapplab.utils.Constants
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
@@ -42,7 +46,8 @@ class AdminUserService(
     private val imageService: ImageService,
     private val hashingService: HashingService? = null,
     private val userService: UserService? = null,
-    private val paymentRepository: PaymentRepository? = null
+    private val paymentRepository: PaymentRepository? = null,
+    private val paymentCardDetailsService: PaymentCardDetailsService? = null
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -167,14 +172,19 @@ class AdminUserService(
         val result = paymentRepository?.getAdminUserPaymentHistory(targetUserId, page, PAYMENT_HISTORY_PAGE_SIZE)
             ?: return locale.createError(status = HttpStatusCode.InternalServerError)
         return AppResult.Success(AdminUserPaymentHistoryPageResponse(
-            items = result.items.map { item ->
-                AdminUserPaymentHistoryItemResponse(
-                    id = item.id, fieldName = item.fieldName, matchStartsAt = item.matchStartsAt,
-                    amountInCents = item.amount.movePointRight(2).longValueExact(), currency = item.currency, status = item.status,
-                    statusUpdatedAt = item.statusUpdatedAt, paidAt = item.paidAt,
-                    method = item.cardBrand?.let { brand -> item.cardLast4?.let { last4 -> AdminUserPaymentMethodResponse(brand, last4) } },
-                    refundedAt = item.refundedAt
-                )
+            items = coroutineScope {
+                result.items.map { item ->
+                    async {
+                        AdminUserPaymentHistoryItemResponse(
+                            id = item.id, fieldName = item.fieldName, matchStartsAt = item.matchStartsAt,
+                            amountInCents = item.amount.movePointRight(2).longValueExact(), currency = item.currency, status = item.status,
+                            statusUpdatedAt = item.statusUpdatedAt, paidAt = item.paidAt,
+                            method = paymentCardDetailsService?.resolve(item)
+                                ?: validPaymentCard(item.cardBrand, item.cardLast4),
+                            refundedAt = item.refundedAt
+                        )
+                    }
+                }.awaitAll()
             }, page = page, pageSize = PAYMENT_HISTORY_PAGE_SIZE, total = result.total
         ))
     }

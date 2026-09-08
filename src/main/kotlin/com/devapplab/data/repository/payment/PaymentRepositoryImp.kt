@@ -76,7 +76,8 @@ class PaymentRepositoryImp : PaymentRepository {
                 id = row[MatchPlayerPaymentsTable.id], fieldName = row[FieldTable.name], matchStartsAt = row[MatchTable.dateTime],
                 amount = row[MatchPlayerPaymentsTable.amount], currency = row[MatchPlayerPaymentsTable.currency], status = row[MatchPlayerPaymentsTable.status],
                 statusUpdatedAt = row[MatchPlayerPaymentsTable.updatedAt], paidAt = row[MatchPlayerPaymentsTable.paidAt],
-                cardBrand = row[MatchPlayerPaymentsTable.cardBrand], cardLast4 = row[MatchPlayerPaymentsTable.cardLast4], refundedAt = row[MatchPlayerPaymentsTable.refundedAt]
+                cardBrand = row[MatchPlayerPaymentsTable.cardBrand], cardLast4 = row[MatchPlayerPaymentsTable.cardLast4], refundedAt = row[MatchPlayerPaymentsTable.refundedAt],
+                provider = row[MatchPlayerPaymentsTable.provider], providerPaymentId = row[MatchPlayerPaymentsTable.providerPaymentId]
             ) }
             .drop((page - 1) * pageSize)
         AdminUserPaymentHistoryPage(items, total)
