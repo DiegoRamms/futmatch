@@ -53,6 +53,8 @@ import com.devapplab.data.repository.pending_registrations.RegistrationVerifyAtt
 import com.devapplab.data.repository.pending_registrations.RegistrationVerifyAttemptRepositoryImpl
 import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.data.repository.user.UserRepositoryImpl
+import com.devapplab.data.repository.team.TeamRepository
+import com.devapplab.data.repository.team.TeamRepositoryImpl
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -73,6 +75,7 @@ val repositoryModule = module {
     singleOf(::SocialLinkAttemptRepositoryImpl) { bind<SocialLinkAttemptRepository>() }
     singleOf(::FieldRepositoryImp) { bind<FieldRepository>() }
     singleOf(::MatchRepositoryImp) { bind<MatchRepository>() }
+    singleOf(::TeamRepositoryImpl) { bind<TeamRepository>() }
     singleOf(::MatchRefundFailureRepositoryImpl) { bind<MatchRefundFailureRepository>() }
     singleOf(::PublicMatchesVersionRepositoryImpl) { bind<PublicMatchesVersionRepository>() }
     singleOf(::PasswordResetTokenRepositoryImpl) { bind<PasswordResetTokenRepository>() }

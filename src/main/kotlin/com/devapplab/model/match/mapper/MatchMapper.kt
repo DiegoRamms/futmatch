@@ -23,7 +23,8 @@ fun CreateMatchRequest.toMatch(adminId: UUID): Match {
         discountIds = this.discountIds,
         status = this.status,
         genderType = this.genderType,
-        playerLevel = this.playerLevel
+        playerLevel = this.playerLevel,
+        teamSelection = this.teamAId?.let { teamAId -> this.teamBId?.let { teamBId -> MatchTeamSelection(teamAId, teamBId) } }
     )
 }
 
@@ -41,7 +42,8 @@ fun UpdateMatchRequest.toMatch(adminId: UUID, matchId: UUID): Match {
         discountIds = this.discountIds,
         status = this.status,
         genderType = this.genderType,
-        playerLevel = this.playerLevel
+        playerLevel = this.playerLevel,
+        teamSelection = this.teamAId?.let { teamAId -> this.teamBId?.let { teamBId -> MatchTeamSelection(teamAId, teamBId) } }
     )
 }
 
@@ -64,7 +66,8 @@ fun MatchWithFieldBaseInfo.toResponse(): MatchWithFieldResponse {
         hasParking = hasParking,
         fieldImages = fieldImages.map { it.toResponse() },
         genderType = genderType,
-        playerLevel = playerLevel
+        playerLevel = playerLevel,
+        teamVisuals = teamVisuals?.toResponse()
     )
 }
 
@@ -89,6 +92,7 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
         maxPlayers = this.maxPlayers,
         availableSpots = if (availableSpots < 0) 0 else availableSpots,
         teams = teams,
+        teamVisuals = this.teamVisuals?.toResponse(),
         location = location
     )
 }
@@ -146,6 +150,7 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
         maxPlayers = this.maxPlayers,
         availableSpots = if (availableSpots < 0) 0 else availableSpots,
         teams = teams,
+        teamVisuals = this.teamVisuals?.toResponse(),
         location = location,
         footwearType = this.fieldFootwearType,
         fieldType = this.fieldType,
@@ -155,6 +160,11 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
         rules = this.fieldRules
     )
 }
+
+private fun MatchTeamVisuals.toResponse() = TeamVisualsResponse(
+    teamA = TeamVisualResponse(teamA.name, teamA.color),
+    teamB = TeamVisualResponse(teamB.name, teamB.color)
+)
 
 // Private helper functions to avoid duplication
 

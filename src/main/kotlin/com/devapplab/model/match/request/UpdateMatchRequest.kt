@@ -21,5 +21,9 @@ data class UpdateMatchRequest(
     val discountIds: List<@Serializable(with = UUIDSerializer::class) UUID>? = null,
     val status: MatchStatus,
     val genderType: GenderType,
-    val playerLevel: PlayerLevel
+    val playerLevel: PlayerLevel,
+    @Serializable(with = UUIDSerializer::class)
+    val teamAId: UUID? = null,
+    @Serializable(with = UUIDSerializer::class)
+    val teamBId: UUID? = null,
 )

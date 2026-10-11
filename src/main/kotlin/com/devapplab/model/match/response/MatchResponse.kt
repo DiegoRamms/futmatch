@@ -21,5 +21,6 @@ data class MatchResponse(
     val discountPriceInCents: Long,
     val status: MatchStatus,
     val genderType: GenderType,
-    val playerLevel: PlayerLevel
+    val playerLevel: PlayerLevel,
+    val teamVisuals: TeamVisualsResponse? = null
 )

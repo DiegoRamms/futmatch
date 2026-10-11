@@ -9,6 +9,7 @@ import com.devapplab.data.repository.payment.PaymentInfo
 import com.devapplab.data.repository.payment.PaymentRepository
 import com.devapplab.data.repository.payment.PendingPaymentInfo
 import com.devapplab.data.repository.user.UserRepository
+import com.devapplab.data.repository.team.TeamRepository
 import com.devapplab.features.match.MatchUpdateBus
 import com.devapplab.model.AppResult
 import com.devapplab.model.ErrorCode
@@ -28,6 +29,7 @@ import com.devapplab.model.payment.*
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerLevel
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.team.response.TeamResponse
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.MatchJoinMetricOutcome
 import com.devapplab.observability.MatchJoinRejectionReason
@@ -59,6 +61,7 @@ import kotlin.time.Duration.Companion.minutes
 
 class MatchService(
     private val matchRepository: MatchRepository,
+    private val teamRepository: TeamRepository,
     private val fieldRepository: FieldRepository,
     private val discountRepository: DiscountRepository,
     private val matchPlayerRealtimeService: MatchPlayerRealtimeService,
@@ -93,6 +96,7 @@ class MatchService(
     }
 
     suspend fun create(match: Match, locale: Locale, context: AppRequestContext): AppResult<MatchResponse> {
+        val matchWithTeams = resolveTeamSnapshots(match) ?: return locale.createError(status = HttpStatusCode.NotFound)
         val field = fieldRepository.getFieldById(match.fieldId)
             ?: run {
                 logger.appRejected(
@@ -112,7 +116,7 @@ class MatchService(
             }
 
         val validatedMatch = when (
-            val validation = validateAndEnrichMatchPricing(field, match, locale, context, "match.create_failed")
+            val validation = validateAndEnrichMatchPricing(field, matchWithTeams, locale, context, "match.create_failed")
         ) {
             is MatchPricingValidation.Invalid -> return validation.failure
             is MatchPricingValidation.Valid -> validation.match
@@ -157,7 +161,8 @@ class MatchService(
             discountPriceInCents = (totalDiscount * BigDecimal(100)).toLong(),
             status = matchCreated.status,
             genderType = matchCreated.genderType,
-            playerLevel = matchCreated.playerLevel
+            playerLevel = matchCreated.playerLevel,
+            teamVisuals = validatedMatch.teamSnapshots?.toResponse()
         )
         logger.appSuccess(
             event = "match.created",
@@ -752,6 +757,7 @@ class MatchService(
             )
         }
 
+        val matchWithTeams = resolveTeamSnapshots(match) ?: return locale.createError(status = HttpStatusCode.NotFound)
         val field = fieldRepository.getFieldById(match.fieldId)
             ?: run {
                 logger.appRejected(
@@ -771,7 +777,7 @@ class MatchService(
             }
 
         val validatedMatch = when (
-            val validation = validateAndEnrichMatchPricing(field, match, locale, context, "match.update_failed")
+            val validation = validateAndEnrichMatchPricing(field, matchWithTeams, locale, context, "match.update_failed")
         ) {
             is MatchPricingValidation.Invalid -> return validation.failure
             is MatchPricingValidation.Valid -> validation.match
@@ -794,7 +800,8 @@ class MatchService(
             discountPriceInCents = (totalDiscount * BigDecimal(100)).toLong(),
             status = updatedMatch.status,
             genderType = updatedMatch.genderType,
-            playerLevel = updatedMatch.playerLevel
+            playerLevel = updatedMatch.playerLevel,
+            teamVisuals = updatedMatch.teamVisuals?.toResponse()
         )
 
         notifyMatchUpdate(matchId, sendRegionalPush = true)
@@ -808,6 +815,35 @@ class MatchService(
         )
         return AppResult.Success(response)
     }
+
+    suspend fun getAvailableTeams(): AppResult<List<TeamResponse>> = AppResult.Success(
+        teamRepository.getAll().map { TeamResponse(it.id, it.name, it.color) }
+    )
+
+    private suspend fun resolveTeamSnapshots(match: Match): Match? {
+        val selection = match.teamSelection ?: return match
+        val teams = teamRepository.getByIds(setOf(selection.teamAId, selection.teamBId)).associateBy { it.id }
+        val teamA = teams[selection.teamAId] ?: return null
+        val teamB = teams[selection.teamBId] ?: return null
+        return match.copy(
+            teamSnapshots = listOf(
+                MatchTeamSnapshot(TeamType.A, teamA.name, teamA.color),
+                MatchTeamSnapshot(TeamType.B, teamB.name, teamB.color)
+            )
+        )
+    }
+
+    private fun List<MatchTeamSnapshot>.toResponse(): TeamVisualsResponse? {
+        val snapshots = associateBy { it.team }
+        val teamA = snapshots[TeamType.A] ?: return null
+        val teamB = snapshots[TeamType.B] ?: return null
+        return TeamVisualsResponse(TeamVisualResponse(teamA.name, teamA.color), TeamVisualResponse(teamB.name, teamB.color))
+    }
+
+    private fun MatchTeamVisuals.toResponse() = TeamVisualsResponse(
+        teamA = TeamVisualResponse(teamA.name, teamA.color),
+        teamB = TeamVisualResponse(teamB.name, teamB.color)
+    )
 
     private sealed interface MatchPricingValidation {
         data class Valid(val match: Match) : MatchPricingValidation

@@ -19,6 +19,7 @@ import com.devapplab.data.database.match.MatchRefundFailuresTable
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
+import com.devapplab.data.database.match.MatchTeamsTable
 import com.devapplab.data.database.match.PublicMatchesVersionTable
 import com.devapplab.data.database.mfa.LoginMfaChallengeTable
 import com.devapplab.data.database.mfa.MfaCodeTable
@@ -31,6 +32,7 @@ import com.devapplab.data.database.payments.StripeWebhookEventsTable
 import com.devapplab.data.database.pending_registrations.PendingRegistrationTable
 import com.devapplab.data.database.pending_registrations.RegistrationVerifyAttemptTable
 import com.devapplab.data.database.refresh_token.RefreshTokenTable
+import com.devapplab.data.database.team.TeamTable
 import com.devapplab.data.database.user.UserPaymentProfileTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.data.database.auth.AuthIdentityTable
@@ -96,7 +98,9 @@ fun Application.configureDatabase() {
         FieldAdminsTable,
         DiscountsTable,
         UserMatchDiscountsTable,
+        TeamTable,
         MatchTable,
+        MatchTeamsTable,
         MatchDiscountsTable,
         MatchPlayersTable,
         MatchPlayerGoalsTable,
@@ -146,6 +150,7 @@ fun Application.configureDatabase() {
         }
 
         backfillCompletedMatchAttendance()
+        seedInitialTeams()
     }
 }
 
@@ -167,6 +172,20 @@ private fun JdbcTransaction.backfillCompletedMatchAttendance() {
         WHERE attendance_status IS NULL
           AND status IN ('RESERVED', 'JOINED')
           AND match_id IN (SELECT id FROM matches WHERE status = 'COMPLETED')
+        """.trimIndent()
+    )
+}
+
+private fun JdbcTransaction.seedInitialTeams() {
+    exec(
+        """
+        INSERT INTO teams (name, color)
+        VALUES
+            ('Les Bleus', '#0066FF'),
+            ('Los Blancos', '#FFFFFF'),
+            ('Red Devils', '#EF1B23'),
+            ('All Blacks', '#000000')
+        ON CONFLICT (name) DO NOTHING
         """.trimIndent()
     )
 }

@@ -29,8 +29,18 @@ data class MatchSummaryResponse(
     val maxPlayers: Int,
     val availableSpots: Int,
     val teams: TeamSummaryResponse,
+    val teamVisuals: TeamVisualsResponse? = null,
     val location: Location?
 )
+
+@Serializable
+data class TeamVisualsResponse(
+    val teamA: TeamVisualResponse,
+    val teamB: TeamVisualResponse
+)
+
+@Serializable
+data class TeamVisualResponse(val name: String, val color: String)
 
 @Serializable
 data class TeamSummaryResponse(

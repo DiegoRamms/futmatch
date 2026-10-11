@@ -40,6 +40,7 @@ data class MatchWithField(
     val teamBScore: Int? = null,
     val bestPlayerId: UUID? = null,
     val fieldImages: List<FieldImageBaseInfo> = emptyList(), // All images for the field
+    val teamVisuals: MatchTeamVisuals? = null,
     val players: List<MatchPlayerInfo>, // From MatchPlayersTable and UserTable
     val discounts: List<Discount> // From MatchDiscountsTable and DiscountsTable
 )

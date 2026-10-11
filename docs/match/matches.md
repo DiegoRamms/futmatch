@@ -21,6 +21,36 @@ All endpoints return a standardized `AppResult` object.
 
 To receive localized responses, include the `Accept-Language` header (e.g., `en-US`, `es-MX`).
 
+### Team visual identities
+
+Administrators and organizers obtain selectable identities through `GET /match/admin/teams`. It returns catalog records in the form `{ "id", "name", "color" }`; the initial catalog is Les Bleus (`#0066FF`), Los Blancos (`#FFFFFF`), Red Devils (`#EF1B23`) and All Blacks (`#000000`).
+
+- **Method:** `GET`
+- **Path:** `/match/admin/teams`
+- **Required role:** `ADMIN` or `ORGANIZER`
+
+```json
+{
+  "status": "success",
+  "data": [
+    { "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef", "name": "Les Bleus", "color": "#0066FF" }
+  ]
+}
+```
+
+Create and update requests select those records with `teamAId` and `teamBId`. The API copies the selected `name` and `color` into the match instead of retaining a catalog relationship. Consequently, later catalog edits or deletions cannot alter historical matches.
+
+All non-demo match lists and `GET /match/{matchId}` may include this nullable field:
+
+```json
+"teamVisuals": {
+  "teamA": { "name": "Les Bleus", "color": "#0066FF" },
+  "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+}
+```
+
+For matches created before this feature, `teamVisuals` is omitted. Clients should use their local fallback names and colors in that case.
+
 ---
 
 ## 1. Create Match
@@ -45,7 +75,9 @@ Creates a new scheduled match.
     "discountIds": [],
     "status": "SCHEDULED",
     "genderType": "MIXED",
-    "playerLevel": "ANY"
+    "playerLevel": "ANY",
+    "teamAId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "teamBId": "b1b2c3d4-e5f6-7890-1234-567890abcdef"
 }
 ```
 
@@ -64,6 +96,7 @@ Creates a new scheduled match.
 | `status` | Enum | No | Optional initial match status. Valid values: `SCHEDULED`, `IN_PROGRESS`, `PENDING_RESULT`, `COMPLETED`, `CANCELED`. Default: `SCHEDULED`. |
 | `genderType` | Enum | No | Must be a valid `GenderType` value. Valid values: `MIXED`, `MALE_ONLY`, `FEMALE_ONLY`. Default: `MIXED`. |
 | `playerLevel` | Enum | No | Must be a valid `PlayerLevel` value. Valid values: `ANY`, `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `PROFESSIONAL`. Default: `ANY`. |
+| `teamAId`, `teamBId` | UUID | No | Must be sent together, be different, and identify catalog teams. Their current name and color are copied to the match as an immutable snapshot. |
 
 ### Pricing Validation
 
@@ -108,7 +141,11 @@ When the match is created, the backend stores a pricing snapshot on the match re
         "discountPriceInCents": 0,
         "status": "SCHEDULED",
         "genderType": "MIXED",
-        "playerLevel": "ANY"
+        "playerLevel": "ANY",
+        "teamVisuals": {
+            "teamA": { "name": "Les Bleus", "color": "#0066FF" },
+            "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+        }
     }
 }
 ```
@@ -140,7 +177,9 @@ Updates an existing match.
     "discountIds": [],
     "status": "SCHEDULED",
     "genderType": "MIXED",
-    "playerLevel": "ANY"
+    "playerLevel": "ANY",
+    "teamAId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "teamBId": "b1b2c3d4-e5f6-7890-1234-567890abcdef"
 }
 ```
 
@@ -159,6 +198,7 @@ Updates an existing match.
 | `status` | Enum | Yes | Must be a valid `MatchStatus` value. Valid values: `SCHEDULED`, `IN_PROGRESS`, `PENDING_RESULT`, `COMPLETED`, `CANCELED`. |
 | `genderType` | Enum | Yes | Must be a valid `GenderType` value. Valid values: `MIXED`, `MALE_ONLY`, `FEMALE_ONLY`. |
 | `playerLevel` | Enum | Yes | Must be a valid `PlayerLevel` value. Valid values: `ANY`, `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `PROFESSIONAL`. |
+| `teamAId`, `teamBId` | UUID | No | When both are provided, they replace the visual snapshots for team A and team B. When omitted, existing snapshots are retained. |
 
 ### Pricing Validation
 
@@ -195,7 +235,11 @@ If the update passes validation, the economic snapshot on the match is refreshed
         "discountPriceInCents": 0,
         "status": "SCHEDULED",
         "genderType": "MIXED",
-        "playerLevel": "ANY"
+        "playerLevel": "ANY",
+        "teamVisuals": {
+            "teamA": { "name": "Les Bleus", "color": "#0066FF" },
+            "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+        }
     }
 }
 ```
@@ -727,7 +771,11 @@ Gets a list of matches associated with a specific field.
                 }
             ],
             "genderType": "MIXED",
-            "playerLevel": "ANY"
+            "playerLevel": "ANY",
+            "teamVisuals": {
+                "teamA": { "name": "Les Bleus", "color": "#0066FF" },
+                "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+            }
         }
     ]
 }
@@ -794,7 +842,11 @@ Both endpoints include `SCHEDULED`, `IN_PROGRESS`, `PENDING_RESULT`, `COMPLETED`
                 }
             ],
             "genderType": "MIXED",
-            "playerLevel": "ANY"
+            "playerLevel": "ANY",
+            "teamVisuals": {
+                "teamA": { "name": "Les Bleus", "color": "#0066FF" },
+                "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+            }
         }
     ]
 }
@@ -867,6 +919,10 @@ This endpoint returns the public regional match list already filtered by the aut
             "playerLevel": "INTERMEDIATE",
             "status": "SCHEDULED",
             "availableSpots": 4,
+            "teamVisuals": {
+                "teamA": { "name": "Les Bleus", "color": "#0066FF" },
+                "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+            },
             "teams": {
                 "teamA": {
                     "playerCount": 5,
@@ -998,6 +1054,10 @@ The `matches_updated` data push is only a regional invalidation signal. Its payl
                 "status": "SCHEDULED",
                 "maxPlayers": 14,
                 "availableSpots": 4,
+                "teamVisuals": {
+                    "teamA": { "name": "Les Bleus", "color": "#0066FF" },
+                    "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+                },
                 "teams": {
                     "teamA": {
                         "playerCount": 5,
@@ -1216,6 +1276,10 @@ After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appea
             "status": "SCHEDULED",
             "maxPlayers": 14,
             "availableSpots": 4,
+            "teamVisuals": {
+                "teamA": { "name": "Les Bleus", "color": "#0066FF" },
+                "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+            },
             "teams": {
                 "teamA": {
                     "playerCount": 5,
@@ -1320,6 +1384,10 @@ Gets complete details of a specific match.
         "bestPlayer": null,
         "maxPlayers": 14,
         "availableSpots": 4,
+        "teamVisuals": {
+            "teamA": { "name": "Les Bleus", "color": "#0066FF" },
+            "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+        },
         "teams": {
             "teamA": {
                 "playerCount": 5,

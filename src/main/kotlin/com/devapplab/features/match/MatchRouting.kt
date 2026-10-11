@@ -14,6 +14,11 @@ fun Route.matchRouting() {
             val matchController = call.scope.get<MatchController>()
             matchController.createMatch(call)
         }
+        get("admin/teams") {
+            call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
+            val matchController = call.scope.get<MatchController>()
+            matchController.getAvailableTeams(call)
+        }
         get("admin/matches/{fieldId}") {
             call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
             val matchController = call.scope.get<MatchController>()

@@ -125,6 +125,7 @@ enum class StringResourcesKey(val value: String) {
     MATCH_MAX_PLAYERS_INVALID_ERROR("match_max_players_invalid_error"),
     MATCH_MIN_PLAYERS_INVALID_ERROR("match_min_players_invalid_error"),
     MATCH_PRICE_INVALID_ERROR("match_price_invalid_error"),
+    MATCH_TEAM_SELECTION_INVALID_ERROR("match_team_selection_invalid_error"),
     MATCH_DISCOUNT_INVALID_ERROR("match_discount_invalid_error"),
     MATCH_OVERLAP_TITLE("match_overlap_title"),
     MATCH_OVERLAP_DESCRIPTION("match_overlap_description"),

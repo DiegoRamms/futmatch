@@ -32,5 +32,6 @@ data class MatchWithFieldResponse(
     val hasParking: Boolean,
     val fieldImages: List<FieldImageResponse> = emptyList(),
     val genderType: GenderType,
-    val playerLevel: PlayerLevel
+    val playerLevel: PlayerLevel,
+    val teamVisuals: TeamVisualsResponse? = null
 )

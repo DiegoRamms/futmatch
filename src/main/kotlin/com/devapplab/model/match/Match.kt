@@ -28,5 +28,13 @@ data class Match(
     val status: MatchStatus = MatchStatus.SCHEDULED,
     val genderType: GenderType,
     val playerLevel: PlayerLevel,
+    val teamSelection: MatchTeamSelection? = null,
+    val teamSnapshots: List<MatchTeamSnapshot>? = null,
     val createdAt: Long = System.currentTimeMillis(),
 )
+
+data class MatchTeamSelection(val teamAId: UUID, val teamBId: UUID)
+
+data class MatchTeamSnapshot(val team: TeamType, val name: String, val color: String)
+
+data class MatchTeamVisuals(val teamA: MatchTeamSnapshot, val teamB: MatchTeamSnapshot)

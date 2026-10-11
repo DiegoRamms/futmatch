@@ -10,6 +10,7 @@ import com.devapplab.data.database.match.MatchPlayerGoalsTable
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
+import com.devapplab.data.database.match.MatchTeamsTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.field.FieldImageBaseInfo
@@ -51,6 +52,15 @@ class MatchRepositoryImp : MatchRepository {
 
             val newMatchId = matchResult[MatchTable.id]
 
+            match.teamSnapshots?.forEach { snapshot ->
+                MatchTeamsTable.insert {
+                    it[matchId] = newMatchId
+                    it[team] = snapshot.team
+                    it[name] = snapshot.name
+                    it[color] = snapshot.color
+                }
+            }
+
             match.discountIds?.let { discountIds ->
                 if (discountIds.isNotEmpty()) {
                     MatchDiscountsTable.batchInsert(discountIds) { discountId ->
@@ -89,6 +99,7 @@ class MatchRepositoryImp : MatchRepository {
             val matchIds = rows.map { it[MatchTable.id] }.distinct()
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
             val enrolledPlayersByMatch = getEnrolledPlayersCountByMatchId(matchIds)
+            val teamVisualsByMatch = getTeamVisualsByMatchId(matchIds)
             val allFieldImages = FieldImagesTable
                 .selectAll()
                 .where { FieldImagesTable.fieldId inList fieldIds }
@@ -109,7 +120,8 @@ class MatchRepositoryImp : MatchRepository {
                 val matchId = row[MatchTable.id]
                 row.toMatchWithFieldBaseInfo(
                     fieldImages = allFieldImages[id] ?: emptyList(),
-                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0
+                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0,
+                    teamVisuals = teamVisualsByMatch[matchId]
                 )
             }
         }
@@ -128,6 +140,7 @@ class MatchRepositoryImp : MatchRepository {
             val matchIds = rows.map { it[MatchTable.id] }.distinct()
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
             val enrolledPlayersByMatch = getEnrolledPlayersCountByMatchId(matchIds)
+            val teamVisualsByMatch = getTeamVisualsByMatchId(matchIds)
             val allFieldImages = FieldImagesTable
                 .selectAll()
                 .where { FieldImagesTable.fieldId inList fieldIds }
@@ -148,7 +161,8 @@ class MatchRepositoryImp : MatchRepository {
                 val matchId = row[MatchTable.id]
                 row.toMatchWithFieldBaseInfo(
                     fieldImages = allFieldImages[id] ?: emptyList(),
-                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0
+                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0,
+                    teamVisuals = teamVisualsByMatch[matchId]
                 )
             }
         }
@@ -184,6 +198,7 @@ class MatchRepositoryImp : MatchRepository {
             val matchIds = rows.map { it[MatchTable.id] }.distinct()
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
             val enrolledPlayersByMatch = getEnrolledPlayersCountByMatchId(matchIds)
+            val teamVisualsByMatch = getTeamVisualsByMatchId(matchIds)
             val allFieldImages = FieldImagesTable
                 .selectAll()
                 .where { FieldImagesTable.fieldId inList fieldIds }
@@ -204,7 +219,8 @@ class MatchRepositoryImp : MatchRepository {
                 val matchId = row[MatchTable.id]
                 row.toMatchWithFieldBaseInfo(
                     fieldImages = allFieldImages[id] ?: emptyList(),
-                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0
+                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0,
+                    teamVisuals = teamVisualsByMatch[matchId]
                 )
             }
         }
@@ -224,6 +240,7 @@ class MatchRepositoryImp : MatchRepository {
             val matchIds = rows.map { it[MatchTable.id] }.distinct()
             val fieldIds = rows.map { it[FieldTable.id] }.distinct()
             val enrolledPlayersByMatch = getEnrolledPlayersCountByMatchId(matchIds)
+            val teamVisualsByMatch = getTeamVisualsByMatchId(matchIds)
             val allFieldImages = FieldImagesTable
                 .selectAll()
                 .where { FieldImagesTable.fieldId inList fieldIds }
@@ -244,7 +261,8 @@ class MatchRepositoryImp : MatchRepository {
                 val matchId = row[MatchTable.id]
                 row.toMatchWithFieldBaseInfo(
                     fieldImages = allFieldImages[id] ?: emptyList(),
-                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0
+                    enrolledPlayers = enrolledPlayersByMatch[matchId] ?: 0,
+                    teamVisuals = teamVisualsByMatch[matchId]
                 )
             }
         }
@@ -302,6 +320,7 @@ class MatchRepositoryImp : MatchRepository {
 
             val matchIds = matchFieldLocationRows.map { it[MatchTable.id] }.distinct()
             val fieldIds = matchFieldLocationRows.map { it[FieldTable.id] }.distinct()
+            val teamVisualsByMatch = getTeamVisualsByMatchId(matchIds)
 
             val allFieldImages = FieldImagesTable
                 .selectAll()
@@ -406,6 +425,7 @@ class MatchRepositoryImp : MatchRepository {
                     fieldDescription = row[FieldTable.description],
                     fieldRules = row[FieldTable.rules],
                     fieldImages = currentFieldImages,
+                    teamVisuals = teamVisualsByMatch[matchId],
                     players = players,
                     discounts = discounts
                 )
@@ -481,6 +501,7 @@ class MatchRepositoryImp : MatchRepository {
 
             val matchIds = userMatchRows.map { it[MatchTable.id] }.distinct()
             val fieldIds = userMatchRows.map { it[FieldTable.id] }.distinct()
+            val teamVisualsByMatch = getTeamVisualsByMatchId(matchIds)
 
             val allFieldImages = FieldImagesTable
                 .selectAll()
@@ -585,6 +606,7 @@ class MatchRepositoryImp : MatchRepository {
                     fieldDescription = row[FieldTable.description],
                     fieldRules = row[FieldTable.rules],
                     fieldImages = currentFieldImages,
+                    teamVisuals = teamVisualsByMatch[matchId],
                     players = players,
                     discounts = discounts
                 )
@@ -604,6 +626,7 @@ class MatchRepositoryImp : MatchRepository {
             if (matchFieldLocationRow == null) return@dbQuery null
 
             val fieldId = matchFieldLocationRow[FieldTable.id]
+            val teamVisuals = getTeamVisualsByMatchId(listOf(matchId))[matchId]
 
             val currentFieldImages = FieldImagesTable
                 .selectAll()
@@ -694,6 +717,7 @@ class MatchRepositoryImp : MatchRepository {
                 teamBScore = matchFieldLocationRow.getOrNull(MatchResultsTable.teamBScore),
                 bestPlayerId = matchFieldLocationRow.getOrNull(MatchResultsTable.bestPlayerId),
                 fieldImages = currentFieldImages,
+                teamVisuals = teamVisuals,
                 players = players,
                 discounts = discounts
             )
@@ -737,6 +761,18 @@ class MatchRepositoryImp : MatchRepository {
             }
 
             MatchDiscountsTable.deleteWhere { MatchDiscountsTable.matchId eq matchId }
+
+            match.teamSnapshots?.let { snapshots ->
+                MatchTeamsTable.deleteWhere { MatchTeamsTable.matchId eq matchId }
+                snapshots.forEach { snapshot ->
+                    MatchTeamsTable.insert {
+                        it[MatchTeamsTable.matchId] = matchId
+                        it[team] = snapshot.team
+                        it[name] = snapshot.name
+                        it[color] = snapshot.color
+                    }
+                }
+            }
 
             match.discountIds?.let { discountIds ->
                 if (discountIds.isNotEmpty()) {
@@ -903,7 +939,8 @@ class MatchRepositoryImp : MatchRepository {
 
     private fun ResultRow.toMatchWithFieldBaseInfo(
         fieldImages: List<FieldImageBaseInfo> = emptyList(),
-        enrolledPlayers: Int = 0
+        enrolledPlayers: Int = 0,
+        teamVisuals: MatchTeamVisuals? = null
     ): MatchWithFieldBaseInfo {
         val location = if (this.getOrNull(LocationsTable.id) != null) {
             Location(
@@ -933,8 +970,29 @@ class MatchRepositoryImp : MatchRepository {
             hasParking = this[FieldTable.hasParking],
             fieldImages = fieldImages,
             genderType = this[MatchTable.genderType],
-            playerLevel = this[MatchTable.playerLevel]
+            playerLevel = this[MatchTable.playerLevel],
+            teamVisuals = teamVisuals
         )
+    }
+
+    private fun getTeamVisualsByMatchId(matchIds: List<UUID>): Map<UUID, MatchTeamVisuals> {
+        if (matchIds.isEmpty()) return emptyMap()
+        return MatchTeamsTable.selectAll()
+            .where { MatchTeamsTable.matchId inList matchIds }
+            .groupBy { it[MatchTeamsTable.matchId] }
+            .mapNotNull { (matchId, rows) ->
+                val snapshots = rows.associate { row ->
+                    row[MatchTeamsTable.team] to MatchTeamSnapshot(
+                        team = row[MatchTeamsTable.team],
+                        name = row[MatchTeamsTable.name],
+                        color = row[MatchTeamsTable.color]
+                    )
+                }
+                val teamA = snapshots[TeamType.A]
+                val teamB = snapshots[TeamType.B]
+                if (teamA != null && teamB != null) matchId to MatchTeamVisuals(teamA, teamB) else null
+            }
+            .toMap()
     }
 
     private fun getEnrolledPlayersCountByMatchId(matchIds: List<UUID>): Map<UUID, Int> {

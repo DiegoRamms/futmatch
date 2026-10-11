@@ -36,6 +36,10 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(result)
     }
 
+    suspend fun getAvailableTeams(call: ApplicationCall) {
+        call.respond(matchService.getAvailableTeams())
+    }
+
     suspend fun getAllMatches(call: ApplicationCall) {
         val result = matchService.getAllMatches()
         call.respond(result)

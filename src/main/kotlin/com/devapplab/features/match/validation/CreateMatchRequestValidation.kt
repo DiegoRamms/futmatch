@@ -21,6 +21,9 @@ fun CreateMatchRequest.validate(): ValidationResult {
         matchPriceInCents <= 0L ->
             ValidationResult.Invalid(StringResourcesKey.MATCH_PRICE_INVALID_ERROR.value)
 
+        (teamAId == null) != (teamBId == null) || (teamAId != null && teamAId == teamBId) ->
+            ValidationResult.Invalid(StringResourcesKey.MATCH_TEAM_SELECTION_INVALID_ERROR.value)
+
         else -> ValidationResult.Valid
     }
 }

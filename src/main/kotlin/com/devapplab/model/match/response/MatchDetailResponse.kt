@@ -29,6 +29,7 @@ data class MatchDetailResponse(
     val maxPlayers: Int,
     val availableSpots: Int,
     val teams: TeamSummaryResponse,
+    val teamVisuals: TeamVisualsResponse? = null,
     val location: Location?,
     val footwearType: FootwearType?,
     val fieldType: FieldType?,

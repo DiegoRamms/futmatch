@@ -22,4 +22,8 @@ data class CreateMatchRequest(
     val status: MatchStatus = MatchStatus.SCHEDULED,
     val genderType: GenderType = GenderType.MIXED,
     val playerLevel: PlayerLevel = PlayerLevel.ANY,
+    @Serializable(with = UUIDSerializer::class)
+    val teamAId: UUID? = null,
+    @Serializable(with = UUIDSerializer::class)
+    val teamBId: UUID? = null,
 )

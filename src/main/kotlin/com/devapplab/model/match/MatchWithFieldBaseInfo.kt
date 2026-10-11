@@ -25,5 +25,6 @@ data class MatchWithFieldBaseInfo(
     val hasParking: Boolean,
     val fieldImages: List<FieldImageBaseInfo> = emptyList(),
     val genderType: GenderType,
-    val playerLevel: PlayerLevel
+    val playerLevel: PlayerLevel,
+    val teamVisuals: MatchTeamVisuals? = null
 )
