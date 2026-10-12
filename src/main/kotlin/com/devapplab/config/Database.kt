@@ -46,7 +46,10 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import com.zaxxer.hikari.metrics.micrometer.MicrometerMetricsTrackerFactory
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -177,17 +180,22 @@ private fun JdbcTransaction.backfillCompletedMatchAttendance() {
 }
 
 private fun JdbcTransaction.seedInitialTeams() {
-    exec(
-        """
-        INSERT INTO teams (name, color)
-        VALUES
-            ('Les Bleus', '#0066FF'),
-            ('Los Blancos', '#FFFFFF'),
-            ('Red Devils', '#EF1B23'),
-            ('All Blacks', '#000000')
-        ON CONFLICT (name) DO NOTHING
-        """.trimIndent()
-    )
+    val now = System.currentTimeMillis()
+    listOf(
+        "Les Bleus" to "#0066FF",
+        "Los Blancos" to "#FFFFFF",
+        "Red Devils" to "#EF1B23",
+        "All Blacks" to "#000000"
+    ).forEach { (name, color) ->
+        if (!TeamTable.selectAll().where { TeamTable.name eq name }.any()) {
+            TeamTable.insert {
+                it[TeamTable.name] = name
+                it[TeamTable.color] = color
+                it[createdAt] = now
+                it[updatedAt] = now
+            }
+        }
+    }
 }
 
 suspend fun <T> dbQuery(block: suspend () -> T): T =
