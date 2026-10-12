@@ -46,10 +46,12 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import com.zaxxer.hikari.metrics.micrometer.MicrometerMetricsTrackerFactory
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -182,11 +184,11 @@ private fun JdbcTransaction.backfillCompletedMatchAttendance() {
 private fun JdbcTransaction.seedInitialTeams() {
     val now = System.currentTimeMillis()
     listOf(
-        "Les Bleus" to "#0066FF",
-        "Los Blancos" to "#FFFFFF",
-        "Red Devils" to "#EF1B23",
-        "All Blacks" to "#000000"
-    ).forEach { (name, color) ->
+        Triple("Les Bleus", "#0066FF", "#315DA8"),
+        Triple("Los Blancos", "#FFFFFF", "#E8E5DE"),
+        Triple("Red Devils", "#EF1B23", "#B43C4A"),
+        Triple("All Blacks", "#000000", "#292D34")
+    ).forEach { (name, originalColor, color) ->
         if (!TeamTable.selectAll().where { TeamTable.name eq name }.any()) {
             TeamTable.insert {
                 it[TeamTable.name] = name
@@ -194,6 +196,11 @@ private fun JdbcTransaction.seedInitialTeams() {
                 it[createdAt] = now
                 it[updatedAt] = now
             }
+        }
+        // Upgrade only the original catalog palette; preserve custom colors and match snapshots.
+        TeamTable.update({ (TeamTable.name eq name) and (TeamTable.color eq originalColor) }) {
+            it[TeamTable.color] = color
+            it[updatedAt] = now
         }
     }
 }

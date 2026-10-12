@@ -23,17 +23,19 @@ To receive localized responses, include the `Accept-Language` header (e.g., `en-
 
 ### Team visual identities
 
-Administrators and organizers obtain selectable identities through `GET /match/admin/teams`. It returns catalog records in the form `{ "id", "name", "color" }`; the initial catalog is Les Bleus (`#0066FF`), Los Blancos (`#FFFFFF`), Red Devils (`#EF1B23`) and All Blacks (`#000000`).
+Administrators and organizers obtain selectable identities through `GET /match/admin/teams`. It returns catalog records in the form `{ "id", "name", "color" }`; the initial catalog is Les Bleus (`#315DA8`), Los Blancos (`#E8E5DE`), Red Devils (`#B43C4A`) and All Blacks (`#292D34`).
 
 - **Method:** `GET`
 - **Path:** `/match/admin/teams`
 - **Required role:** `ADMIN` or `ORGANIZER`
 
+The palette uses sapphire blue, pearl white, ruby red and charcoal black. On startup, original catalog colors are upgraded to this palette only if they still match the original defaults. Custom catalog colors and existing match snapshots are preserved. Clients should add a subtle contrasting outline to light/dark swatches when needed for visibility on their background.
+
 ```json
 {
   "status": "success",
   "data": [
-    { "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef", "name": "Les Bleus", "color": "#0066FF" }
+    { "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef", "name": "Les Bleus", "color": "#315DA8" }
   ]
 }
 ```
@@ -44,8 +46,8 @@ All non-demo match lists and `GET /match/{matchId}` may include this nullable fi
 
 ```json
 "teamVisuals": {
-  "teamA": { "name": "Les Bleus", "color": "#0066FF" },
-  "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+  "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+  "teamB": { "name": "Red Devils", "color": "#B43C4A" }
 }
 ```
 
@@ -143,8 +145,8 @@ When the match is created, the backend stores a pricing snapshot on the match re
         "genderType": "MIXED",
         "playerLevel": "ANY",
         "teamVisuals": {
-            "teamA": { "name": "Les Bleus", "color": "#0066FF" },
-            "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+            "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+            "teamB": { "name": "Red Devils", "color": "#B43C4A" }
         }
     }
 }
@@ -237,8 +239,8 @@ If the update passes validation, the economic snapshot on the match is refreshed
         "genderType": "MIXED",
         "playerLevel": "ANY",
         "teamVisuals": {
-            "teamA": { "name": "Les Bleus", "color": "#0066FF" },
-            "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+            "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+            "teamB": { "name": "Red Devils", "color": "#B43C4A" }
         }
     }
 }
@@ -773,8 +775,8 @@ Gets a list of matches associated with a specific field.
             "genderType": "MIXED",
             "playerLevel": "ANY",
             "teamVisuals": {
-                "teamA": { "name": "Les Bleus", "color": "#0066FF" },
-                "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+                "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+                "teamB": { "name": "Red Devils", "color": "#B43C4A" }
             }
         }
     ]
@@ -844,8 +846,8 @@ Both endpoints include `SCHEDULED`, `IN_PROGRESS`, `PENDING_RESULT`, `COMPLETED`
             "genderType": "MIXED",
             "playerLevel": "ANY",
             "teamVisuals": {
-                "teamA": { "name": "Les Bleus", "color": "#0066FF" },
-                "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+                "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+                "teamB": { "name": "Red Devils", "color": "#B43C4A" }
             }
         }
     ]
@@ -920,8 +922,8 @@ This endpoint returns the public regional match list already filtered by the aut
             "status": "SCHEDULED",
             "availableSpots": 4,
             "teamVisuals": {
-                "teamA": { "name": "Les Bleus", "color": "#0066FF" },
-                "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+                "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+                "teamB": { "name": "Red Devils", "color": "#B43C4A" }
             },
             "teams": {
                 "teamA": {
@@ -1055,8 +1057,8 @@ The `matches_updated` data push is only a regional invalidation signal. Its payl
                 "maxPlayers": 14,
                 "availableSpots": 4,
                 "teamVisuals": {
-                    "teamA": { "name": "Les Bleus", "color": "#0066FF" },
-                    "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+                    "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+                    "teamB": { "name": "Red Devils", "color": "#B43C4A" }
                 },
                 "teams": {
                     "teamA": {
@@ -1277,8 +1279,8 @@ After 4 days from `dateTimeEnd`, completed/canceled matches will no longer appea
             "maxPlayers": 14,
             "availableSpots": 4,
             "teamVisuals": {
-                "teamA": { "name": "Les Bleus", "color": "#0066FF" },
-                "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+                "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+                "teamB": { "name": "Red Devils", "color": "#B43C4A" }
             },
             "teams": {
                 "teamA": {
@@ -1385,8 +1387,8 @@ Gets complete details of a specific match.
         "maxPlayers": 14,
         "availableSpots": 4,
         "teamVisuals": {
-            "teamA": { "name": "Les Bleus", "color": "#0066FF" },
-            "teamB": { "name": "Red Devils", "color": "#EF1B23" }
+            "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+            "teamB": { "name": "Red Devils", "color": "#B43C4A" }
         },
         "teams": {
             "teamA": {
