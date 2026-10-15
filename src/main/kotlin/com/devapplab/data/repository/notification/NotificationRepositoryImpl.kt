@@ -5,6 +5,7 @@ import com.devapplab.data.database.notification.NotificationTable
 import com.devapplab.model.notification.Notification
 import com.devapplab.model.notification.NotificationType
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -47,6 +48,20 @@ class NotificationRepositoryImpl : NotificationRepository {
             .orderBy(NotificationTable.createdAt to org.jetbrains.exposed.v1.core.SortOrder.DESC)
             .limit(limit)
             .map { it.toNotification() }
+    }
+
+    override suspend fun getUnreadCount(userId: UUID): Long = dbQuery {
+        NotificationTable.selectAll().where {
+            (NotificationTable.userId eq userId) and (NotificationTable.isRead eq false)
+        }.count()
+    }
+
+    override suspend fun markAllAsRead(userId: UUID): Int = dbQuery {
+        NotificationTable.update({
+            (NotificationTable.userId eq userId) and (NotificationTable.isRead eq false)
+        }) {
+            it[isRead] = true
+        }
     }
 
     override suspend fun markAsRead(notificationId: UUID): Boolean = dbQuery {

@@ -3,6 +3,8 @@ package com.devapplab.service.notification
 import com.devapplab.model.AppResult
 import com.devapplab.model.match.RefundStatus
 import com.devapplab.model.notification.NotificationType
+import com.devapplab.model.notification.UnreadNotificationCountResponse
+import com.devapplab.model.notification.MarkAllNotificationsReadResponse
 import com.devapplab.observability.AppRequestContext
 import java.util.*
 
@@ -29,6 +31,9 @@ interface NotificationService {
     suspend fun sendToTopic(topic: String, title: String, body: String, data: Map<String, String> = emptyMap()): String
     suspend fun sendDataOnlyToTopic(topic: String, data: Map<String, String> = emptyMap()): String
     suspend fun notifyUser(userId: UUID, title: String, body: String, data: Map<String, String> = emptyMap())
+
+    suspend fun getUnreadCount(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<UnreadNotificationCountResponse>
+    suspend fun markAllAsRead(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<MarkAllNotificationsReadResponse>
 
     // Retrieve and manage notifications
     suspend fun getUserNotifications(userId: UUID, limit: Int = 50, offset: Int = 0, locale: Locale, context: AppRequestContext): AppResult<List<com.devapplab.model.notification.NotificationResponse>>

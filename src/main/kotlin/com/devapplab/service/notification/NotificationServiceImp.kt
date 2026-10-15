@@ -7,6 +7,8 @@ import com.devapplab.model.AppResult
 import com.devapplab.model.match.RefundStatus
 import com.devapplab.model.notification.NotificationResponse
 import com.devapplab.model.notification.NotificationType
+import com.devapplab.model.notification.UnreadNotificationCountResponse
+import com.devapplab.model.notification.MarkAllNotificationsReadResponse
 import com.devapplab.model.notification.mapper.toResponseList
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appFailure
@@ -394,6 +396,46 @@ class NotificationServiceImp(
                 event = "notification.list.load_failed",
                 context = context,
                 reason = "notification_query_failed",
+                userId = userId,
+                statusCode = HttpStatusCode.InternalServerError.value,
+                throwable = e
+            )
+            locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError
+            )
+        }
+    }
+
+    override suspend fun getUnreadCount(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<UnreadNotificationCountResponse> {
+        return try {
+            AppResult.Success(UnreadNotificationCountResponse(notificationRepository.getUnreadCount(userId)))
+        } catch (e: Exception) {
+            logger.appFailure(
+                event = "notification.unread_count.failed",
+                context = context,
+                reason = "notification_unread_count_failed",
+                userId = userId,
+                statusCode = HttpStatusCode.InternalServerError.value,
+                throwable = e
+            )
+            locale.createError(
+                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
+                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
+                status = HttpStatusCode.InternalServerError
+            )
+        }
+    }
+
+    override suspend fun markAllAsRead(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<MarkAllNotificationsReadResponse> {
+        return try {
+            AppResult.Success(MarkAllNotificationsReadResponse(notificationRepository.markAllAsRead(userId)))
+        } catch (e: Exception) {
+            logger.appFailure(
+                event = "notification.read_all.failed",
+                context = context,
+                reason = "notification_read_all_failed",
                 userId = userId,
                 statusCode = HttpStatusCode.InternalServerError.value,
                 throwable = e

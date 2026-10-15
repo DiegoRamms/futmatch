@@ -27,6 +27,18 @@ class NotificationController(private val notificationService: NotificationServic
         call.respond(result)
     }
 
+    suspend fun getUnreadCount(call: ApplicationCall) {
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val result = notificationService.getUnreadCount(userId, call.retrieveLocale(), call.requestContext())
+        call.respond(result)
+    }
+
+    suspend fun markAllAsRead(call: ApplicationCall) {
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val result = notificationService.markAllAsRead(userId, call.retrieveLocale(), call.requestContext())
+        call.respond(result)
+    }
+
     suspend fun deleteNotification(call: ApplicationCall) {
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val locale = call.retrieveLocale()

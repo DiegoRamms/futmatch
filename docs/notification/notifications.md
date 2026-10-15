@@ -196,3 +196,53 @@ Common metadata keys by family:
 - **Match completed:** `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type`
 
 The `metadata` field is stored as a JSON-encoded string in notification history.
+
+## 3. Get Unread Count
+
+- **Method:** `GET`
+- **Path:** `/notification/unread-count`
+- **Authentication:** Access token; the user is taken exclusively from the token.
+- **Body:** None.
+
+Success data (HTTP 200):
+
+```json
+{"unreadCount": 3}
+```
+
+The data is wrapped in the same success envelope as notification history. The count
+includes all of this user's rows with `is_read = false`, regardless of pagination.
+An empty inbox returns zero. Fetching history or the count does not mark anything read.
+
+## 4. Mark All Notifications Read
+
+- **Method:** `PATCH`
+- **Path:** `/notification/read-all`
+- **Authentication:** Access token; affects only the authenticated user.
+- **Body:** None.
+
+Success data (HTTP 200):
+
+```json
+{"markedAsReadCount": 3}
+```
+
+The data is wrapped in the standard success envelope. One database update marks
+all unread notifications for this user as read, including rows outside the loaded
+history page. It does not delete history. Repeated requests or an empty inbox return
+`markedAsReadCount: 0` successfully. The existing `is_read` column defaults to false;
+no schema migration or separately stored counter is required.
+
+### Badge integration
+
+1. Request `GET /notification/unread-count` when entering the app, resuming it,
+   or receiving a new notification. Show the badge when `data.unreadCount > 0`.
+2. When the user taps the notifications icon, call `PATCH /notification/read-all`.
+   After success, clear the badge and load the history with `GET /notification/`.
+   If the request fails, retain the badge and allow retry.
+3. Notifications arriving after the update remain unread. Refresh the count to
+   reconcile new arrivals and activity from other devices. The PATCH response gives
+   the number of rows changed, not a guaranteed current unread count.
+
+The count is intentionally separate from `/user/home`, so the client can refresh
+just the badge without reloading profile and match data. Home's response is unchanged.

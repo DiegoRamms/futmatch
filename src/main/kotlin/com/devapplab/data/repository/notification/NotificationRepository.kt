@@ -19,5 +19,9 @@ interface NotificationRepository {
 
     suspend fun getUserNotifications(userId: UUID, limit: Int = 50, offset: Int = 0): List<Notification>
 
+    suspend fun getUnreadCount(userId: UUID): Long
+
+    suspend fun markAllAsRead(userId: UUID): Int
+
     suspend fun markAsRead(notificationId: UUID): Boolean
 }
