@@ -120,6 +120,42 @@ class ProfileServiceTest {
     }
 
     @Test
+    fun `getPublicProfile includes last match team visuals`() = kotlinx.coroutines.runBlocking {
+        val userId = UUID.randomUUID()
+        val visuals = MatchTeamVisuals(
+            MatchTeamSnapshot(TeamType.A, "Red", "#FF0000"),
+            MatchTeamSnapshot(TeamType.B, "Blue", "#0000FF")
+        )
+        val service = ProfileService(
+            dbExecutor = FakeDbExecutor(),
+            userRepository = FakeUserRepository(user = fakeUser(userId)),
+            matchRepository = FakeMatchRepository(
+                winStats = MatchWinStats(playedMatches = 1, wonMatches = 1),
+                mvpCount = 0,
+                totalGoals = 0,
+                lastMatch = HomeLastMatch(
+                    matchId = UUID.randomUUID(),
+                    fieldId = UUID.randomUUID(),
+                    fieldName = "La Jaula",
+                    playedAt = 2000L,
+                    teamAScore = 9,
+                    teamBScore = 13,
+                    outcome = HomeMatchOutcome.WIN,
+                    teamVisuals = visuals
+                )
+            ),
+            imageService = FakeImageService()
+        )
+
+        val success = service.getPublicProfile(userId, Locale.US, testContext) as AppResult.Success
+        val actual = kotlin.test.assertNotNull(success.data.lastMatch?.teamVisuals)
+        assertEquals(visuals.teamA.name, actual.teamA.name)
+        assertEquals(visuals.teamA.color, actual.teamA.color)
+        assertEquals(visuals.teamB.name, actual.teamB.name)
+        assertEquals(visuals.teamB.color, actual.teamB.color)
+    }
+
+    @Test
     fun `getPublicProfile returns bad request for null userId`() = kotlinx.coroutines.runBlocking {
         val service = ProfileService(
             dbExecutor = FakeDbExecutor(),

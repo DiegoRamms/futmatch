@@ -1,6 +1,7 @@
 package com.devapplab.model.user.response
 
 import com.devapplab.model.match.HomeMatchOutcome
+import com.devapplab.model.match.response.TeamVisualsResponse
 import com.devapplab.model.user.PlayerLevel
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
@@ -44,5 +45,6 @@ data class HomeLastMatchSection(
     val playedAt: Long,
     val outcome: HomeMatchOutcome,
     val teamAScore: Int,
-    val teamBScore: Int
+    val teamBScore: Int,
+    val teamVisuals: TeamVisualsResponse? = null
 )

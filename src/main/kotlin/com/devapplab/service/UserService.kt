@@ -14,6 +14,7 @@ import com.devapplab.data.repository.cleanup.ProfileImageCleanupRepository
 import com.devapplab.data.repository.auth.AppleAuthTokenRepository
 import com.devapplab.data.repository.auth.AuthIdentityRepository
 import com.devapplab.model.AppResult
+import com.devapplab.model.match.mapper.toResponse
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserBaseInfo
@@ -497,7 +498,8 @@ class UserService(
                 playedAt = it.playedAt,
                 outcome = it.outcome,
                 teamAScore = it.teamAScore,
-                teamBScore = it.teamBScore
+                teamBScore = it.teamBScore,
+                teamVisuals = it.teamVisuals?.toResponse()
             )
         }
 

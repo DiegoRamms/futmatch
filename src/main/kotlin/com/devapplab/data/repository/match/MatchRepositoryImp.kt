@@ -1311,16 +1311,25 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun getHomeLastMatch(userId: UUID): HomeLastMatch? {
         return dbQuery {
-            val row = (MatchPlayersTable innerJoin MatchTable innerJoin FieldTable innerJoin MatchResultsTable)
-                .select(
-                    MatchTable.id,
-                    MatchTable.fieldId,
-                    MatchTable.dateTimeEnd,
-                    FieldTable.name,
-                    MatchPlayersTable.team,
-                    MatchResultsTable.teamAScore,
-                    MatchResultsTable.teamBScore
-                )
+            val teamA = MatchTeamsTable.alias("last_match_team_a")
+            val teamB = MatchTeamsTable.alias("last_match_team_b")
+            val baseJoin = MatchPlayersTable innerJoin MatchTable innerJoin FieldTable innerJoin MatchResultsTable
+            val source = baseJoin
+                .leftJoin(teamA, { MatchTable.id }, { teamA[MatchTeamsTable.matchId] },
+                    additionalConstraint = { teamA[MatchTeamsTable.team] eq TeamType.A })
+                .leftJoin(teamB, { MatchTable.id }, { teamB[MatchTeamsTable.matchId] },
+                    additionalConstraint = { teamB[MatchTeamsTable.team] eq TeamType.B })
+            val row = source.select(
+                MatchTable.id,
+                MatchTable.fieldId,
+                MatchTable.dateTimeEnd,
+                FieldTable.name,
+                MatchPlayersTable.team,
+                MatchResultsTable.teamAScore,
+                MatchResultsTable.teamBScore,
+                teamA[MatchTeamsTable.name], teamA[MatchTeamsTable.color],
+                teamB[MatchTeamsTable.name], teamB[MatchTeamsTable.color]
+            )
                 .where {
                     (MatchPlayersTable.userId eq userId) and
                         (MatchPlayersTable.status inList listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)) and
@@ -1335,6 +1344,16 @@ class MatchRepositoryImp : MatchRepository {
             val teamAScore = row[MatchResultsTable.teamAScore]
             val teamBScore = row[MatchResultsTable.teamBScore]
             val userTeam = row[MatchPlayersTable.team]
+            val teamAName = row.getOrNull(teamA[MatchTeamsTable.name])
+            val teamAColor = row.getOrNull(teamA[MatchTeamsTable.color])
+            val teamBName = row.getOrNull(teamB[MatchTeamsTable.name])
+            val teamBColor = row.getOrNull(teamB[MatchTeamsTable.color])
+            val teamVisuals = if (teamAName != null && teamAColor != null && teamBName != null && teamBColor != null) {
+                MatchTeamVisuals(
+                    MatchTeamSnapshot(TeamType.A, teamAName, teamAColor),
+                    MatchTeamSnapshot(TeamType.B, teamBName, teamBColor)
+                )
+            } else null
 
             val outcome = when (userTeam) {
                 TeamType.A -> when {
@@ -1357,7 +1376,8 @@ class MatchRepositoryImp : MatchRepository {
                 playedAt = row[MatchTable.dateTimeEnd],
                 teamAScore = teamAScore,
                 teamBScore = teamBScore,
-                outcome = outcome
+                outcome = outcome,
+                teamVisuals = teamVisuals
             )
         }
     }

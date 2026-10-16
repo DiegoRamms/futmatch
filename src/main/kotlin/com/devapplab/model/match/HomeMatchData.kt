@@ -24,7 +24,8 @@ data class HomeLastMatch(
     val playedAt: Long,
     val teamAScore: Int,
     val teamBScore: Int,
-    val outcome: HomeMatchOutcome
+    val outcome: HomeMatchOutcome,
+    val teamVisuals: MatchTeamVisuals? = null
 )
 
 enum class HomeMatchOutcome {

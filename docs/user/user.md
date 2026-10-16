@@ -75,7 +75,11 @@ Perfil público de otro jugador para vista de visita; **incluye `lastMatch`** pa
       "playedAt": 1775962200000,
       "outcome": "WIN",
       "teamAScore": 10,
-      "teamBScore": 8
+      "teamBScore": 8,
+      "teamVisuals": {
+        "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+        "teamB": { "name": "Los Blancos", "color": "#E8E5DE" }
+      }
     }
   }
 }
@@ -84,7 +88,8 @@ Perfil público de otro jugador para vista de visita; **incluye `lastMatch`** pa
 #### Reglas de datos expuestos
 
 - Este endpoint expone solo perfil público (sin `email` y sin `phone`).
-- `lastMatch` puede ser `null` si el jugador no tiene partidos completados.
+- `lastMatch` corresponde al último partido completado al que asistió el jugador visitado. Si no existe, el campo se omite del JSON.
+- Incluye `lastMatch.teamVisuals` cuando el partido tiene identidad visual guardada para ambos equipos. Ver el [contrato compartido de `lastMatch`](#contrato-compartido-de-lastmatch).
 - `averageScore` es entero `0..100`.
 
 ### 0.3 Campos de Perfil (`/profiles/me` y `/profiles/{userId}`)
@@ -105,6 +110,34 @@ Perfil público de otro jugador para vista de visita; **incluye `lastMatch`** pa
 | `stats.totalGoals` | Int | Goles totales en partidos completados a los que el jugador asistió |
 
 ## Conceptos Comunes
+
+### Contrato compartido de `lastMatch`
+
+Aplica a `GET /user/home` y `GET /profiles/{userId}`. Ambos devuelven los nombres y colores de los equipos sin requerir parámetros adicionales. `GET /profiles/me` no incluye `lastMatch`.
+
+| Campo | Tipo | Descripción |
+|:------|:-----|:------------|
+| `matchId` | UUID | Identificador del partido |
+| `fieldId` | UUID | Identificador de la cancha |
+| `fieldName` | String | Nombre de la cancha |
+| `playedAt` | Long | Fin programado del partido, en epoch milisegundos; permite calcular textos como “Hace 2 meses” en el cliente |
+| `outcome` | Enum | `WIN`, `LOSS` o `DRAW`, desde la perspectiva del usuario autenticado en Home o del jugador visitado en el perfil público |
+| `teamAScore` | Int | Marcador del equipo A |
+| `teamBScore` | Int | Marcador del equipo B |
+| `teamVisuals` | Object? | Identidad visual de ambos equipos guardada en el partido; se omite si falta la de alguno de ellos |
+| `teamVisuals.teamA.name` | String | Nombre personalizado del equipo A |
+| `teamVisuals.teamA.color` | String | Color hexadecimal `#RRGGBB` del equipo A |
+| `teamVisuals.teamB.name` | String | Nombre personalizado del equipo B |
+| `teamVisuals.teamB.color` | String | Color hexadecimal `#RRGGBB` del equipo B |
+
+#### Selección y compatibilidad
+
+- Se selecciona el partido más reciente por fecha de fin (`dateTimeEnd`) con estado `COMPLETED`, resultado registrado, participación `RESERVED` o `JOINED` y asistencia `PRESENT` del jugador correspondiente.
+- Si no existe un partido que cumpla esas condiciones, `lastMatch` es nullable en el modelo y se omite del JSON por la configuración `explicitNulls = false`.
+- Los nombres y colores provienen de la identidad guardada en el partido, no del catálogo actual de equipos. Cambiar el catálogo no modifica esta información histórica.
+- En partidos antiguos sin identidad visual completa, el partido y su marcador siguen disponibles, pero `teamVisuals` se omite. El cliente debe aceptar tanto campo ausente como `null` y usar nombres y colores predeterminados en esos casos, también al leer entradas antiguas de su caché.
+- `teamA` corresponde siempre a `teamAScore` y `teamB` a `teamBScore`. No se envía `userTeam`.
+- El último partido y sus visuals se obtienen en una sola consulta SQL con `LEFT JOIN` para ambos endpoints.
 
 ## Eliminación de cuenta
 
@@ -215,7 +248,11 @@ curl --request GET '{{base_url}}/user/home' \
       "playedAt": 1775962200000,
       "outcome": "WIN",
       "teamAScore": 10,
-      "teamBScore": 8
+      "teamBScore": 8,
+      "teamVisuals": {
+        "teamA": { "name": "Les Bleus", "color": "#315DA8" },
+        "teamB": { "name": "Los Blancos", "color": "#E8E5DE" }
+      }
     }
   }
 }
@@ -225,6 +262,7 @@ curl --request GET '{{base_url}}/user/home' \
 - `averageScore` es un entero redondeado (`0..100`) calculado como: `(partidos ganados / partidos jugados) * 100`.
 - Para `averageScore`, se consideran partidos `COMPLETED` donde el jugador tiene `attendanceStatus = PRESENT`. Los jugadores con `NO_SHOW` no reciben estadísticas del resultado.
 - `suggestedMatches` trae como máximo 4 elementos.
+- `lastMatch` incluye los nombres y colores guardados para ambos equipos en `teamVisuals`. Ver el [contrato compartido de `lastMatch`](#contrato-compartido-de-lastmatch) para selección del partido y campos opcionales.
 
 ### 1.3 Subir Foto de Perfil
 

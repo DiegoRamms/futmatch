@@ -5,6 +5,7 @@ import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.model.AppResult
 import com.devapplab.model.match.HomeLastMatch
+import com.devapplab.model.match.mapper.toResponse
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.appRejected
 import com.devapplab.model.user.UserBaseInfo
@@ -144,7 +145,8 @@ class ProfileService(
             playedAt = this.playedAt,
             outcome = this.outcome,
             teamAScore = this.teamAScore,
-            teamBScore = this.teamBScore
+            teamBScore = this.teamBScore,
+            teamVisuals = this.teamVisuals?.toResponse()
         )
     }
 

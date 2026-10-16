@@ -161,7 +161,7 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
     )
 }
 
-private fun MatchTeamVisuals.toResponse() = TeamVisualsResponse(
+internal fun MatchTeamVisuals.toResponse() = TeamVisualsResponse(
     teamA = TeamVisualResponse(teamA.name, teamA.color),
     teamB = TeamVisualResponse(teamB.name, teamB.color)
 )
