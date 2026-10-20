@@ -26,6 +26,7 @@ import com.devapplab.observability.authMfaRequired
 import com.devapplab.observability.authRejected
 import com.devapplab.observability.authSuccess
 import com.devapplab.observability.authEvent
+import com.devapplab.service.auth.mfa.DemoMfaConfig
 import com.devapplab.service.auth.mfa.MfaCodeService
 import com.devapplab.service.auth.mfa.LoginMfaChallengeTokenService
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
@@ -62,6 +63,7 @@ class SignInService(
     private val loginMfaVerifyAttemptRepository: LoginMfaVerifyAttemptRepository,
     private val loginMfaChallengeTokenService: LoginMfaChallengeTokenService,
     private val mfaRateLimitConfig: MfaRateLimitConfig,
+    private val demoMfaConfig: DemoMfaConfig,
     private val authenticatedResponseGenerator: AuthenticatedResponseGenerator,
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -354,6 +356,25 @@ class SignInService(
             return locale.respondSignInBlockedUserError()
         }
 
+        if (demoMfaConfig.isDemoUser(user.email)) {
+            logger.authEvent(
+                severity = AuthLogSeverity.WARN,
+                event = "auth.mfa.demo_shortcut",
+                context = context,
+                outcome = "success",
+                userId = user.id,
+                deviceId = deviceId,
+                extra = mapOf("operation" to "send")
+            )
+            return AppResult.Success(
+                MfaSendCodeResponse(
+                    newCodeSent = true,
+                    expiresInSeconds = DemoMfaConfig.EXPIRES_IN_SECONDS,
+                    resendCodeTimeInSeconds = DemoMfaConfig.RESEND_AFTER_SECONDS
+                )
+            )
+        }
+
         val code = MfaUtils.generateCode()
         val expiresAt = MfaUtils.calculateExpiration(300)
         val hashedMfaCode = hashingService.hashOpaqueToken(code)
@@ -517,6 +538,27 @@ class SignInService(
                 val verifyAttempt = loginMfaVerifyAttemptRepository.find(userId, deviceId)
                 if (verifyAttempt?.lockedUntil != null && verifyAttempt.lockedUntil > now) {
                     return@tx null
+                }
+
+                val demoUser = userRepository.getUserById(userId)?.takeIf { demoMfaConfig.isDemoUser(it.email) }
+                if (demoUser != null) {
+                    if (!demoMfaConfig.matches(mfaCodeVerificationRequest.code)) {
+                        return@tx registerInvalidLoginMfaAttempt(userId, deviceId, now)
+                    }
+                    userRepository.markEmailAsVerified(userId)
+                    deviceRepository.markDeviceAsTrusted(deviceId)
+                    loginMfaVerifyAttemptRepository.delete(userId, deviceId)
+                    mfaContext.challengeTokenHash?.let { loginMfaChallengeRepository.markUsed(it, now) }
+                    logger.authEvent(
+                        severity = AuthLogSeverity.WARN,
+                        event = "auth.mfa.demo_shortcut",
+                        context = context,
+                        outcome = "success",
+                        userId = userId,
+                        deviceId = deviceId,
+                        extra = mapOf("operation" to "verify")
+                    )
+                    return@tx demoUser.userRole
                 }
 
                 val validCode = mfaCodeService.getValidMfaCodeWithGrace(
