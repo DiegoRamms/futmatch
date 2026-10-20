@@ -9,6 +9,7 @@ import com.devapplab.model.WebhookConfig
 import com.devapplab.model.PiiCryptoConfig
 import com.devapplab.model.auth.AppleAuthConfig
 import com.devapplab.model.auth.GoogleAuthConfig
+import com.devapplab.service.auth.mfa.DemoMfaConfig
 import com.devapplab.service.auth.mfa.MfaRateLimitConfig
 import com.devapplab.utils.loadDomainResource
 import com.devapplab.utils.toDomainSet
@@ -108,6 +109,22 @@ val configModule = module {
             timeWindowHours = config.property("mfa.lockout.timeWindowHours").getString().toLong(),
             lockDurationMinutes = config.property("mfa.lockout.lockDurationMinutes").getString().toInt()
         )
+    }
+    single(createdAtStart = true) {
+        val config = get<ApplicationConfig>()
+        val enabled = config.propertyOrNull("demoMfa.enabled")?.getString()?.trim()?.toBooleanStrictOrNull() ?: false
+        if (!enabled) return@single DemoMfaConfig()
+
+        val email = config.propertyOrNull("demoMfa.email")?.getString()?.trim().orEmpty()
+        val code = config.propertyOrNull("demoMfa.code")?.getString()?.trim().orEmpty()
+
+        require(email.isNotBlank()) { "DEMO_MFA_EMAIL is required when DEMO_MFA_ENABLED=true." }
+        require(code.length == DemoMfaConfig.CODE_LENGTH && code.all(Char::isDigit)) {
+            "DEMO_MFA_CODE must be exactly ${DemoMfaConfig.CODE_LENGTH} digits when DEMO_MFA_ENABLED=true."
+        }
+        configLogger.warn("Demo MFA shortcut is ENABLED for a single account. Disable after App Review.")
+
+        DemoMfaConfig(enabled = true, email = email, code = code)
     }
     single {
         val config = get<ApplicationConfig>()

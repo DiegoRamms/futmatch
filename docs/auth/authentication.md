@@ -638,3 +638,18 @@ It must not contain:
     }
 }
 ```
+
+## Cuenta demo para App Review (MFA con código fijo)
+
+Para que el revisor de Apple pueda entrar sin recibir un código por correo, una única cuenta puede usar un código MFA fijo. Está apagado por defecto y se controla solo con variables de entorno:
+
+| Variable | Descripción |
+|---|---|
+| `DEMO_MFA_ENABLED` | `true` para activar el atajo. Cualquier otro valor lo desactiva. |
+| `DEMO_MFA_EMAIL` | Correo exacto de la cuenta demo (obligatorio si está activo). |
+| `DEMO_MFA_CODE` | Código de exactamente 6 dígitos (obligatorio si está activo). |
+
+- `POST /auth/mfa/send` para esa cuenta responde éxito sin enviar correo.
+- `POST /auth/mfa/verify` acepta el código fijo; uno incorrecto cuenta para el bloqueo por intentos y el `challengeToken` conserva su expiración.
+- Si la configuración activa es inválida, la app no arranca. Cada uso queda en logs como `auth.mfa.demo_shortcut` (sin el código).
+- Después de la aprobación, desactiva `DEMO_MFA_ENABLED` o cambia la contraseña de la cuenta.
