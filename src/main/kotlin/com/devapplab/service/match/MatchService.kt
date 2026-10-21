@@ -91,7 +91,9 @@ class MatchService(
 
         val SIGNAL_TTL_AFTER_END = 30.days
         val SIGNAL_TTL_AFTER_CANCEL = 1.days
-        val CAPTURE_METHOD_THRESHOLD = 6.hours
+        // TEMPORARY PAYMENT TEST: capture immediately for matches starting within 24 hours.
+        // Restore to 6.hours after the test; this threshold also affects leave-match payment handling below.
+        val CAPTURE_METHOD_THRESHOLD = 24.hours
         val RESERVATION_TTL = 5.minutes
     }
 
