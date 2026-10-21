@@ -34,7 +34,7 @@ object PaymentCaptureScheduler : KoinComponent {
     }
 
     private suspend fun runCaptureProcess() {
-        logger.info("⏰ Running 6-hour window payment validation...")
+        logger.info("⏰ Running configured payment capture window validation...")
         matchService.capturePendingPayments()
     }
 

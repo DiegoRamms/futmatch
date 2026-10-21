@@ -49,12 +49,14 @@ Un partido se rige por la capacidad definida en el campo `maxPlayers`.
 
 ---
 
-### 5. Reglas de Cobro y la "Regla de las 6 Horas"
+### 5. Reglas de Cobro y Ventana de Captura
 Dependiendo de cuánto tiempo falte para el inicio del partido, el comportamiento del cobro cambia:
 
 * **Más de la ventana máxima de inscripción pagada:** El sistema no permite unirse ni crea un intento de pago. Esta ventana se configura con `MATCH_JOIN_PAYMENT_WINDOW_HOURS` y por defecto es de **120 horas (5 días)** para evitar que las autorizaciones retenidas expiren antes de la captura.
-* **Más de 6 horas para el partido:** El sistema solo **autoriza** el pago (dinero retenido en la tarjeta del usuario, método `MANUAL`). El cobro real sucederá automáticamente cuando falten menos de 6 horas.
-* **Menos de 6 horas para el partido:** El sistema **cobra** el dinero inmediatamente al confirmar el pago (método `AUTOMATIC`).
+* La ventana de captura se configura con `MATCH_PAYMENT_CAPTURE_WINDOW_HOURS` y por defecto es de **6 horas**.
+* **Fuera de la ventana de captura:** El sistema solo **autoriza** el pago (dinero retenido en la tarjeta del usuario, método `MANUAL`). El job lo captura al entrar en la ventana configurada; corre cada 15 minutos.
+* **Dentro de la ventana de captura:** Los pagos nuevos se **cobran** al confirmar el pago (método `AUTOMATIC`).
+* La misma configuración también determina la regla de preservación del pago cuando el jugador sale del partido. Si se configura en 24 horas, aplica en ambos flujos.
 
 ---
 
@@ -63,7 +65,7 @@ Dependiendo de cuánto tiempo falte para el inicio del partido, el comportamient
 Para garantizar que los lugares no se queden bloqueados indefinidamente, existen reglas automáticas:
 
 * **Expiración por inactividad (Timeout):** Si el jugador no completa el pago dentro del tiempo límite (`TTL` de reserva), el sistema cancela el intento de pago, cambia su estado a `CANCELADO`, libera el lugar e informa al usuario.
-* **Fallo en Cobro Diferido:** Si un jugador fue autorizado (retención) y, al llegar la marca de las 6 horas previas al partido, el cobro final falla, el jugador pierde su lugar y pasa a estado `CANCELADO`.
+* **Fallo en Cobro Diferido:** Si un jugador fue autorizado (retención) y, al entrar en la ventana configurada antes del partido, el cobro final falla, el jugador pierde su lugar y pasa a estado `CANCELADO`.
 
 ---
 

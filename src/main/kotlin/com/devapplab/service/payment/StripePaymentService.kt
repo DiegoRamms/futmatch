@@ -56,7 +56,8 @@ class StripePaymentService(
         currency: String,
         metadata: Map<String, String>,
         captureMethod: PaymentCaptureMethod,
-        customerId: String?
+        customerId: String?,
+        receiptEmail: String?
     ): PaymentOperationResult {
         val creationTimer = paymentMetrics.startPaymentIntentTimer()
 
@@ -137,6 +138,7 @@ class StripePaymentService(
                 .setAmount(amount)
                 .setCurrency(currency)
                 .setCustomer(customer.id)
+                .setReceiptEmail(receiptEmail?.takeIf { it.isNotBlank() })
                 .putAllMetadata(metadata)
                 .setCaptureMethod(capture)
                 .setAutomaticPaymentMethods(

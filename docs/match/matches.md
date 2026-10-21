@@ -1567,6 +1567,8 @@ The backend only allows paid registration when the match starts within the confi
 - If the match starts after this window, the backend rejects the request before reserving a spot or creating a Stripe `PaymentIntent`.
 - This rule is based on the match start timestamp, not the match creation timestamp.
 
+The payment capture window is configured separately with `MATCH_PAYMENT_CAPTURE_WINDOW_HOURS` (default `6`). New payments within this many hours of kickoff are captured immediately when confirmed; existing manual authorizations are captured by the 15-minute scheduler once they enter the same window. The value also controls payment preservation when a player leaves.
+
 ### Early Join Error Response
 
 ```json

@@ -18,7 +18,8 @@ interface PaymentService {
         currency: String,
         metadata: Map<String, String>,
         captureMethod: PaymentCaptureMethod,
-        customerId: String?
+        customerId: String?,
+        receiptEmail: String? = null
     ): PaymentOperationResult
 
     suspend fun confirmPayment(

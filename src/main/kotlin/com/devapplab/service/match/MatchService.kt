@@ -91,9 +91,6 @@ class MatchService(
 
         val SIGNAL_TTL_AFTER_END = 30.days
         val SIGNAL_TTL_AFTER_CANCEL = 1.days
-        // TEMPORARY PAYMENT TEST: capture immediately for matches starting within 24 hours.
-        // Restore to 6.hours after the test; this threshold also affects leave-match payment handling below.
-        val CAPTURE_METHOD_THRESHOLD = 24.hours
         val RESERVATION_TTL = 5.minutes
     }
 
@@ -1048,6 +1045,7 @@ class MatchService(
         val now = System.currentTimeMillis()
         val timeUntilMatch = match.dateTime - now
         val maxJoinPaymentWindowMs = matchPaymentConfig.maxJoinPaymentWindowHours.hours.inWholeMilliseconds
+        val captureWindowMs = matchPaymentConfig.captureWindowHours.hours.inWholeMilliseconds
 
         if (timeUntilMatch > maxJoinPaymentWindowMs) {
             paymentMetrics.recordJoin(
@@ -1170,13 +1168,13 @@ class MatchService(
             val matchPlayerId = matchRepository.getMatchPlayerId(matchId, userId)
                 ?: throw IllegalStateException("Match player not found after join")
 
-            val captureMethod = if (timeUntilMatch > CAPTURE_METHOD_THRESHOLD.inWholeMilliseconds) {
+            val captureMethod = if (timeUntilMatch > captureWindowMs) {
                 PaymentCaptureMethod.MANUAL
             } else {
                 PaymentCaptureMethod.AUTOMATIC
             }
 
-            if (timeUntilMatch <= CAPTURE_METHOD_THRESHOLD.inWholeMilliseconds) {
+            if (timeUntilMatch <= captureWindowMs) {
                 val confirmedPayment = paymentRepository.getLatestConfirmedPaymentForPlayer(matchId, userId)
                 if (confirmedPayment != null) {
                     paymentMetrics.recordJoin(
@@ -1223,6 +1221,9 @@ class MatchService(
             val paymentService = paymentServiceFactory.getService(paymentProvider)
             val storedCustomerId = userRepository.getPaymentProfile(userId, paymentProvider)
             val resolvedCustomerId = storedCustomerId ?: billingService.getOrCreateCustomer(userId, paymentProvider)
+            val receiptEmail = userRepository.getUserById(userId)
+                ?.takeIf { it.isEmailVerified }
+                ?.email
 
             logger.info("💳 [MATCH_TRACE] joinMatch | Creating payment intent... | userId=$userId | matchId=$matchId")
 
@@ -1235,7 +1236,8 @@ class MatchService(
                     "matchPlayerId" to matchPlayerId.toString()
                 ),
                 captureMethod = captureMethod,
-                customerId = resolvedCustomerId
+                customerId = resolvedCustomerId,
+                receiptEmail = receiptEmail
             )
 
             return when (paymentResult) {
@@ -1384,7 +1386,7 @@ class MatchService(
         }
 
         val timeUntilMatch = match.dateTime - System.currentTimeMillis()
-        val preserveConfirmedPayment = if (timeUntilMatch <= CAPTURE_METHOD_THRESHOLD.inWholeMilliseconds) {
+        val preserveConfirmedPayment = if (timeUntilMatch <= matchPaymentConfig.captureWindowHours.hours.inWholeMilliseconds) {
             paymentRepository.getLatestConfirmedPaymentForPlayer(matchId, userId) != null
         } else {
             false
@@ -1517,17 +1519,17 @@ class MatchService(
         sendPaymentWindowWarnings()
 
         val now = System.currentTimeMillis()
-        val sixHoursInMillis = 6.hours.inWholeMilliseconds
-        val endTimeWindow = now + sixHoursInMillis
+        val captureWindowMs = matchPaymentConfig.captureWindowHours.hours.inWholeMilliseconds
+        val endTimeWindow = now + captureWindowMs
 
         val pendingPayments = paymentRepository.getPendingCapturePayments(now, endTimeWindow)
 
         if (pendingPayments.isEmpty()) {
-            logger.info("✅ No pending payments to capture in the next 6 hours.")
+            logger.info("✅ No pending payments to capture in the next {} hours.", matchPaymentConfig.captureWindowHours)
             return
         }
 
-        logger.info("💰 Found ${pendingPayments.size} payments to capture. Processing...")
+        logger.info("💰 Found {} payments to capture in the next {} hours. Processing...", pendingPayments.size, matchPaymentConfig.captureWindowHours)
 
         pendingPayments.forEach { paymentInfo ->
             try {

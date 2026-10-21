@@ -97,7 +97,12 @@ val configModule = module {
             maxJoinPaymentWindowHours = config.propertyOrNull("match.payment.maxJoinWindowHours")
                 ?.getString()
                 ?.toLongOrNull()
-                ?: 120
+                ?: 120,
+            captureWindowHours = config.propertyOrNull("match.payment.captureWindowHours")
+                ?.getString()
+                ?.toLongOrNull()
+                ?.takeIf { it > 0 }
+                ?: 6
         )
     }
 

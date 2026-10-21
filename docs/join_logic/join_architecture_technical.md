@@ -44,7 +44,7 @@ El estado del jugador en un partido se define mediante los siguientes estados t�
 
 #### Fase 3: Orquestación del Pago
 1. El Backend calcula el precio final del partido tras aplicar descuentos (`totalDiscount`).
-2. Se determina el método de captura de pago (`MANUAL` o `AUTOMATIC`) evaluando el tiempo restante hasta el partido frente al umbral `CAPTURE_METHOD_THRESHOLD` (usualmente 6 horas).
+2. Se determina el método de captura de pago (`MANUAL` o `AUTOMATIC`) evaluando el tiempo restante hasta el partido frente a `MATCH_PAYMENT_CAPTURE_WINDOW_HOURS` (por defecto, 6 horas).
 3. Se obtiene o se crea el registro del cliente en el proveedor de pagos (`billingService`).
 4. Se crea un `PaymentIntent` con el proveedor (ej. Stripe), enviando en los metadatos los IDs del partido, jugador y usuario.
 5. Tras el éxito de esta creación, se guarda un registro local en `paymentRepository` con estado `CREATED`.
