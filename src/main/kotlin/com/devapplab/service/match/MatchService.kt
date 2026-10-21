@@ -1221,7 +1221,7 @@ class MatchService(
             val paymentService = paymentServiceFactory.getService(paymentProvider)
             val storedCustomerId = userRepository.getPaymentProfile(userId, paymentProvider)
             val resolvedCustomerId = storedCustomerId ?: billingService.getOrCreateCustomer(userId, paymentProvider)
-            val receiptEmail = userRepository.getUserById(userId)
+            val receiptEmail = dbExecutor.tx { userRepository.getUserById(userId) }
                 ?.takeIf { it.isEmailVerified }
                 ?.email
 
