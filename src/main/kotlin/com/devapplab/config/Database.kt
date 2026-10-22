@@ -84,6 +84,8 @@ fun Application.configureDatabase() {
     val isDevelopment =
         environment.config.propertyOrNull("ktor.development")?.getString()?.toBoolean() ?: false
 
+    log.info("Ktor development mode: {}", isDevelopment)
+
     val allTables = arrayOf(
         UserTable,
         AuthIdentityTable,

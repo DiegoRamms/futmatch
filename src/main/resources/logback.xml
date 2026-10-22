@@ -9,6 +9,6 @@
     </root>
     <logger name="org.eclipse.jetty" level="INFO"/>
     <logger name="io.netty" level="INFO"/>
-    <!-- Exposed logger set to WARN so it doesn't log SQL by default in Production -->
+    <!-- Suppress Exposed SLF4J logs. StdOutSqlLogger is enabled only when KTOR_DEVELOPMENT=true. -->
     <logger name="Exposed" level="WARN"/>
 </configuration>
