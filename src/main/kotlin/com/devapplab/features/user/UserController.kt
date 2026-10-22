@@ -64,7 +64,7 @@ class UserController(private val service: UserService) {
             .propertyOrNull("testing.force_country_update_error")
             ?.getString()
             ?.toBooleanStrictOrNull() == true
-        if (forceTestError && request.countryCode == "__force_test_500__") {
+        if (forceTestError) {
             throw IllegalStateException("Intentional country update failure test")
         }
         val result = service.updateCountry(userId, request.countryCode, locale, call.requestContext())
