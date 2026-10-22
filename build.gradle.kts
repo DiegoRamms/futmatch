@@ -34,7 +34,6 @@ dependencies {
     implementation(libs.h2)
     implementation(libs.postgresql)
     implementation(libs.hikari)
-    implementation(libs.ktor.server.cors)
     implementation(libs.ktor.server.compression)
     implementation(libs.ktor.server.request.validation)
     implementation(libs.ktor.server.auth)

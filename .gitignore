@@ -34,3 +34,20 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.p8
+*.key
+*-service-account*.json
+*firebase-adminsdk*.json
+jwt-private*
+
+# Local-only files and backups
+.DS_Store
+*.dump
+*.backup.sql
+Backups/

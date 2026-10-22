@@ -134,10 +134,13 @@ fun Application.configureDatabase() {
             MigrationUtils.statementsRequiredForDatabaseMigration(*allTables)
 
         if (migrationStatements.isNotEmpty()) {
-            log.info("Pending DB migration statements:")
-
-            migrationStatements.forEach { statement ->
-                log.info(statement)
+            if (isDevelopment) {
+                log.info("Pending DB migration statements:")
+                migrationStatements.forEach { statement ->
+                    log.info(statement)
+                }
+            } else {
+                log.info("Applying {} pending DB migration statement(s).", migrationStatements.size)
             }
 
             val dangerousStatements = migrationStatements.filter {

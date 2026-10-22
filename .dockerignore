@@ -1,0 +1,26 @@
+.git
+.github
+.gradle
+.idea
+.vscode
+build
+**/build
+out
+*.iml
+.DS_Store
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.p8
+*.key
+*-service-account*.json
+*firebase-adminsdk*.json
+jwt-private*
+
+# Local data and backups
+*.dump
+*.backup.sql
+Backups/
