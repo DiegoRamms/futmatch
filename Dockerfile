@@ -1,4 +1,4 @@
-FROM gradle:8.10.2-jdk17-alpine AS build
+FROM gradle:8.14.4-jdk17-alpine AS build
 WORKDIR /home/app
 COPY . .
 RUN gradle installDist --no-daemon

@@ -1,16 +1,24 @@
 [versions]
-exposed-version = "1.1.1"
+exposed-version = "1.5.1"
 h2-version = "2.3.232"
 koin-version = "4.1.0-Beta5"
-kotlin-version = "2.1.20"
-ktor-version = "3.1.1"
-logback-version = "1.5.25"
-postgres-version = "42.7.7"
+kotlin-version = "2.4.21"
+ktor-version = "3.6.0"
+logback-version = "1.6.5"
+postgres-version = "42.7.14"
 bcrypt = "0.10.2"
-micrometer = "1.6.13"
-firebase-admin-version = "9.7.0"
+micrometer = "1.17.2"
+firebase-admin-version = "9.11.0"
 jwks-rsa-version = "0.22.1"
-grpc-version = "1.75.0"
+grpc-version = "1.85.1"
+netty-version = "4.2.19.Final"
+opentelemetry-version = "1.67.0"
+java-jwt-version = "4.6.2"
+httpclient5-version = "5.6.5"
+httpcore5-version = "5.4.4"
+jackson-version = "2.22.4"
+log4j-version = "2.25.5"
+plexus-utils-version = "4.0.3"
 cloudinary-version = "2.0.0"
 commons-lang3-version = "3.18.0"
 stripe-version = "31.3.0"
@@ -45,6 +53,16 @@ ktor-server-call-id = { module = "io.ktor:ktor-server-call-id", version.ref = "k
 ktor-server-double-receive = { module = "io.ktor:ktor-server-double-receive", version.ref = "ktor-version" }
 ktor-server-metrics-micrometer = { module = "io.ktor:ktor-server-metrics-micrometer", version.ref = "ktor-version" }
 micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
+micrometer-bom = { module = "io.micrometer:micrometer-bom", version.ref = "micrometer" }
+netty-bom = { module = "io.netty:netty-bom", version.ref = "netty-version" }
+opentelemetry-bom = { module = "io.opentelemetry:opentelemetry-bom", version.ref = "opentelemetry-version" }
+java-jwt = { module = "com.auth0:java-jwt", version.ref = "java-jwt-version" }
+httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "httpclient5-version" }
+httpcore5 = { module = "org.apache.httpcomponents.core5:httpcore5", version.ref = "httpcore5-version" }
+httpcore5-h2 = { module = "org.apache.httpcomponents.core5:httpcore5-h2", version.ref = "httpcore5-version" }
+jackson-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson-version" }
+log4j-bom = { module = "org.apache.logging.log4j:log4j-bom", version.ref = "log4j-version" }
+plexus-utils = { module = "org.codehaus.plexus:plexus-utils", version.ref = "plexus-utils-version" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor-version" }
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin-version" }
 

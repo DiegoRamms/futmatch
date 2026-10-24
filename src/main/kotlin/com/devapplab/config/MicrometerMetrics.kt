@@ -8,8 +8,8 @@ import io.ktor.server.request.path
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig
-import io.micrometer.prometheus.PrometheusConfig
-import io.micrometer.prometheus.PrometheusMeterRegistry
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import java.security.MessageDigest
 import java.time.Duration
 

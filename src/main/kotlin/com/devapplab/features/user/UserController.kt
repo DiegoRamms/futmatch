@@ -60,13 +60,6 @@ class UserController(private val service: UserService) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<UpdateCountryRequest>()
-        val forceTestError = call.application.environment.config
-            .propertyOrNull("testing.force_country_update_error")
-            ?.getString()
-            ?.toBooleanStrictOrNull() == true
-        if (forceTestError) {
-            throw IllegalStateException("Intentional country update failure test")
-        }
         val result = service.updateCountry(userId, request.countryCode, locale, call.requestContext())
         call.respond(result)
     }

@@ -1,3 +1,13 @@
+buildscript {
+    dependencies {
+        // Plugin dependencies use a separate classpath from application dependencies.
+        classpath(platform(libs.jackson.bom))
+        classpath(platform(libs.log4j.bom))
+        constraints {
+            classpath(libs.plexus.utils) { because("CVE-2025-67030: fix archive path traversal in build plugins") }
+        }
+    }
+}
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -20,7 +30,24 @@ repositories {
     maven { url = uri("https://packages.confluent.io/maven/") }
 }
 
+configurations.configureEach {
+    // CVE-2026-8484: unmaintained Jansi has no patched release.
+    // CallLogging uses a plain-text formatter without its optional ANSI support.
+    exclude(group = "org.fusesource.jansi", module = "jansi")
+}
+
 dependencies {
+    // Keep shared transitive modules aligned across Ktor, Firebase, and Cloudinary.
+    implementation(platform(libs.netty.bom))
+    implementation(platform(libs.micrometer.bom))
+    implementation(platform(libs.opentelemetry.bom))
+    implementation(platform(libs.jackson.bom))
+    constraints {
+        implementation(libs.java.jwt) { because("Includes JWT parsing security fixes and updated Jackson dependencies") }
+        implementation(libs.httpclient5) { because("Includes HTTP client security fixes") }
+        implementation(libs.httpcore5) { because("Keep HTTP/1 and HTTP/2 on the patched HttpCore release") }
+        implementation(libs.httpcore5.h2) { because("Keep HTTP/1 and HTTP/2 on the patched HttpCore release") }
+    }
     implementation(libs.ktor.server.rate.limiting)
     implementation(libs.koin.ktor)
     implementation(libs.koin.logger.slf4j)
