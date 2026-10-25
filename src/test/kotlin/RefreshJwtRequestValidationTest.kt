@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.devapplab.features.auth.validation.validate
 import com.devapplab.model.auth.response.RefreshJWTRequest
 import io.ktor.server.plugins.requestvalidation.ValidationResult

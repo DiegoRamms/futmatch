@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.devapplab.model.EmailDomainPolicyConfig
 import com.devapplab.service.email.EmailDomainPolicy
 import kotlin.test.Test

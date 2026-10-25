@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
 object MatchLifecycleScheduler : KoinComponent {
@@ -33,7 +34,7 @@ object MatchLifecycleScheduler : KoinComponent {
                 } catch (e: Exception) {
                     logger.error("Error in match lifecycle synchronization cycle", e)
                 }
-                delay(intervalMs)
+                delay(intervalMs.milliseconds)
             }
         }
     }

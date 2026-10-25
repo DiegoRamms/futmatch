@@ -5,6 +5,7 @@ import kotlinx.coroutines.*
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
 object PaymentCaptureScheduler : KoinComponent {
@@ -28,7 +29,7 @@ object PaymentCaptureScheduler : KoinComponent {
                 } catch (e: Exception) {
                     logger.error("❌ Error in payment capture cycle", e)
                 }
-                delay(INTERVAL_MS)
+                delay(INTERVAL_MS.milliseconds)
             }
         }
     }

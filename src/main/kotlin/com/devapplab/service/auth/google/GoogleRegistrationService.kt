@@ -65,7 +65,7 @@ class GoogleRegistrationService(
                     return@tx null
                 }
                 if (userRepository.isEmailAlreadyRegistered(identity.email)) {
-                    throw EmailAlreadyRegisteredException
+                    throw EmailAlreadyRegisteredException()
                 }
                 val now = System.currentTimeMillis()
                 val userId = userRepository.addUser(
@@ -85,7 +85,7 @@ class GoogleRegistrationService(
                 GoogleRegistrationCreated(userId, deviceId)
             }
         }.getOrElse { error ->
-            if (error == EmailAlreadyRegisteredException) {
+            if (error is EmailAlreadyRegisteredException) {
                 return locale.createError(
                     StringResourcesKey.REGISTER_EMAIL_ALREADY_EXISTS_TITLE,
                     StringResourcesKey.REGISTER_EMAIL_ALREADY_EXISTS_DESCRIPTION,
@@ -140,5 +140,5 @@ class GoogleRegistrationService(
     }
 
     private data class GoogleRegistrationCreated(val userId: UUID, val deviceId: UUID)
-    private data object EmailAlreadyRegisteredException : RuntimeException()
+    private class EmailAlreadyRegisteredException : RuntimeException()
 }

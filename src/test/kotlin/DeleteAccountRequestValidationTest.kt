@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.devapplab.features.user.validation.validate
 import com.devapplab.model.user.request.DeleteAccountRequest
 import com.devapplab.utils.StringResourcesKey

@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.devapplab.di.configModule
 import com.devapplab.service.auth.mfa.DemoMfaConfig
 import io.ktor.server.config.ApplicationConfig

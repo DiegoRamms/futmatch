@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.devapplab.model.MatchPricingConfig
 import com.devapplab.service.match.MatchPricingCalculator
 import com.devapplab.service.match.MatchPricingInputs

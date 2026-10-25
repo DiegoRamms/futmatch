@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.devapplab.data.database.notification.NotificationTable
 import com.devapplab.data.repository.notification.NotificationRepositoryImpl
 import com.devapplab.model.notification.NotificationType

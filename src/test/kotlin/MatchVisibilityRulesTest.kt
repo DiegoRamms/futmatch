@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerLevel

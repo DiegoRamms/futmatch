@@ -83,8 +83,8 @@ class PiiCrypto(config: PiiCryptoConfig) {
         const val GCM_TAG_BITS = 128
         const val GCM_TAG_BYTES = GCM_TAG_BITS / 8
         val secureRandom = SecureRandom()
-        val base64Encoder = Base64.getUrlEncoder().withoutPadding()
-        val base64Decoder = Base64.getUrlDecoder()
-        val standardBase64Decoder = Base64.getDecoder()
+        val base64Encoder: Base64.Encoder = Base64.getUrlEncoder().withoutPadding()
+        val base64Decoder: Base64.Decoder = Base64.getUrlDecoder()
+        val standardBase64Decoder: Base64.Decoder = Base64.getDecoder()
     }
 }

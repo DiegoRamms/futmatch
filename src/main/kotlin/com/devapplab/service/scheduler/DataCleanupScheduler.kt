@@ -6,6 +6,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.milliseconds
 
 object DataCleanupScheduler : KoinComponent {
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -31,7 +32,7 @@ object DataCleanupScheduler : KoinComponent {
                 } catch (e: Exception) {
                     logger.error("❌ Error in data cleanup cycle", e)
                 }
-                delay(INTERVAL_MS)
+                delay(INTERVAL_MS.milliseconds)
             }
         }
     }

@@ -78,7 +78,7 @@ class AppleRegistrationService(
                     return@tx null
                 }
                 if (userRepository.isEmailAlreadyRegistered(email)) {
-                    throw EmailAlreadyRegisteredException
+                    throw EmailAlreadyRegisteredException()
                 }
                 val now = System.currentTimeMillis()
                 val userId = userRepository.addUser(
@@ -99,7 +99,7 @@ class AppleRegistrationService(
                 AppleRegistrationCreated(userId, deviceId)
             }
         }.getOrElse { error ->
-            if (error == EmailAlreadyRegisteredException) {
+            if (error is EmailAlreadyRegisteredException) {
                 return locale.createError(
                     StringResourcesKey.REGISTER_EMAIL_ALREADY_EXISTS_TITLE,
                     StringResourcesKey.REGISTER_EMAIL_ALREADY_EXISTS_DESCRIPTION,
@@ -154,5 +154,5 @@ class AppleRegistrationService(
     }
 
     private data class AppleRegistrationCreated(val userId: UUID, val deviceId: UUID)
-    private data object EmailAlreadyRegisteredException : RuntimeException()
+    private class EmailAlreadyRegisteredException : RuntimeException()
 }

@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.devapplab.service.auth.mfa.LoginMfaChallengeTokenServiceImpl
 import com.devapplab.service.hashing.HashingServiceImpl
 import kotlin.test.Test

@@ -1,9 +1,8 @@
-package com.devapplab
-
 import com.devapplab.features.auth.validation.validate
 import com.devapplab.model.mfa.MfaCodeRequest
 import com.devapplab.model.mfa.MfaCodeVerificationRequest
 import io.ktor.server.plugins.requestvalidation.ValidationResult
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -14,7 +13,7 @@ class MfaChallengeRequestValidationTest {
     fun `mfa send request requires non blank challenge token`() {
         val invalid = MfaCodeRequest("").validate()
         val valid = MfaCodeRequest("challenge-token").validate()
-        val legacy = MfaCodeRequest(userId = java.util.UUID.randomUUID(), deviceId = java.util.UUID.randomUUID()).validate()
+        val legacy = MfaCodeRequest(userId = UUID.randomUUID(), deviceId = UUID.randomUUID()).validate()
 
         assertTrue(invalid is ValidationResult.Invalid)
         assertEquals(ValidationResult.Valid, valid)
@@ -27,8 +26,8 @@ class MfaChallengeRequestValidationTest {
         val invalidCode = MfaCodeVerificationRequest("challenge-token", code = "").validate()
         val valid = MfaCodeVerificationRequest("challenge-token", code = "123456").validate()
         val legacy = MfaCodeVerificationRequest(
-            userId = java.util.UUID.randomUUID(),
-            deviceId = java.util.UUID.randomUUID(),
+            userId = UUID.randomUUID(),
+            deviceId = UUID.randomUUID(),
             code = "123456"
         ).validate()
 

@@ -20,6 +20,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import kotlinx.coroutines.*
 import java.util.*
+import kotlin.time.Duration.Companion.milliseconds
 
 class MatchController(private val matchService: com.devapplab.service.match.MatchService) {
     suspend fun createMatch(call: ApplicationCall) {
@@ -117,7 +118,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
 
                 val heartbeatJob = launch {
                     while (currentCoroutineContext().isActive) {
-                        delay(15_000)
+                        delay(15_000.milliseconds)
                         sendRaw(": ping\n\n") // comentario SSE
                     }
                 }

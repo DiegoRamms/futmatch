@@ -1,11 +1,10 @@
-package com.devapplab
-
 import com.devapplab.features.auth.validation.validate
 import com.devapplab.features.device.validation.validate
 import com.devapplab.model.auth.request.SignOutRequest
 import com.devapplab.model.device.DevicePlatform
 import com.devapplab.model.device.UpdateFcmTokenRequest
 import io.ktor.server.plugins.requestvalidation.ValidationResult
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -15,8 +14,8 @@ class JwtDeviceMigrationRequestValidationTest {
     @Test
     fun `sign out request allows missing legacy device id during jwt migration`() {
         val migrated = SignOutRequest().validate()
-        val legacy = SignOutRequest(deviceId = java.util.UUID.randomUUID()).validate()
-        val invalid = SignOutRequest(deviceId = java.util.UUID(0, 0)).validate()
+        val legacy = SignOutRequest(deviceId = UUID.randomUUID()).validate()
+        val invalid = SignOutRequest(deviceId = UUID(0, 0)).validate()
 
         assertEquals(ValidationResult.Valid, migrated)
         assertEquals(ValidationResult.Valid, legacy)
@@ -34,7 +33,7 @@ class JwtDeviceMigrationRequestValidationTest {
         ).validate()
 
         val legacy = UpdateFcmTokenRequest(
-            deviceId = java.util.UUID.randomUUID(),
+            deviceId = UUID.randomUUID(),
             platform = DevicePlatform.ANDROID,
             fcmToken = "token",
             deviceInfo = "Pixel 9 / Android 16",
@@ -43,7 +42,7 @@ class JwtDeviceMigrationRequestValidationTest {
         ).validate()
 
         val invalid = UpdateFcmTokenRequest(
-            deviceId = java.util.UUID(0, 0),
+            deviceId = UUID(0, 0),
             platform = DevicePlatform.ANDROID,
             fcmToken = "token",
             deviceInfo = "Pixel 9 / Android 16",

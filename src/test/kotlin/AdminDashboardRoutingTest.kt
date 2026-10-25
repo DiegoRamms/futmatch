@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.devapplab.data.repository.admin.DashboardRepository

@@ -1,5 +1,3 @@
-package com.devapplab
-
 import com.devapplab.di.configModule
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.MapApplicationConfig
