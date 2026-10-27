@@ -1,9 +1,15 @@
 FROM gradle:8.14.4-jdk17-alpine AS build
+RUN apk update \
+    && apk upgrade --no-cache ca-certificates \
+    && update-ca-certificates
 WORKDIR /home/app
 COPY . .
 RUN gradle installDist --no-daemon
 
 FROM eclipse-temurin:17-jre-alpine
+RUN apk update \
+    && apk upgrade --no-cache ca-certificates \
+    && update-ca-certificates
 WORKDIR /app
 COPY --from=build /home/app/build/install/futmatch /app
 ENV PORT=8080
