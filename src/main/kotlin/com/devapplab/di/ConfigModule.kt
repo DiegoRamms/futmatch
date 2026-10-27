@@ -135,7 +135,7 @@ val configModule = module {
         val config = get<ApplicationConfig>()
         EmailConfig(
             apiToken = config.property("email.apiToken").getString(),
-            fromEmail = "hello@interfut.app",
+            fromEmail = config.property("email.fromEmail").getString(),
             fromName = "InterFut"
         )
     }

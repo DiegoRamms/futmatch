@@ -24,6 +24,12 @@ Ktor backend for Futmatch.
 - Observability: [logging_standard.md](/Users/diego/ServerKtorProjects/futmatch/docs/observability/logging_standard.md)
 - AI/project context: [AI_CONTEXT.md](/Users/diego/ServerKtorProjects/futmatch/AI_CONTEXT.md)
 
+## Email
+
+Mailtrap uses `EMAIL_TOKEN` and defaults to the sender `hello@futmatch.mx`.
+Set `EMAIL_FROM_ADDRESS` to override the sender. When migrating accounts, update
+`EMAIL_TOKEN` and set `EMAIL_FROM_ADDRESS=hello@interfut.app`, then restart or redeploy.
+
 ## Notes
 
 - Keep backend contracts aligned with the docs above

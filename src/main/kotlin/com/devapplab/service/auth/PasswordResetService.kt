@@ -142,7 +142,11 @@ class PasswordResetService(
         when (creationResult) {
             is MfaCreationResult.Created -> {
                 runCatching {
-                    emailService.sendMfaPasswordResetEmail(user.email, code, locale)
+                    val sent = emailService.sendMfaPasswordResetEmail(user.email, code, locale)
+                    if (!sent) {
+                        logger.authEvent(AuthLogSeverity.ERROR, "auth.password_reset.request.failed", context, "failed", "email_send_failed", userId = user.id)
+                        return genericSuccessResponse
+                    }
                     logger.authEvent(AuthLogSeverity.INFO, "auth.password_reset.request.success", context, "success", userId = user.id)
                     runCatching {
                         passwordResetVerifyAttemptRepository.deleteSafe(email)
@@ -154,7 +158,15 @@ class PasswordResetService(
                 }
             }
 
-            is MfaCreationResult.Cooldown -> logger.authEvent(AuthLogSeverity.WARN, "auth.password_reset.request.failed", context, "rejected", "cooldown")
+            is MfaCreationResult.Cooldown -> logger.authEvent(
+                AuthLogSeverity.WARN,
+                "auth.password_reset.request.failed",
+                context,
+                "rejected",
+                "cooldown",
+                userId = user.id,
+                extra = mapOf("retryAfterSeconds" to creationResult.retryAfterSeconds)
+            )
             is MfaCreationResult.Locked -> logger.authEvent(AuthLogSeverity.WARN, "auth.password_reset.request.failed", context, "blocked", "generation_locked")
         }
 
