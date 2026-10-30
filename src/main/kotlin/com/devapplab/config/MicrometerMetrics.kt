@@ -1,5 +1,6 @@
 package com.devapplab.config
 
+import com.devapplab.observability.AuthMetrics
 import io.ktor.server.application.*
 import io.ktor.server.config.*
 import io.ktor.http.*
@@ -19,6 +20,7 @@ private val uuidPathSegment = Regex("/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{
 
 fun Application.configureMicrometerMetrics() {
     val metricsBearerToken = environment.config.requiredMetricsBearerToken()
+    AuthMetrics(prometheusRegistry)
 
     install(MicrometerMetrics) {
         registry = prometheusRegistry

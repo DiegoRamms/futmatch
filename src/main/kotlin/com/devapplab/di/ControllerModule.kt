@@ -14,12 +14,14 @@ import com.devapplab.features.notification.NotificationController
 import com.devapplab.features.payment.PaymentController
 import com.devapplab.features.profile.ProfileController
 import com.devapplab.features.user.UserController
+import com.devapplab.features.ranking.RankingController
 import org.koin.core.module.dsl.scopedOf
 import org.koin.dsl.module
 import org.koin.module.requestScope
 
 val controllerModule = module {
     requestScope {
+        scopedOf(::RankingController)
         scopedOf(::AdminDashboardController)
         scopedOf(::AuthController)
         scopedOf(::AdminUserController)

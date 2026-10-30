@@ -14,6 +14,7 @@ import com.devapplab.features.match.matchRouting
 import com.devapplab.features.notification.notificationRouting
 import com.devapplab.features.payment.paymentsRouting
 import com.devapplab.features.payment.stripeRouting
+import com.devapplab.features.ranking.rankingRouting
 import com.devapplab.features.profile.profileRouting
 import com.devapplab.features.user.userRouting
 import com.devapplab.model.AppCheckConfig
@@ -166,6 +167,7 @@ fun Application.configureRouting() {
                     deviceRouting()
                     notificationRouting()
                     profileRouting()
+                    rankingRouting()
                 }
             }
         }

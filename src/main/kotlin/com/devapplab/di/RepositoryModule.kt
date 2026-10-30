@@ -55,11 +55,13 @@ import com.devapplab.data.repository.user.UserRepository
 import com.devapplab.data.repository.user.UserRepositoryImpl
 import com.devapplab.data.repository.team.TeamRepository
 import com.devapplab.data.repository.team.TeamRepositoryImpl
+import com.devapplab.data.repository.ranking.RankingRepositoryImpl
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 val repositoryModule = module {
+    singleOf(::RankingRepositoryImpl) { bind<com.devapplab.data.repository.ranking.RankingRepository>() }
     singleOf(::DashboardRepositoryImpl) { bind<DashboardRepository>() }
     singleOf(::UserRepositoryImpl) { bind<UserRepository>() }
     singleOf(::RefreshTokenRepositoryImp) { bind<RefreshTokenRepository>() }

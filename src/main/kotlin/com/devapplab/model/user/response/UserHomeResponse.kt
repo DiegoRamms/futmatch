@@ -1,5 +1,6 @@
 package com.devapplab.model.user.response
 
+import com.devapplab.model.ranking.RankingSummary
 import com.devapplab.model.match.HomeMatchOutcome
 import com.devapplab.model.match.response.TeamVisualsResponse
 import com.devapplab.model.user.PlayerLevel
@@ -11,7 +12,8 @@ import java.util.UUID
 data class UserHomeResponse(
     val profile: HomeProfileSection,
     val suggestedMatches: List<HomeSuggestedMatchSection>,
-    val lastMatch: HomeLastMatchSection?
+    val lastMatch: HomeLastMatchSection?,
+    val ranking: RankingSummary? = null
 )
 
 @Serializable

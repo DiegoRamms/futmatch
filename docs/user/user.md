@@ -206,7 +206,8 @@ Authorization: Bearer <access_token>
 Obtiene la información del Home del usuario autenticado en una sola respuesta:
 - perfil resumido (`greetingName`, `level`, `averageScore`, `profileImageUrl`)
 - partidos sugeridos (máximo 4)
-- último partido jugado (`lastMatch`)
+- resumen del ranking mensual de victorias (`ranking`)
+- último partido jugado (`lastMatch`), conservado por compatibilidad
 
 *   **Método:** `GET`
 *   **Path:** `/user/home`
@@ -253,12 +254,34 @@ curl --request GET '{{base_url}}/user/home' \
         "teamA": { "name": "Les Bleus", "color": "#315DA8" },
         "teamB": { "name": "Los Blancos", "color": "#E8E5DE" }
       }
+    },
+    "ranking": {
+      "period": {
+        "year": 2026,
+        "month": 4,
+        "startTime": 1775001600000,
+        "endTimeExclusive": 1777593600000,
+        "timeZone": "UTC"
+      },
+      "community": { "id": "global", "name": "Global" },
+      "category": "VICTORIES",
+      "status": "RANKED",
+      "position": 5,
+      "victories": 7,
+      "matchesPlayed": 12,
+      "nextTarget": { "position": 4, "victories": 8 },
+      "calculatedAt": 1776052200000
     }
   }
 }
 ```
 
 #### Notas:
+- `ranking` contiene el resumen de **Victorias** del mes actual UTC. Home ya incluye estos datos; no es necesario llamar también a `GET /rankings/summary` para pintar la tarjeta.
+- `period.startTime` es inclusivo y `period.endTimeExclusive` es exclusivo; ambos son epoch milisegundos. `community.id` es `global` y `category` es `VICTORIES`.
+- `status` es `RANKED` si el usuario participó en un partido elegible, o `NOT_PARTICIPATING` si no participó. En este último caso `position` y `nextTarget` se omiten por `explicitNulls = false`, y `victories` y `matchesPlayed` son 0.
+- `nextTarget` contiene la posición y victorias del siguiente puntaje superior; se omite cuando no existe, incluido el primer lugar. El cliente calcula la diferencia para el texto de la meta: permite **igualar** ese puntaje, no garantiza superarlo.
+- Al abrir la tarjeta, consultar la clasificación con el año, mes y comunidad de `ranking` y la categoría `victories`. Ver [contrato de rankings](../ranking/rankings.md).
 - `averageScore` es un entero redondeado (`0..100`) calculado como: `(partidos ganados / partidos jugados) * 100`.
 - Para `averageScore`, se consideran partidos `COMPLETED` donde el jugador tiene `attendanceStatus = PRESENT`. Los jugadores con `NO_SHOW` no reciben estadísticas del resultado.
 - `suggestedMatches` trae como máximo 4 elementos.

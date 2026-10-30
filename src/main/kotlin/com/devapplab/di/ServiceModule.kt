@@ -55,11 +55,13 @@ import com.devapplab.service.payment.PendingMatchPaymentService
 import com.devapplab.service.payment.StripePaymentService
 import com.devapplab.service.payment.StripeWebhookService
 import com.devapplab.service.pii.PiiCrypto
+import com.devapplab.service.ranking.RankingService
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 val serviceModule = module {
+    singleOf(::RankingService)
 
     singleOf(::AuthMetrics)
     singleOf(::PaymentMetrics)

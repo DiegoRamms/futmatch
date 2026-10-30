@@ -35,6 +35,7 @@ import com.devapplab.service.auth.apple.AppleTokenExchangeService
 import com.devapplab.service.email.EmailService
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.hashing.HashingService
+import com.devapplab.service.ranking.RankingService
 import com.devapplab.service.match.MatchVisibilityRules
 import com.devapplab.service.payment.PaymentServiceFactory
 import com.devapplab.service.pii.PiiCrypto
@@ -68,7 +69,8 @@ class UserService(
     private val paymentServiceFactory: PaymentServiceFactory,
     private val appleTokenExchangeService: AppleTokenExchangeService,
     private val piiCrypto: PiiCrypto,
-    private val emailService: EmailService
+    private val emailService: EmailService,
+    private val rankingService: RankingService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -512,7 +514,8 @@ class UserService(
                     profileImageUrl = profileImageUrl
                 ),
                 suggestedMatches = suggestedResponse,
-                lastMatch = lastMatchResponse
+                lastMatch = lastMatchResponse,
+                ranking = rankingService.summary(userId)
             ),
             appStatus = HttpStatusCode.OK
         )

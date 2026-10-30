@@ -19,6 +19,8 @@ import com.devapplab.model.device.DevicePlatform
 import com.devapplab.model.mfa.response.MfaSendCodeResponse
 import com.devapplab.model.user.UserStatus
 import com.devapplab.observability.AuthLogSeverity
+import com.devapplab.observability.AuthMetrics
+import com.devapplab.observability.SecurityAuthEvent
 import com.devapplab.observability.AuthRequestContext
 import com.devapplab.observability.authBlocked
 import com.devapplab.observability.authFailure
@@ -65,6 +67,7 @@ class SignInService(
     private val mfaRateLimitConfig: MfaRateLimitConfig,
     private val demoMfaConfig: DemoMfaConfig,
     private val authenticatedResponseGenerator: AuthenticatedResponseGenerator,
+    private val authMetrics: AuthMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -125,6 +128,7 @@ class SignInService(
         }
 
         if (preCheck is SignInPreCheck.Locked) {
+            authMetrics.recordSecurityEvent(SecurityAuthEvent.LOGIN_LOCKED)
             logger.authBlocked("auth.sign_in.failed", context, "account_locked", statusCode = HttpStatusCode.Forbidden.value, durationMs = System.currentTimeMillis() - startTime, extra = mapOf("remainingMinutes" to preCheck.remainingMinutes))
             return locale.createError(
                 StringResourcesKey.AUTH_ACCOUNT_LOCKED_TITLE,
@@ -138,6 +142,7 @@ class SignInService(
 
         val credentialsOk = user?.password != null && hashingService.verify(signInRequest.password, user.password)
         if (!credentialsOk) {
+            authMetrics.recordSecurityEvent(SecurityAuthEvent.INVALID_CREDENTIALS)
             logger.authRejected("auth.sign_in.failed", context, "invalid_credentials", statusCode = HttpStatusCode.Unauthorized.value, durationMs = System.currentTimeMillis() - startTime)
             return handleFailedLoginAttemptTx(email, locale, context)
         }
@@ -593,6 +598,7 @@ class SignInService(
                 StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY
             )
         } ?: run {
+            authMetrics.recordSecurityEvent(SecurityAuthEvent.MFA_REJECTED)
             logger.authEvent(
                 severity = AuthLogSeverity.WARN,
                 event = "auth.mfa.verify.failed",
