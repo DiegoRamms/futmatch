@@ -17,8 +17,14 @@ class AuthMetricsTest {
         assertEquals(0.0, invalid.count())
         metrics.recordRefreshRejected(RefreshRejectionReason.REUSE_DETECTED)
         metrics.recordSecurityEvent(SecurityAuthEvent.INVALID_CREDENTIALS)
+        metrics.recordSecurityEvent(SecurityAuthEvent.APP_CHECK_INVALID)
+        metrics.recordSecurityEvent(SecurityAuthEvent.ADMIN_ROLE_CHANGED)
+        metrics.recordSecurityEvent(SecurityAuthEvent.DESKTOP_ENROLLMENT_APPROVED)
         assertEquals(1.0, reuse.count())
         assertEquals(1.0, invalid.count())
         assertEquals(0.0, mfa.count())
+        assertEquals(1.0, registry.get("auth.security.events").tag("event", "app_check_invalid").counter().count())
+        assertEquals(1.0, registry.get("auth.security.events").tag("event", "admin_role_changed").counter().count())
+        assertEquals(1.0, registry.get("auth.security.events").tag("event", "desktop_enrollment_approved").counter().count())
     }
 }

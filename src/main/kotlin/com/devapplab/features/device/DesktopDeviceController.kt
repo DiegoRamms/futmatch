@@ -1,11 +1,13 @@
 package com.devapplab.features.device
 
 import com.devapplab.model.device.ApproveDesktopEnrollmentRequest
+import com.devapplab.model.AppResult
 import com.devapplab.model.device.CreateDesktopEnrollmentRequest
 import com.devapplab.model.device.DesktopEnrollmentCreationProof
 import com.devapplab.model.device.DesktopEnrollmentDetailsRequest
 import com.devapplab.model.device.DesktopEnrollmentMetadata
 import com.devapplab.observability.requestContext
+import com.devapplab.observability.appSuccess
 import com.devapplab.model.device.DesktopEnrollmentStatusProof
 import com.devapplab.service.device.DesktopDeviceSecurityService
 import com.devapplab.service.device.DesktopEnrollmentService
@@ -13,12 +15,14 @@ import com.devapplab.utils.respond
 import com.devapplab.utils.retrieveLocale
 import io.ktor.server.application.*
 import io.ktor.server.request.*
+import org.slf4j.LoggerFactory
 import java.util.*
 
 class DesktopDeviceController(
     private val enrollmentService: DesktopEnrollmentService,
     private val securityService: DesktopDeviceSecurityService
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
     suspend fun createEnrollment(call: ApplicationCall) {
         val request = call.receive<CreateDesktopEnrollmentRequest>()
         val proof = DesktopEnrollmentCreationProof(
@@ -39,7 +43,11 @@ class DesktopDeviceController(
 
     suspend fun approveFromMobile(call: ApplicationCall, adminId: UUID) {
         val request = call.receive<ApproveDesktopEnrollmentRequest>()
-        call.respond(enrollmentService.approveFromMobile(request, adminId, call.retrieveLocale()))
+        val result = enrollmentService.approveFromMobile(request, adminId, call.retrieveLocale())
+        if (result is AppResult.Success) {
+            logger.appSuccess("admin.desktop.enrollment.approved", call.requestContext(), userId = adminId, statusCode = result.status.value)
+        }
+        call.respond(result)
     }
 
     suspend fun enrollmentDetails(call: ApplicationCall) {

@@ -36,7 +36,11 @@ class AuthMetrics(
 enum class SecurityAuthEvent(val metricValue: String) {
     INVALID_CREDENTIALS("invalid_credentials"),
     LOGIN_LOCKED("login_locked"),
-    MFA_REJECTED("mfa_rejected")
+    MFA_REJECTED("mfa_rejected"),
+    APP_CHECK_MISSING("app_check_missing"),
+    APP_CHECK_INVALID("app_check_invalid"),
+    ADMIN_ROLE_CHANGED("admin_role_changed"),
+    DESKTOP_ENROLLMENT_APPROVED("desktop_enrollment_approved")
 }
 
 enum class RefreshRejectionReason(val metricValue: String) {

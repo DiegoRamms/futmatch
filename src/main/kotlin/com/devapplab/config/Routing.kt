@@ -98,14 +98,12 @@ fun Application.configureRouting() {
             if (cause.message == "desktop_reenrollment_required") {
                 call.response.headers.append("X-Desktop-Reenrollment-Required", "true")
             }
-            call.respond<String>(
-                AppResult.Failure(
-                    ErrorResponse(
-                        title = "Invalid App Check token",
-                        message = "The request is missing a valid Firebase App Check token.",
-                        errorCode = ErrorCode.ACCESS_DENIED
-                    ),
-                    appStatus = HttpStatusCode.Unauthorized
+            call.respond<ErrorResponse>(
+                call.retrieveLocale().createError(
+                    titleKey = StringResourcesKey.ACCESS_DENIED_TITLE,
+                    descriptionKey = StringResourcesKey.ACCESS_DENIED_DESCRIPTION,
+                    status = HttpStatusCode.Unauthorized,
+                    errorCode = ErrorCode.ACCESS_DENIED
                 )
             )
         }

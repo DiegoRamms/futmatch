@@ -3,6 +3,8 @@ package com.devapplab.config
 import com.devapplab.model.AppCheckConfig
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.device.DevicePlatform
+import com.devapplab.observability.AuthMetrics
+import com.devapplab.observability.SecurityAuthEvent
 import com.devapplab.service.appcheck.AppCheckVerificationResult
 import com.devapplab.service.appcheck.FirebaseAppCheckService
 import com.devapplab.service.device.DesktopDeviceSecurityService
@@ -47,6 +49,7 @@ fun Route.requireAppCheck(
     appCheckConfig: AppCheckConfig,
     desktopDeviceSecurityService: DesktopDeviceSecurityService
 ) {
+    val authMetrics = AuthMetrics(prometheusMeterRegistry())
     install(createRouteScopedPlugin("FirebaseAppCheckPlugin") {
         onCall { call ->
             val appCheckToken = call.request.header(FIREBASE_APP_CHECK_HEADER)
@@ -99,6 +102,7 @@ fun Route.requireAppCheck(
                         appCheckConfig.enforce
                     )
                     if (appCheckConfig.enforce) {
+                        authMetrics.recordSecurityEvent(SecurityAuthEvent.APP_CHECK_MISSING)
                         throw InvalidAppCheckException("missing_app_check_token")
                     }
                 }
@@ -114,6 +118,7 @@ fun Route.requireAppCheck(
                         appCheckConfig.enforce
                     )
                     if (appCheckConfig.enforce) {
+                        authMetrics.recordSecurityEvent(SecurityAuthEvent.APP_CHECK_INVALID)
                         throw InvalidAppCheckException(result.reason)
                     }
                 }

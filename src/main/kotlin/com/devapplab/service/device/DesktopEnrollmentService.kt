@@ -6,6 +6,8 @@ import com.devapplab.model.AppResult
 import com.devapplab.model.device.ApproveDesktopEnrollmentRequest
 import com.devapplab.model.device.DesktopEnrollmentDetailsRequest
 import com.devapplab.model.device.DesktopEnrollmentDetailsResponse
+import com.devapplab.observability.AuthMetrics
+import com.devapplab.observability.SecurityAuthEvent
 import com.devapplab.utils.createError
 import io.ktor.http.HttpStatusCode
 import java.util.Locale
@@ -15,7 +17,8 @@ import java.util.UUID
 class DesktopEnrollmentService(
     private val dbExecutor: DbExecutor,
     private val enrollmentRepository: DesktopEnrollmentRepository,
-    private val securityService: DesktopDeviceSecurityService
+    private val securityService: DesktopDeviceSecurityService,
+    private val authMetrics: AuthMetrics
 ) {
     suspend fun detailsForMobile(
         request: DesktopEnrollmentDetailsRequest,
@@ -46,7 +49,10 @@ class DesktopEnrollmentService(
         }
     }.fold(
         onSuccess = { created ->
-            if (created) AppResult.Success(Unit, HttpStatusCode.Created)
+            if (created) {
+                authMetrics.recordSecurityEvent(SecurityAuthEvent.DESKTOP_ENROLLMENT_APPROVED)
+                AppResult.Success(Unit, HttpStatusCode.Created)
+            }
             else locale.createError(status = HttpStatusCode.Conflict)
         },
         onFailure = { locale.createError() }

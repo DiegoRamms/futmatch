@@ -22,6 +22,8 @@ import com.devapplab.model.user.response.AdminUserPaymentHistoryPageResponse
 import com.devapplab.model.user.response.AdminUserPaymentHistoryItemResponse
 import com.devapplab.model.user.response.AdminUserDeletionPreviewResponse
 import com.devapplab.observability.AppRequestContext
+import com.devapplab.observability.AuthMetrics
+import com.devapplab.observability.SecurityAuthEvent
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.image.ImageService
@@ -47,7 +49,8 @@ class AdminUserService(
     private val hashingService: HashingService? = null,
     private val userService: UserService? = null,
     private val paymentRepository: PaymentRepository? = null,
-    private val paymentCardDetailsService: PaymentCardDetailsService? = null
+    private val paymentCardDetailsService: PaymentCardDetailsService? = null,
+    private val authMetrics: AuthMetrics? = null
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -130,12 +133,15 @@ class AdminUserService(
         }
 
         return if (updated) {
+            if (role != targetUser.userRole) {
+                authMetrics?.recordSecurityEvent(SecurityAuthEvent.ADMIN_ROLE_CHANGED)
+            }
             logger.appSuccess(
                 event = "admin.user.access.updated",
                 context = context,
                 userId = adminId,
                 statusCode = HttpStatusCode.OK.value,
-                extra = mapOf("targetUserId" to targetUserId.toString(), "role" to role.name, "status" to status.name)
+                extra = mapOf("targetUserId" to targetUserId.toString(), "previousRole" to targetUser.userRole.name, "role" to role.name, "status" to status.name)
             )
             AppResult.Success(true)
         } else {
