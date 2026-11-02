@@ -1966,6 +1966,33 @@ curl --location --request POST '{{base_url}}/match/admin/failed-refunds/{failure
 
 ---
 
+## 18. Guest Matches (No Account)
+
+Read-only match browsing for people who have not signed in. Added for App Store guideline 5.1.1(v): seeing match availability must not require an account. The authenticated `/match/...` endpoints above are unchanged.
+
+-   **Auth:** none (no JWT). Still behind App Check and the `PUBLIC` rate limit (120 requests / 60 s per IP).
+-   **Privacy:** responses never contain player data. Every `teams.teamA.players` / `teams.teamB.players` is `[]`; `playerCount` is kept so availability stays accurate. In the detail, `goalBreakdown` and `bestPlayer` are always `null`. Joining, leaving and paying still require a session.
+
+### 18.1 Get Guest Matches (V2)
+
+-   **Method:** `GET`
+-   **Path:** `/guest/match/matches/v2`
+-   **Query:** same as [8.1](#81-get-matches-for-players-v2---versioned-cache): `sinceVersion`, `countryCode`, `stateCode`, `lat`, `lon`.
+-   **Response:** same `PublicMatchesV2Response` shape as 8.1.
+
+Differences from 8.1:
+- No visibility filtering by gender/level (a guest has neither): every public scheduled match in the region is returned.
+- `currentVersion` = `regionVersion shl 8` (visibility signature `0`). Clients must keep the guest `sinceVersion` apart from an authenticated one.
+
+### 18.2 Get Guest Match Detail
+
+-   **Method:** `GET`
+-   **Path:** `/guest/match/{matchId}`
+-   **Response:** same `MatchDetailResponse` shape as [10](#10-get-match-detail), sanitized as described above.
+-   Only `SCHEDULED` matches are public. Any other status, or an unknown id, answers `404`.
+
+---
+
 ## 17. Demo Matches (Testing)
 
 This endpoint returns sample matches with different statuses for UI testing purposes.

@@ -429,6 +429,84 @@ class MatchService(
         )
     }
 
+    /**
+     * Public feed for guests (no session). Same cached regional snapshot as
+     * [getPlayerMatchesV2], without per-user visibility filtering (a guest has no
+     * gender/level), and with all player data stripped by [GuestMatchSanitizer].
+     * The version uses visibility signature 0 so it never collides with a user's.
+     */
+    suspend fun getGuestMatchesV2(
+        userLat: Double?,
+        userLon: Double?,
+        sinceVersion: Long?,
+        countryCode: String?,
+        stateCode: String?,
+        locale: Locale,
+        context: AppRequestContext
+    ): AppResult<PublicMatchesV2Response> {
+        val region = resolvePublicRegion(countryCode, stateCode)
+        val snapshot = publicMatchesCacheService.getOrBuild(region) {
+            buildPublicMatchesPayload()
+        }
+        val effectiveVersion = snapshot.version shl 8
+
+        if (sinceVersion != null && sinceVersion == effectiveVersion) {
+            return AppResult.Success(
+                PublicMatchesV2Response(
+                    region = region,
+                    currentVersion = effectiveVersion,
+                    hasChanges = false,
+                    matches = null
+                )
+            )
+        }
+
+        val matches = sortPublicMatches(snapshot.matches, userLat, userLon)
+            .map(GuestMatchSanitizer::sanitize)
+        return AppResult.Success(
+            PublicMatchesV2Response(
+                region = region,
+                currentVersion = effectiveVersion,
+                hasChanges = true,
+                matches = matches
+            )
+        )
+    }
+
+    /**
+     * Match detail for guests. Only scheduled matches are public (the guest feed
+     * lists nothing else); any other status answers 404. Player data is stripped.
+     */
+    suspend fun getGuestMatchDetail(
+        locale: Locale,
+        matchId: UUID,
+        context: AppRequestContext
+    ): AppResult<MatchDetailResponse> {
+        val match = matchRepository.getMatchById(matchId)
+        if (match == null || match.status != MatchStatus.SCHEDULED) {
+            logger.appRejected(
+                event = "match.guest.detail_load_failed",
+                context = context,
+                reason = if (match == null) "match_not_found" else "match_not_public",
+                statusCode = HttpStatusCode.NotFound.value,
+                extra = mapOf("matchId" to matchId)
+            )
+            return locale.createError(
+                titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+                descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+                status = HttpStatusCode.NotFound,
+                errorCode = ErrorCode.NOT_FOUND
+            )
+        }
+
+        val detail = GuestMatchSanitizer.sanitize(match.toMatchDetailResponse(emptyList()))
+        val resolvedImages = detail.fieldImages.map { image ->
+            val publicId = "${Constants.BASE_FIELD_STORAGE_PATH}/${match.fieldId}/${image.imagePath}"
+            image.copy(imagePath = imageService.getImageUrl(publicId))
+        }
+        return AppResult.Success(detail.copy(fieldImages = resolvedImages))
+    }
+
     suspend fun getUserMatches(userId: UUID, userLat: Double?, userLon: Double?): AppResult<List<MatchSummaryResponse>> {
         val matchesWithField = matchRepository.getUserMatches(userId)
 
