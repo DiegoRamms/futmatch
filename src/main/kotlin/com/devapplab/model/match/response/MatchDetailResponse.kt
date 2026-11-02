@@ -37,7 +37,18 @@ data class MatchDetailResponse(
     val extraInfo: String?,
     val description: String,
     val rules: String,
-    val fieldImages: List<FieldImageResponse> = emptyList()
+    val fieldImages: List<FieldImageResponse> = emptyList(),
+    /** Who runs the match. Stripped for guests by `GuestMatchSanitizer`. */
+    val organizer: MatchOrganizerResponse? = null
+)
+
+@Serializable
+data class MatchOrganizerResponse(
+    @Serializable(with = UUIDSerializer::class)
+    val userId: UUID,
+    val name: String,
+    val lastName: String,
+    val avatarUrl: String? = null
 )
 
 @Serializable

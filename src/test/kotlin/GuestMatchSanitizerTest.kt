@@ -3,6 +3,7 @@ import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.match.response.MatchBestPlayerResponse
 import com.devapplab.model.match.response.MatchDetailResponse
 import com.devapplab.model.match.response.MatchGoalBreakdownResponse
+import com.devapplab.model.match.response.MatchOrganizerResponse
 import com.devapplab.model.match.response.MatchSummaryResponse
 import com.devapplab.model.match.response.PlayerGoalResponse
 import com.devapplab.model.match.response.PlayerSummary
@@ -26,6 +27,8 @@ class GuestMatchSanitizerTest {
     private val playerId = UUID.randomUUID()
     private val playerName = "Jugador Privado"
     private val avatarUrl = "https://cdn.example.com/avatar-private.jpg"
+    private val organizerId = UUID.randomUUID()
+    private val organizerLastName = "Organizadora"
 
     private fun teams() = TeamSummaryResponse(
         teamA = TeamPlayersSummary(
@@ -82,7 +85,8 @@ class GuestMatchSanitizerTest {
         hasParking = true,
         extraInfo = null,
         description = "Partido amistoso",
-        rules = "Fair play"
+        rules = "Fair play",
+        organizer = MatchOrganizerResponse(organizerId, "Ana", organizerLastName, avatarUrl)
     )
 
     @Test
@@ -107,7 +111,7 @@ class GuestMatchSanitizerTest {
     }
 
     @Test
-    fun `detail drops players, scorers and best player`() {
+    fun `detail drops players, scorers, best player and organizer`() {
         val sanitized = GuestMatchSanitizer.sanitize(detail())
 
         assertTrue(sanitized.teams.teamA.players.isEmpty())
@@ -115,6 +119,7 @@ class GuestMatchSanitizerTest {
         assertEquals(2, sanitized.teams.teamA.playerCount)
         assertNull(sanitized.goalBreakdown)
         assertNull(sanitized.bestPlayer)
+        assertNull(sanitized.organizer)
         assertEquals("Partido amistoso", sanitized.description)
     }
 
@@ -126,5 +131,7 @@ class GuestMatchSanitizerTest {
         assertFalse(json.contains(playerName))
         assertFalse(json.contains(playerId.toString()))
         assertFalse(json.contains(avatarUrl))
+        assertFalse(json.contains(organizerId.toString()))
+        assertFalse(json.contains(organizerLastName))
     }
 }

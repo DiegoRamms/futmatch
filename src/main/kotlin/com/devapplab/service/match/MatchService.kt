@@ -575,7 +575,8 @@ class MatchService(
 
         val responseWithImages = matchDetailResponse.copy(
             fieldImages = resolvedImages,
-            teams = resolveAvatarUrls(matchDetailResponse.teams)
+            teams = resolveAvatarUrls(matchDetailResponse.teams),
+            organizer = resolveOrganizer(match)
         )
 
         return AppResult.Success(responseWithImages)
@@ -598,7 +599,8 @@ class MatchService(
 
             val responseWithImages = matchDetailResponse.copy(
                 fieldImages = resolvedImages,
-                teams = resolveAvatarUrls(matchDetailResponse.teams)
+                teams = resolveAvatarUrls(matchDetailResponse.teams),
+                organizer = resolveOrganizer(match)
             )
 
             val response = AppResult.Success(responseWithImages)
@@ -1940,6 +1942,21 @@ class MatchService(
         return teams.copy(
             teamA = teams.teamA.copy(players = teams.teamA.players.map(transformPlayer)),
             teamB = teams.teamB.copy(players = teams.teamB.players.map(transformPlayer))
+        )
+    }
+
+    /**
+     * The person running the match: the assigned supervisor, or the admin who
+     * created it when none was assigned. `null` if that user no longer exists.
+     */
+    private suspend fun resolveOrganizer(match: MatchWithField): MatchOrganizerResponse? {
+        val organizerId = match.supervisorId ?: match.adminId
+        val user = dbExecutor.tx { userRepository.getUserById(organizerId) } ?: return null
+        return MatchOrganizerResponse(
+            userId = user.id,
+            name = user.name,
+            lastName = user.lastName,
+            avatarUrl = resolvePlayerAvatarUrl(user.id, user.profilePic)
         )
     }
 

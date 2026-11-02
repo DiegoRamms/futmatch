@@ -14,6 +14,8 @@ data class MatchWithField(
     val matchId: UUID,
     val fieldId: UUID,
     val adminId: UUID,
+    /** Organizer assigned to run the match; `null` means the creator (`adminId`) runs it. */
+    val supervisorId: UUID? = null,
     val dateTime: Long,
     val dateTimeEnd: Long,
     val maxPlayers: Int,
