@@ -148,12 +148,13 @@ fun Application.configureRouting() {
         cronRouting()
         desktopEnrollmentRouting()
         desktopEnrollmentStatusRouting()
+        // One appCheck block per parent: every call shares the same transparent
+        // selector, so a second sibling block resolves to the same child route and
+        // installing the plugin there again crashes at startup.
         appCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService) {
             authRouting()
-        }
-        // Read-only match browsing without an account (App Store 5.1.1(v)).
-        // No player data is returned — see GuestMatchSanitizer.
-        appCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService) {
+            // Read-only match browsing without an account (App Store 5.1.1(v)).
+            // No player data is returned — see GuestMatchSanitizer.
             rateLimit(RateLimitName(RateLimitType.PUBLIC.value)) {
                 guestMatchRouting()
             }
