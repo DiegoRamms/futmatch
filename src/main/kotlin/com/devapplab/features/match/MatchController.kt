@@ -91,6 +91,29 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(result)
     }
 
+    suspend fun getGuestMatchesV2(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val query = call.request.queryParameters
+        val result = matchService.getGuestMatchesV2(
+            userLat = query["lat"]?.toDoubleOrNull(),
+            userLon = query["lon"]?.toDoubleOrNull(),
+            sinceVersion = query["sinceVersion"]?.toLongOrNull(),
+            countryCode = query["countryCode"],
+            stateCode = query["stateCode"],
+            locale = locale,
+            context = call.requestContext()
+        )
+        call.respond(result)
+    }
+
+    suspend fun getGuestMatchDetail(call: ApplicationCall) {
+        val locale = call.retrieveLocale()
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull()
+            ?: throw NotFoundException("Can't find match id")
+        val result = matchService.getGuestMatchDetail(locale, matchId, call.requestContext())
+        call.respond(result)
+    }
+
     suspend fun getMatchDetail(call: ApplicationCall) {
         val matchId = UUID.fromString(call.parameters["matchId"])
         val locale = call.retrieveLocale()

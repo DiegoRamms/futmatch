@@ -10,6 +10,7 @@ import com.devapplab.features.device.desktopEnrollmentStatusRouting
 import com.devapplab.features.device.desktopEnrollmentRouting
 import com.devapplab.features.field.fieldRouting
 import com.devapplab.features.location.locationRouting
+import com.devapplab.features.match.guestMatchRouting
 import com.devapplab.features.match.matchRouting
 import com.devapplab.features.notification.notificationRouting
 import com.devapplab.features.payment.paymentsRouting
@@ -149,6 +150,13 @@ fun Application.configureRouting() {
         desktopEnrollmentStatusRouting()
         appCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService) {
             authRouting()
+        }
+        // Read-only match browsing without an account (App Store 5.1.1(v)).
+        // No player data is returned — see GuestMatchSanitizer.
+        appCheck(appCheckService, appCheckConfig, desktopDeviceSecurityService) {
+            rateLimit(RateLimitName(RateLimitType.PUBLIC.value)) {
+                guestMatchRouting()
+            }
         }
 
         authenticate("auth-jwt") {
