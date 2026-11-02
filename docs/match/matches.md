@@ -1431,10 +1431,22 @@ Gets complete details of a specific match.
         "hasParking": true,
         "extraInfo": "Por favor llegar 15 minutos antes",
         "description": "Partido amistoso semanal",
-        "rules": "No se permiten tacos de metal"
+        "rules": "No se permiten tacos de metal",
+        "organizer": {
+            "userId": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
+            "name": "Juan",
+            "lastName": "Pérez",
+            "avatarUrl": "https://res.cloudinary.com/.../profile.jpg"
+        }
     }
 }
 ```
+
+### Organizer
+
+- `organizer` is the person running the match: the assigned `supervisorId`, or the admin who created the match (`adminId`) when none was assigned.
+- `avatarUrl` is a full URL or `null`.
+- `organizer` is `null` (or absent on older servers) when that user no longer exists. It is always `null` on the guest detail (18.2).
 
 ### Score Fields
 
@@ -1971,7 +1983,7 @@ curl --location --request POST '{{base_url}}/match/admin/failed-refunds/{failure
 Read-only match browsing for people who have not signed in. Added for App Store guideline 5.1.1(v): seeing match availability must not require an account. The authenticated `/match/...` endpoints above are unchanged.
 
 -   **Auth:** none (no JWT). Still behind App Check and the `PUBLIC` rate limit (120 requests / 60 s per IP).
--   **Privacy:** responses never contain player data. Every `teams.teamA.players` / `teams.teamB.players` is `[]`; `playerCount` is kept so availability stays accurate. In the detail, `goalBreakdown` and `bestPlayer` are always `null`. Joining, leaving and paying still require a session.
+-   **Privacy:** responses never contain player data. Every `teams.teamA.players` / `teams.teamB.players` is `[]`; `playerCount` is kept so availability stays accurate. In the detail, `goalBreakdown`, `bestPlayer` and `organizer` are always `null`. Joining, leaving and paying still require a session.
 
 ### 18.1 Get Guest Matches (V2)
 

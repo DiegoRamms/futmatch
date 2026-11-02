@@ -9,7 +9,7 @@ import com.devapplab.model.match.response.TeamSummaryResponse
  *
  * Guests may see that a match exists, where, when, its price and how many spots
  * are taken, but never who is playing: names, avatars, ids, countries, goal
- * scorers and best player are removed. Team player counts are kept so the
+ * scorers, best player and the organizer are removed. Team player counts are kept so the
  * availability is still accurate.
  */
 object GuestMatchSanitizer {
@@ -21,7 +21,8 @@ object GuestMatchSanitizer {
         detail.copy(
             teams = sanitize(detail.teams),
             goalBreakdown = null,
-            bestPlayer = null
+            bestPlayer = null,
+            organizer = null
         )
 
     private fun sanitize(teams: TeamSummaryResponse): TeamSummaryResponse =
