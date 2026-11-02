@@ -212,6 +212,8 @@ Obtiene la información del Home del usuario autenticado en una sola respuesta:
 *   **Método:** `GET`
 *   **Path:** `/user/home`
 *   **Descripción:** Endpoint agregado para pantalla Home. El ID del usuario se extrae del token.
+*   **Parámetros opcionales:** `rankingYear` (1 a 9999) y `rankingMonth` (1 a 12). Deben enviarse juntos; valores vacíos, incompletos o inválidos devuelven el error estándar `400`. Sin ambos parámetros se utiliza el mes actual UTC.
+*   **Ejemplo:** `GET /user/home?rankingYear=2026&rankingMonth=10`. El periodo y las estadísticas de `ranking` corresponden al mes solicitado; sus límites siguen siendo UTC.
 
 #### cURL para probar:
 ```bash
@@ -277,7 +279,7 @@ curl --request GET '{{base_url}}/user/home' \
 ```
 
 #### Notas:
-- `ranking` contiene el resumen de **Victorias** del mes actual UTC. Home ya incluye estos datos; no es necesario llamar también a `GET /rankings/summary` para pintar la tarjeta.
+- `ranking` contiene el resumen de **Victorias** del mes solicitado o, por defecto, del mes actual UTC. Home ya incluye estos datos; no es necesario llamar también a `GET /rankings/summary` para pintar la tarjeta.
 - `period.startTime` es inclusivo y `period.endTimeExclusive` es exclusivo; ambos son epoch milisegundos. `community.id` es `global` y `category` es `VICTORIES`.
 - `status` es `RANKED` si el usuario participó en un partido elegible, o `NOT_PARTICIPATING` si no participó. En este último caso `position` y `nextTarget` se omiten por `explicitNulls = false`, y `victories` y `matchesPlayed` son 0.
 - `nextTarget` contiene la posición y victorias del siguiente puntaje superior; se omite cuando no existe, incluido el primer lugar. El cliente calcula la diferencia para el texto de la meta: permite **igualar** ese puntaje, no garantiza superarlo.

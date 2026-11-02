@@ -44,6 +44,21 @@ class RankingServiceTest {
         assertTrue(service.ranking(ids[0], 2024, 13, RankingCategory.GOALS, 1, 20, Locale.US) is AppResult.Failure)
     }
 
+    @Test fun `summary uses selected UTC month and keeps no participation state`() = runBlocking {
+        val repository = FakeRankingRepository(emptyList())
+        val service = RankingService(repository, FakeImages())
+        val result = service.summary(UUID.randomUUID(), YearMonth.of(2026, 10))
+        assertEquals(2026, result.period.year)
+        assertEquals(10, result.period.month)
+        assertEquals(1790812800000L, result.period.startTime)
+        assertEquals(1793491200000L, result.period.endTimeExclusive)
+        assertEquals(RankingParticipation.NOT_PARTICIPATING, result.status)
+        assertEquals(0, result.matchesPlayed)
+        assertEquals(0, result.victories)
+        assertNull(result.position)
+        assertNull(result.nextTarget)
+    }
+
     private fun row(id: UUID, won: Boolean, goals: Int) = RankingMatchRow(id, "Ana R.", "photo.png", Gender.FEMALE, "MX", won, goals)
     private class FakeRankingRepository(val rows: List<RankingMatchRow>) : RankingRepository {
         override suspend fun getSnapshot(startTime: Long, endTimeExclusive: Long, userId: UUID, category: RankingCategory, offset: Long, limit: Int, summaryOnly: Boolean): RankingSnapshot {

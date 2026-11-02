@@ -49,6 +49,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
+import java.time.YearMonth
 import java.util.*
 
 class UserService(
@@ -425,7 +426,7 @@ class UserService(
         }
     }
 
-    suspend fun getHome(userId: UUID?, locale: Locale, context: AppRequestContext): AppResult<UserHomeResponse> {
+    suspend fun getHome(userId: UUID?, locale: Locale, context: AppRequestContext, rankingMonth: YearMonth? = null): AppResult<UserHomeResponse> {
         userId ?: run {
             logger.appRejected(
                 event = "user.home.load_failed",
@@ -515,7 +516,7 @@ class UserService(
                 ),
                 suggestedMatches = suggestedResponse,
                 lastMatch = lastMatchResponse,
-                ranking = rankingService.summary(userId)
+                ranking = rankingService.summary(userId, rankingMonth)
             ),
             appStatus = HttpStatusCode.OK
         )

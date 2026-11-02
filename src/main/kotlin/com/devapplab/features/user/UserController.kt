@@ -1,6 +1,9 @@
 package com.devapplab.features.user
 
 import com.devapplab.config.getIdentifier
+import com.devapplab.features.user.validation.HomeRankingPeriod
+import com.devapplab.utils.createError
+import io.ktor.http.HttpStatusCode
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.user.request.UpdateCountryRequest
 import com.devapplab.model.user.request.UpdateGenderRequest
@@ -18,7 +21,12 @@ class UserController(private val service: UserService) {
     suspend fun getHome(call: ApplicationCall) {
         val locale = call.retrieveLocale()
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val result = service.getHome(userId, locale, call.requestContext())
+        val period = HomeRankingPeriod.parse(call.request.queryParameters["rankingYear"], call.request.queryParameters["rankingMonth"])
+        if (period == HomeRankingPeriod.Invalid) {
+            call.respond(locale.createError(status = HttpStatusCode.BadRequest))
+            return
+        }
+        val result = service.getHome(userId, locale, call.requestContext(), (period as? HomeRankingPeriod.Selected)?.month)
         call.respond(result)
     }
 

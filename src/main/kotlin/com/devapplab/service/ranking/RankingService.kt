@@ -14,8 +14,8 @@ import java.util.Locale
 import java.util.UUID
 
 class RankingService(private val repository: RankingRepository, private val imageService: ImageService) {
-    suspend fun summary(userId: UUID): RankingSummary {
-        val period = period(YearMonth.now(Clock.systemUTC()))
+    suspend fun summary(userId: UUID, selectedMonth: YearMonth? = null): RankingSummary {
+        val period = period(selectedMonth ?: YearMonth.now(Clock.systemUTC()))
         val snapshot = repository.getSnapshot(period.startTime, period.endTimeExclusive, userId, RankingCategory.VICTORIES, 0, 0, true)
         val user = snapshot.players.firstOrNull { it.player.id == userId }?.player
         return RankingSummary(period = period, status = if (user == null) RankingParticipation.NOT_PARTICIPATING else RankingParticipation.RANKED,
