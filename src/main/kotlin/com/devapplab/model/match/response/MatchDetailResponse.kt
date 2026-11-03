@@ -6,6 +6,7 @@ import com.devapplab.model.field.response.FieldImageResponse
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.user.PlayerLevel
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -14,6 +15,10 @@ import java.util.*
 data class MatchDetailResponse(
     @Serializable(with = UUIDSerializer::class)
     val id: UUID,
+    @Serializable(with = UUIDSerializer::class)
+    val fieldId: UUID? = null,
+    val minPlayersRequired: Int? = null,
+    val playerLevel: PlayerLevel = PlayerLevel.ANY,
     val fieldName: String,
     val startTime: Long,
     val endTime: Long,

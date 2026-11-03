@@ -134,6 +134,9 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
 
     return MatchDetailResponse(
         id = this.matchId,
+        fieldId = this.fieldId,
+        minPlayersRequired = this.minPlayersRequired,
+        playerLevel = this.playerLevel,
         fieldName = this.fieldName,
         fieldImages = this.fieldImages.map { it.toResponse() },
         startTime = this.dateTime,

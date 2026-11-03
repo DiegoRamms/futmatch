@@ -1344,6 +1344,10 @@ missingTeamB = spotsPerTeam - teams.teamB.playerCount
 
 Gets complete details of a specific match.
 
+The response includes `fieldId`, `minPlayersRequired`, and `playerLevel` for
+clients that need the match configuration. Demo matches may omit the field ID
+and minimum player count because they are not editable matches.
+
 -   **Method:** `GET`
 -   **Path:** `/match/{matchId}`
 -   **Required Role:** Public (or Authenticated)
@@ -1358,6 +1362,9 @@ Gets complete details of a specific match.
     "status": "success",
     "data": {
         "id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+        "fieldId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "minPlayersRequired": 10,
+        "playerLevel": "ANY",
         "fieldName": "Cancha Central",
         "fieldImages": [
             {
