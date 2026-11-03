@@ -7,6 +7,7 @@ import com.devapplab.model.field.Field
 import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.mapper.toResponse
 import com.devapplab.model.field.response.*
+import com.devapplab.model.user.UserRole
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.AppLogSeverity
 import com.devapplab.observability.appEvent
@@ -335,7 +336,12 @@ class FieldService(
         )
     }
 
-    suspend fun ensureAdminAssignedToField(adminId: UUID, fieldId: UUID) {
+    /**
+     * ADMIN can manage any field. Other roles (ORGANIZER) only the fields they created
+     * or co-administer.
+     */
+    suspend fun ensureAdminAssignedToField(adminId: UUID, fieldId: UUID, role: UserRole) {
+        if (role == UserRole.ADMIN) return
         val allowed = fieldRepository.isAdminAssignedToField(adminId, fieldId)
         if (!allowed) throw AccessDeniedException()
     }
