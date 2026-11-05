@@ -10,6 +10,15 @@ Todos los endpoints, a menos que se indique lo contrario, son protegidos y requi
 
 -   **Header Requerido:** `Authorization: Bearer <access_token>`
 
+### Permisos sobre una cancha
+
+Las acciones que modifican una cancha (actualizar, vincular ubicación, borrar y subir, reemplazar o borrar imágenes) validan quién la gestiona:
+
+-   **`ADMIN`:** puede gestionar cualquier cancha.
+-   **`ORGANIZER`:** solo las canchas que creó o donde figura como co-administrador (tabla `field_admins`). En otro caso responde `403` (`AccessDeniedException`).
+
+`GET /fields/by-admin` devuelve solo las canchas del usuario que llama; para listar todas, un `ADMIN` usa `GET /fields/all`.
+
 ### Respuestas
 
 Todos los endpoints retornan un objeto `AppResult` estandarizado.
