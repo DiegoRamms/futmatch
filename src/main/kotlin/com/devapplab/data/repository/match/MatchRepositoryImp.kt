@@ -763,8 +763,6 @@ class MatchRepositoryImp : MatchRepository {
                 it[updatedAt] = System.currentTimeMillis()
             }
 
-            MatchDiscountsTable.deleteWhere { MatchDiscountsTable.matchId eq matchId }
-
             match.teamSnapshots?.let { snapshots ->
                 MatchTeamsTable.deleteWhere { MatchTeamsTable.matchId eq matchId }
                 snapshots.forEach { snapshot ->
@@ -778,6 +776,7 @@ class MatchRepositoryImp : MatchRepository {
             }
 
             match.discountIds?.let { discountIds ->
+                MatchDiscountsTable.deleteWhere { MatchDiscountsTable.matchId eq matchId }
                 if (discountIds.isNotEmpty()) {
                     MatchDiscountsTable.batchInsert(discountIds) { discountId ->
                         this[MatchDiscountsTable.matchId] = matchId

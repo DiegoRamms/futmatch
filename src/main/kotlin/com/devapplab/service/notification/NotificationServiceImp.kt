@@ -1,12 +1,16 @@
 package com.devapplab.service.notification
 
 import com.devapplab.data.repository.device.DeviceRepository
+import com.devapplab.data.database.executor.DbExecutor
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.notification.NotificationRepository
+import com.devapplab.data.repository.notification.PaymentWarningNotification
 import com.devapplab.model.AppResult
 import com.devapplab.model.match.RefundStatus
 import com.devapplab.model.notification.NotificationResponse
 import com.devapplab.model.notification.NotificationType
+import com.devapplab.model.notification.NotificationInbox
+import com.devapplab.utils.AccessDeniedException
 import com.devapplab.model.notification.UnreadNotificationCountResponse
 import com.devapplab.model.notification.MarkAllNotificationsReadResponse
 import com.devapplab.model.notification.mapper.toResponseList
@@ -30,11 +34,13 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
+import kotlinx.coroutines.CancellationException
 
 class NotificationServiceImp(
     private val deviceRepository: DeviceRepository,
     private val notificationRepository: NotificationRepository,
     private val matchRepository: MatchRepository,
+    private val dbExecutor: DbExecutor,
 ) : NotificationService {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -92,17 +98,33 @@ class NotificationServiceImp(
         )
     }
 
-    override suspend fun sendMatchPaymentWindowWarningNotification(userId: UUID, matchId: UUID, locale: Locale) {
-        val matchContext = getMatchContext(matchId, locale)
-        sendAndPersistNotification(
-            userId = userId,
-            locale = locale,
-            notificationType = NotificationType.MATCH_PAYMENT_WINDOW_WARNING,
-            titleKey = StringResourcesKey.NOTIFICATION_MATCH_PAYMENT_WINDOW_WARNING_TITLE,
-            bodyKey = StringResourcesKey.NOTIFICATION_MATCH_PAYMENT_WINDOW_WARNING_BODY,
-            metadata = baseMetadata(matchId, "MATCH_PAYMENT_WINDOW_WARNING", matchContext),
-            bodySuffix = matchContext?.bodySuffix
-        )
+    override suspend fun sendMatchPaymentWindowWarningNotifications(matchId: UUID, recipients: List<PaymentWarningRecipient>): Boolean {
+        if (recipients.isEmpty()) return false
+        val prepared = recipients.map { recipient ->
+            val context = getMatchContext(matchId, recipient.locale)
+            val metadata = baseMetadata(matchId, "MATCH_PAYMENT_WINDOW_WARNING", context)
+            PaymentWarningNotification(
+                userId = recipient.userId,
+                title = recipient.locale.getString(StringResourcesKey.NOTIFICATION_MATCH_PAYMENT_WINDOW_WARNING_TITLE),
+                body = appendContext(recipient.locale.getString(StringResourcesKey.NOTIFICATION_MATCH_PAYMENT_WINDOW_WARNING_BODY), context?.bodySuffix),
+                metadata = convertMapToJson(metadata),
+                inbox = recipient.inbox
+            ) to (metadata + ("inbox" to recipient.inbox.name))
+        }
+        val saved = dbExecutor.tx {
+            notificationRepository.savePaymentWarningsTx(matchId, prepared.map { it.first }, System.currentTimeMillis())
+        }
+        if (!saved) return false
+        prepared.forEach { (notification, data) ->
+            try {
+                notifyUser(notification.userId, notification.title, notification.body, data)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn("Payment warning saved but push failed for user {}", notification.userId, e)
+            }
+        }
+        return true
     }
 
     override suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus, reason: String?) {
@@ -313,6 +335,8 @@ class NotificationServiceImp(
         if (tokens.size == 1) {
             try {
                 sendToToken(tokens.first(), title, body, data)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val token = tokens.first()
                 logger.error(
@@ -324,6 +348,8 @@ class NotificationServiceImp(
         } else {
             try {
                 sendToTokens(tokens, title, body, data)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.error(
                     "Failed to send multicast notification to user $userId (tokens=${tokens.size}): ${buildFcmErrorSummary(e)}",
@@ -360,7 +386,8 @@ class NotificationServiceImp(
         bodyKey: StringResourcesKey,
         metadata: Map<String, String>? = null,
         placeholders: Map<String, String> = emptyMap(),
-        bodySuffix: String? = null
+        bodySuffix: String? = null,
+        inbox: NotificationInbox = NotificationInbox.PLAYER
     ): AppResult<UUID> {
         return try {
             val title = locale.getString(titleKey)
@@ -373,9 +400,12 @@ class NotificationServiceImp(
                 title = title,
                 body = body,
                 metadata = metadataJson,
+                inbox = inbox,
             )
 
-            notifyUser(userId, title, body, metadata ?: emptyMap())
+            val pushData = if (inbox == NotificationInbox.PLAYER) metadata ?: emptyMap()
+                else (metadata ?: emptyMap()) + ("inbox" to inbox.name)
+            notifyUser(userId, title, body, pushData)
 
             AppResult.Success(notificationId)
         } catch (_: Exception) {
@@ -387,9 +417,14 @@ class NotificationServiceImp(
         }
     }
 
-    override suspend fun getUserNotifications(userId: UUID, limit: Int, offset: Int, locale: Locale, context: AppRequestContext): AppResult<List<NotificationResponse>> {
+    override suspend fun requireInboxAccess(userId: UUID, inbox: NotificationInbox) {
+        if (!notificationRepository.canAccessInbox(userId, inbox)) throw AccessDeniedException()
+    }
+
+    override suspend fun getUserNotifications(userId: UUID, limit: Int, offset: Int, locale: Locale, context: AppRequestContext, inbox: NotificationInbox): AppResult<List<NotificationResponse>> {
+        requireInboxAccess(userId, inbox)
         return try {
-            val notifications = notificationRepository.getUserNotifications(userId, limit, offset)
+            val notifications = notificationRepository.getUserNotifications(userId, limit, offset, inbox)
             AppResult.Success(notifications.toResponseList())
         } catch (e: Exception) {
             logger.appFailure(
@@ -408,9 +443,10 @@ class NotificationServiceImp(
         }
     }
 
-    override suspend fun getUnreadCount(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<UnreadNotificationCountResponse> {
+    override suspend fun getUnreadCount(userId: UUID, locale: Locale, context: AppRequestContext, inbox: NotificationInbox): AppResult<UnreadNotificationCountResponse> {
+        requireInboxAccess(userId, inbox)
         return try {
-            AppResult.Success(UnreadNotificationCountResponse(notificationRepository.getUnreadCount(userId)))
+            AppResult.Success(UnreadNotificationCountResponse(notificationRepository.getUnreadCount(userId, inbox)))
         } catch (e: Exception) {
             logger.appFailure(
                 event = "notification.unread_count.failed",
@@ -428,9 +464,10 @@ class NotificationServiceImp(
         }
     }
 
-    override suspend fun markAllAsRead(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<MarkAllNotificationsReadResponse> {
+    override suspend fun markAllAsRead(userId: UUID, locale: Locale, context: AppRequestContext, inbox: NotificationInbox): AppResult<MarkAllNotificationsReadResponse> {
+        requireInboxAccess(userId, inbox)
         return try {
-            AppResult.Success(MarkAllNotificationsReadResponse(notificationRepository.markAllAsRead(userId)))
+            AppResult.Success(MarkAllNotificationsReadResponse(notificationRepository.markAllAsRead(userId, inbox)))
         } catch (e: Exception) {
             logger.appFailure(
                 event = "notification.read_all.failed",
@@ -448,10 +485,11 @@ class NotificationServiceImp(
         }
     }
 
-    override suspend fun deleteNotification(notificationId: UUID, userId: UUID, locale: Locale, context: AppRequestContext): AppResult<Boolean> {
+    override suspend fun deleteNotification(notificationId: UUID, userId: UUID, locale: Locale, context: AppRequestContext, inbox: NotificationInbox): AppResult<Boolean> {
+        requireInboxAccess(userId, inbox)
         return try {
             val notification = notificationRepository.getNotificationById(notificationId)
-            if (notification == null || notification.userId != userId) {
+            if (notification == null || notification.userId != userId || notification.inbox != inbox) {
                 logger.appRejected(
                     event = "notification.delete_failed",
                     context = context,

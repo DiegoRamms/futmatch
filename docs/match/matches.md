@@ -158,6 +158,9 @@ When the match is created, the backend stores a pricing snapshot on the match re
 
 Updates an existing match.
 
+When `discountIds` is omitted or null, existing discounts are preserved. An
+explicit empty list removes all discounts; a non-empty list replaces them.
+
 -   **Method:** `PUT`
 -   **Path:** `/match/admin/update/{matchId}`
 -   **Required Role:** `ADMIN` or `ORGANIZER`

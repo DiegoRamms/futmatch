@@ -16,4 +16,5 @@ data class Notification(
     val createdAt: Long,
     val metadata: String? = null,
     val isRead: Boolean = false,
+    val inbox: NotificationInbox = NotificationInbox.PLAYER,
 )

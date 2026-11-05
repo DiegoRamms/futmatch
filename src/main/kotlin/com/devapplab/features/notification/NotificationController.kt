@@ -2,6 +2,8 @@ package com.devapplab.features.notification
 
 import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
+import com.devapplab.model.notification.NotificationInbox
+import com.devapplab.utils.AccessDeniedException
 import com.devapplab.observability.requestContext
 import com.devapplab.service.notification.NotificationService
 import com.devapplab.utils.retrieveLocale
@@ -10,6 +12,14 @@ import io.ktor.server.application.*
 import java.util.*
 
 class NotificationController(private val notificationService: NotificationService) {
+
+    private fun inbox(call: ApplicationCall): NotificationInbox {
+        val value = call.request.queryParameters["inbox"]?.trim()
+        val inbox = if (value == null) NotificationInbox.PLAYER else
+            NotificationInbox.entries.firstOrNull { it.name.equals(value, ignoreCase = true) }
+                ?: throw AccessDeniedException()
+        return inbox
+    }
 
     suspend fun getNotifications(call: ApplicationCall) {
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
@@ -22,20 +32,21 @@ class NotificationController(private val notificationService: NotificationServic
             limit.coerceIn(1, 100),
             offset.coerceAtLeast(0),
             locale,
-            call.requestContext()
+            call.requestContext(),
+            inbox(call)
         )
         call.respond(result)
     }
 
     suspend fun getUnreadCount(call: ApplicationCall) {
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val result = notificationService.getUnreadCount(userId, call.retrieveLocale(), call.requestContext())
+        val result = notificationService.getUnreadCount(userId, call.retrieveLocale(), call.requestContext(), inbox(call))
         call.respond(result)
     }
 
     suspend fun markAllAsRead(call: ApplicationCall) {
         val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
-        val result = notificationService.markAllAsRead(userId, call.retrieveLocale(), call.requestContext())
+        val result = notificationService.markAllAsRead(userId, call.retrieveLocale(), call.requestContext(), inbox(call))
         call.respond(result)
     }
 
@@ -44,7 +55,7 @@ class NotificationController(private val notificationService: NotificationServic
         val locale = call.retrieveLocale()
         val notificationId = UUID.fromString(call.parameters["notificationId"] ?: "")
 
-        val result = notificationService.deleteNotification(notificationId, userId, locale, call.requestContext())
+        val result = notificationService.deleteNotification(notificationId, userId, locale, call.requestContext(), inbox(call))
         call.respond(result)
     }
 }

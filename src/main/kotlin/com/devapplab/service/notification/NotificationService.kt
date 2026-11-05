@@ -3,10 +3,13 @@ package com.devapplab.service.notification
 import com.devapplab.model.AppResult
 import com.devapplab.model.match.RefundStatus
 import com.devapplab.model.notification.NotificationType
+import com.devapplab.model.notification.NotificationInbox
 import com.devapplab.model.notification.UnreadNotificationCountResponse
 import com.devapplab.model.notification.MarkAllNotificationsReadResponse
 import com.devapplab.observability.AppRequestContext
 import java.util.*
+
+data class PaymentWarningRecipient(val userId: UUID, val locale: Locale, val inbox: NotificationInbox)
 
 interface NotificationService {
     // Send notifications
@@ -14,7 +17,7 @@ interface NotificationService {
     suspend fun sendPaymentSucceededNotification(userId: UUID, matchId: UUID, locale: Locale)
     suspend fun sendPaymentFailedNotification(userId: UUID, matchId: UUID, locale: Locale)
     suspend fun sendReservationExpiredNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale)
-    suspend fun sendMatchPaymentWindowWarningNotification(userId: UUID, matchId: UUID, locale: Locale)
+    suspend fun sendMatchPaymentWindowWarningNotifications(matchId: UUID, recipients: List<PaymentWarningRecipient>): Boolean
     suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus, reason: String? = null)
     suspend fun sendMatchCompletedNotification(
         userId: UUID,
@@ -32,10 +35,12 @@ interface NotificationService {
     suspend fun sendDataOnlyToTopic(topic: String, data: Map<String, String> = emptyMap()): String
     suspend fun notifyUser(userId: UUID, title: String, body: String, data: Map<String, String> = emptyMap())
 
-    suspend fun getUnreadCount(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<UnreadNotificationCountResponse>
-    suspend fun markAllAsRead(userId: UUID, locale: Locale, context: AppRequestContext): AppResult<MarkAllNotificationsReadResponse>
+    suspend fun requireInboxAccess(userId: UUID, inbox: NotificationInbox)
+
+    suspend fun getUnreadCount(userId: UUID, locale: Locale, context: AppRequestContext, inbox: NotificationInbox = NotificationInbox.PLAYER): AppResult<UnreadNotificationCountResponse>
+    suspend fun markAllAsRead(userId: UUID, locale: Locale, context: AppRequestContext, inbox: NotificationInbox = NotificationInbox.PLAYER): AppResult<MarkAllNotificationsReadResponse>
 
     // Retrieve and manage notifications
-    suspend fun getUserNotifications(userId: UUID, limit: Int = 50, offset: Int = 0, locale: Locale, context: AppRequestContext): AppResult<List<com.devapplab.model.notification.NotificationResponse>>
-    suspend fun deleteNotification(notificationId: UUID, userId: UUID, locale: Locale, context: AppRequestContext): AppResult<Boolean>
+    suspend fun getUserNotifications(userId: UUID, limit: Int = 50, offset: Int = 0, locale: Locale, context: AppRequestContext, inbox: NotificationInbox = NotificationInbox.PLAYER): AppResult<List<com.devapplab.model.notification.NotificationResponse>>
+    suspend fun deleteNotification(notificationId: UUID, userId: UUID, locale: Locale, context: AppRequestContext, inbox: NotificationInbox = NotificationInbox.PLAYER): AppResult<Boolean>
 }

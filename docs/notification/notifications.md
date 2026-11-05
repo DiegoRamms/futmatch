@@ -58,6 +58,7 @@ Current server enum values:
 - `PAYMENT_SUCCEEDED`
 - `PAYMENT_FAILED`
 - `RESERVATION_EXPIRED`
+- `MATCH_PAYMENT_WINDOW_WARNING`
 - `MATCH_CANCELED`
 - `MATCH_COMPLETED_WINNER`
 - `MATCH_COMPLETED_WINNER_MVP`
@@ -71,6 +72,7 @@ Current server enum values:
 | `PAYMENT_SUCCEEDED` | Payment captured successfully | `matchId`, `type` |
 | `PAYMENT_FAILED` | Payment attempt fails | `matchId`, `type` |
 | `RESERVATION_EXPIRED` | Reservation TTL expires | `matchId`, `fieldName`, `type` |
+| `MATCH_PAYMENT_WINDOW_WARNING` | Approaching match payment window; sent to active admins and assigned supervisor | `matchId`, `type`; push includes `inbox` for admin/organizer |
 | `MATCH_CANCELED` | Organizer cancels match | `matchId`, `fieldName`, `type`, `refundStatus`, `reason` |
 | `MATCH_COMPLETED_WINNER` | Match completed, player is in winning team | `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type` |
 | `MATCH_COMPLETED_WINNER_MVP` | Match completed, player is winner and MVP | `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type` |
@@ -246,3 +248,36 @@ no schema migration or separately stored counter is required.
 
 The count is intentionally separate from `/user/home`, so the client can refresh
 just the badge without reloading profile and match data. Home's response is unchanged.
+
+## Notification inboxes
+
+History, unread count, read-all and delete accept the optional `inbox` query parameter:
+`PLAYER`, `ORGANIZER`, or `ADMIN` (case-insensitive). An omitted parameter defaults
+ to `PLAYER` for existing clients. Invalid values are rejected with HTTP 403.
+The authenticated user's ID always comes from the access token. Access to ADMIN
+and ORGANIZER is checked against the user's current active role in the database;
+PLAYER remains available to all authenticated users. A user holding ADMIN does not
+implicitly receive ORGANIZER access. Delete requires the notification to belong to
+both the requesting user and selected inbox. An inaccessible or missing notification
+returns not found after inbox authorization.
+
+All operations, including pagination, unread counts and read-all, are scoped to the
+selected inbox. Existing records migrate to PLAYER using the database default.
+New admin/organizer event producers must explicitly select their inbox and attach
+it to push data; the generic send-and-persist helper supports both. No new events or
+recipients are introduced by this change. Mobile must select the inbox for each hub,
+its badge and actions, and route pushes by `inbox`; absent push inbox means PLAYER.
+Older app versions see only PLAYER notifications and cannot display other inboxes.
+
+Payment-window warnings are delivered once per distinct recipient: active admins use
+`ADMIN`; an assigned supervisor uses their current role (`ADMIN` or `ORGANIZER`),
+with `PLAYER` as the fallback for other or unavailable roles. Historical records
+are not reclassified. Older mobile versions cannot read new ADMIN/ORGANIZER inbox
+history and may not route the associated push correctly; coordinate rollout with
+a mobile version that supports inboxes.
+
+The payment-window warning is scheduled three hours before the configured capture
+window opens (nine hours before kickoff when the capture window is six hours).
+The scheduler retries pending warnings until the capture window opens. All recipient
+notifications and the match completion marker are committed atomically under a match
+row lock. Push delivery is best effort after commit and is not retried by this flow.

@@ -25,10 +25,12 @@ import com.devapplab.model.match.mapper.toResponse
 import com.devapplab.model.match.request.RebalanceMatchTeamsRequest
 import com.devapplab.model.match.response.*
 import com.devapplab.model.notification.NotificationType
+import com.devapplab.model.notification.NotificationInbox
 import com.devapplab.model.payment.*
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerLevel
 import com.devapplab.model.user.UserBaseInfo
+import com.devapplab.model.user.UserRole
 import com.devapplab.model.team.response.TeamResponse
 import com.devapplab.observability.AppRequestContext
 import com.devapplab.observability.MatchJoinMetricOutcome
@@ -40,6 +42,7 @@ import com.devapplab.service.billing.BillingService
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.notification.NotificationService
+import com.devapplab.service.notification.PaymentWarningRecipient
 import com.devapplab.service.payment.PaymentServiceFactory
 import com.devapplab.utils.Constants
 import com.devapplab.utils.LocaleTag
@@ -47,6 +50,7 @@ import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.createError
 import io.ktor.http.*
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -58,6 +62,12 @@ import kotlin.math.*
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+
+internal fun paymentWarningInbox(isActiveAdmin: Boolean, supervisorRole: UserRole?): NotificationInbox = when {
+    isActiveAdmin || supervisorRole == UserRole.ADMIN -> NotificationInbox.ADMIN
+    supervisorRole == UserRole.ORGANIZER -> NotificationInbox.ORGANIZER
+    else -> NotificationInbox.PLAYER
+}
 
 class MatchService(
     private val matchRepository: MatchRepository,
@@ -1653,12 +1663,12 @@ class MatchService(
 
     private suspend fun sendPaymentWindowWarnings() {
         val now = System.currentTimeMillis()
-        val sixHoursInMillis = 6.hours.inWholeMilliseconds
-        val warningWindowEnd = now + sixHoursInMillis + 15.minutes.inWholeMilliseconds
+        val warningLeadTime = (matchPaymentConfig.captureWindowHours + 3).hours.inWholeMilliseconds
+        val captureWindowStart = now + matchPaymentConfig.captureWindowHours.hours.inWholeMilliseconds
 
         val matches = matchRepository.getMatchesPendingPaymentWindowWarning(
-            startTimeWindow = now + sixHoursInMillis,
-            endTimeWindow = warningWindowEnd
+            startTimeWindow = captureWindowStart,
+            endTimeWindow = now + warningLeadTime
         )
 
         if (matches.isEmpty()) {
@@ -1670,31 +1680,29 @@ class MatchService(
 
         matches.forEach { matchInfo ->
             try {
-                val claimed = matchRepository.markPaymentWindowWarningSent(matchInfo.matchId, now)
-                if (!claimed) {
-                    logger.info("ℹ️ Payment window warning already claimed for matchId=${matchInfo.matchId}")
-                    return@forEach
-                }
-
                 val adminIds = userRepository.getActiveAdminIds()
                 val recipientIds = adminIds
                     .plus(listOfNotNull(matchInfo.supervisorId))
                     .distinct()
                 val localesByUserId = userRepository.getUserLocalesByIds(recipientIds)
+                val supervisorRole = matchInfo.supervisorId
+                    ?.takeIf { it !in adminIds }
+                    ?.let { supervisorId -> dbExecutor.tx { userRepository.getUserById(supervisorId)?.userRole } }
 
-                recipientIds.forEach { userId ->
+                val recipients = recipientIds.map { userId ->
                     val localeTag = localesByUserId[userId].orEmpty().ifBlank { LocaleTag.LAN_TAG_MX.value }
                     val locale = Locale.forLanguageTag(localeTag)
-                    notificationService.sendMatchPaymentWindowWarningNotification(
+                    PaymentWarningRecipient(
                         userId = userId,
-                        matchId = matchInfo.matchId,
-                        locale = locale
+                        locale = locale,
+                        inbox = paymentWarningInbox(userId in adminIds, supervisorRole)
                     )
                 }
-
-                logger.info(
-                    "✅ Payment window warning sent for matchId=${matchInfo.matchId} to recipients=${recipientIds.size}"
-                )
+                if (notificationService.sendMatchPaymentWindowWarningNotifications(matchInfo.matchId, recipients)) {
+                    logger.info("Payment window warning saved for matchId={} to recipients={}", matchInfo.matchId, recipientIds.size)
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.error(
                     "❌ Failed to send payment window warning for matchId=${matchInfo.matchId}, field=${matchInfo.fieldName}",

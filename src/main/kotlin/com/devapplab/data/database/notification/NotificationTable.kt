@@ -11,9 +11,13 @@ object NotificationTable : Table("notifications") {
     val title = varchar("title", 255)
     val body = text("body")
     val notificationType = varchar("notification_type", 50)
+    val inbox = varchar("inbox", 16).default("PLAYER")
+
     val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
     val metadata = text("metadata").nullable()
     val isRead = bool("is_read").default(false)
+
+    init { index(false, userId, inbox, createdAt) }
 
     override val primaryKey = PrimaryKey(id)
 }
