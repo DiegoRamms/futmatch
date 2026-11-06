@@ -7,7 +7,6 @@ import io.ktor.server.plugins.*
 import io.ktor.server.plugins.ratelimit.*
 import java.security.MessageDigest
 import java.net.InetAddress
-import java.time.Instant
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -25,9 +24,7 @@ fun Application.configureRateLimit() {
         }
 
         register(RateLimitName(RateLimitType.PROTECTED.value)) {
-            // Temporary home load test: three units per ordinary request retain the
-            // existing 300/minute allowance; remove this exception after testing.
-            rateLimiter(limit = 900, refillPeriod = 60.seconds)
+            rateLimiter(limit = 300, refillPeriod = 60.seconds)
 
             requestKey { call ->
                 val ip = call.clientIp()
@@ -35,19 +32,9 @@ fun Application.configureRateLimit() {
                 if (userId != null) "protected:user:$userId:ip:$ip" else "protected:ip:$ip"
             }
 
-            requestWeight { call, key ->
-                val k = key as? String ?: return@requestWeight 150
-                val isTestHome = call.request.local.uri.substringBefore('?') == "/user/home" &&
-                    Instant.now().isBefore(Instant.parse("2026-11-06T08:00:00Z")) &&
-                    listOf(
-                        "protected:user:4891aa7d-1120-41b4-8ad0-73239ac2f276:ip:",
-                        "protected:user:27223a88-8872-4cb3-aede-37b8cef99641:ip:"
-                    ).any(k::startsWith)
-                when {
-                    isTestHome -> 1
-                    k.startsWith("protected:user:") -> 3
-                    else -> 150
-                }
+            requestWeight { _, key ->
+                val k = key as? String ?: return@requestWeight 50
+                if (k.startsWith("protected:user:")) 1 else 50
             }
         }
 
