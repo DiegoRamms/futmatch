@@ -7,6 +7,7 @@ import com.devapplab.service.payment.StripePaymentCardReader
 import com.devapplab.service.payment.StripePaymentCardReaderImpl
 import com.devapplab.service.admin.DashboardService
 import com.devapplab.observability.AuthMetrics
+import com.devapplab.observability.HomeMetrics
 import com.devapplab.observability.PaymentMetrics
 import com.devapplab.service.appcheck.FirebaseAppCheckService
 import com.devapplab.service.ProfileService
@@ -64,6 +65,7 @@ val serviceModule = module {
     singleOf(::RankingService)
 
     singleOf(::AuthMetrics)
+    singleOf(::HomeMetrics)
     singleOf(::PaymentMetrics)
     singleOf(::PiiCrypto)
     singleOf(::UserService)

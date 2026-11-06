@@ -102,6 +102,7 @@ Retrieves the authenticated user's notification history.
 |:----------|:-----|:---------|:------------|
 | `limit` | Int | No | Max notifications to return (1-100). Default: 50 |
 | `offset` | Int | No | Pagination offset. Default: 0 |
+| `inbox` | String | No | `PLAYER` (default), `ADMIN`, or `ORGANIZER`; authorization is checked on the server. |
 
 ### Success Response (Example)
 
@@ -170,6 +171,12 @@ Removes a notification from the user's history.
 |:----------|:-----|:---------|:------------|
 | `notificationId` | UUID | Yes | Notification ID to delete |
 
+### Query Parameters
+
+`inbox` is optional and defaults to `PLAYER`. For `ADMIN` or `ORGANIZER`, the
+user must have the corresponding active role, and the notification must belong
+to the selected inbox and authenticated user.
+
 ### Success Response
 
 ```json
@@ -205,6 +212,7 @@ The `metadata` field is stored as a JSON-encoded string in notification history.
 - **Path:** `/notification/unread-count`
 - **Authentication:** Access token; the user is taken exclusively from the token.
 - **Body:** None.
+- **Query:** Optional `inbox=PLAYER|ADMIN|ORGANIZER` (default `PLAYER`).
 
 Success data (HTTP 200):
 
@@ -213,7 +221,7 @@ Success data (HTTP 200):
 ```
 
 The data is wrapped in the same success envelope as notification history. The count
-includes all of this user's rows with `is_read = false`, regardless of pagination.
+includes this user's rows in the selected inbox with `is_read = false`, regardless of pagination.
 An empty inbox returns zero. Fetching history or the count does not mark anything read.
 
 ## 4. Mark All Notifications Read
@@ -222,6 +230,7 @@ An empty inbox returns zero. Fetching history or the count does not mark anythin
 - **Path:** `/notification/read-all`
 - **Authentication:** Access token; affects only the authenticated user.
 - **Body:** None.
+- **Query:** Optional `inbox=PLAYER|ADMIN|ORGANIZER` (default `PLAYER`).
 
 Success data (HTTP 200):
 
@@ -230,7 +239,7 @@ Success data (HTTP 200):
 ```
 
 The data is wrapped in the standard success envelope. One database update marks
-all unread notifications for this user as read, including rows outside the loaded
+all unread notifications in the selected inbox for this user as read, including rows outside the loaded
 history page. It does not delete history. Repeated requests or an empty inbox return
 `markedAsReadCount: 0` successfully. The existing `is_read` column defaults to false;
 no schema migration or separately stored counter is required.
@@ -264,8 +273,8 @@ returns not found after inbox authorization.
 All operations, including pagination, unread counts and read-all, are scoped to the
 selected inbox. Existing records migrate to PLAYER using the database default.
 New admin/organizer event producers must explicitly select their inbox and attach
-it to push data; the generic send-and-persist helper supports both. No new events or
-recipients are introduced by this change. Mobile must select the inbox for each hub,
+it to push data; the generic send-and-persist helper supports both. The existing
+payment-window warning now uses ADMIN or ORGANIZER for those recipients. Mobile must select the inbox for each hub,
 its badge and actions, and route pushes by `inbox`; absent push inbox means PLAYER.
 Older app versions see only PLAYER notifications and cannot display other inboxes.
 

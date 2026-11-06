@@ -29,6 +29,8 @@ import com.devapplab.model.user.response.OrganizerListItem
 import com.devapplab.model.user.response.UserResponse
 import com.devapplab.model.payment.PaymentHistoryItem
 import com.devapplab.observability.AppRequestContext
+import com.devapplab.observability.HomeMetrics
+import com.devapplab.observability.HomeSection
 import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.auth.apple.AppleTokenExchangeService
@@ -71,7 +73,8 @@ class UserService(
     private val appleTokenExchangeService: AppleTokenExchangeService,
     private val piiCrypto: PiiCrypto,
     private val emailService: EmailService,
-    private val rankingService: RankingService
+    private val rankingService: RankingService,
+    private val homeMetrics: HomeMetrics
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -437,7 +440,7 @@ class UserService(
             return locale.createError(status = HttpStatusCode.NotFound)
         }
 
-        val user = dbExecutor.tx { userRepository.getUserById(userId) }
+        val user = homeMetrics.measure(HomeSection.USER) { dbExecutor.tx { userRepository.getUserById(userId) } }
             ?: run {
                 logger.appRejected(
                     event = "user.home.load_failed",
@@ -451,10 +454,12 @@ class UserService(
 
         val (suggestedMatches, lastMatch, winStats) = coroutineScope {
             val suggestedDeferred = async {
-                matchRepository.getHomeSuggestedMatches(userId = userId, limit = HOME_SUGGESTED_MATCHES_FETCH_LIMIT)
+                homeMetrics.measure(HomeSection.SUGGESTED_MATCHES) {
+                    matchRepository.getHomeSuggestedMatches(userId = userId, limit = HOME_SUGGESTED_MATCHES_FETCH_LIMIT)
+                }
             }
-            val lastMatchDeferred = async { matchRepository.getHomeLastMatch(userId) }
-            val winStatsDeferred = async { matchRepository.getUserMatchWinStats(userId) }
+            val lastMatchDeferred = async { homeMetrics.measure(HomeSection.LAST_MATCH) { matchRepository.getHomeLastMatch(userId) } }
+            val winStatsDeferred = async { homeMetrics.measure(HomeSection.WIN_STATS) { matchRepository.getUserMatchWinStats(userId) } }
             Triple(
                 suggestedDeferred.await(),
                 lastMatchDeferred.await(),
@@ -516,7 +521,7 @@ class UserService(
                 ),
                 suggestedMatches = suggestedResponse,
                 lastMatch = lastMatchResponse,
-                ranking = rankingService.summary(userId, rankingMonth)
+                ranking = homeMetrics.measure(HomeSection.RANKING) { rankingService.summary(userId, rankingMonth) }
             ),
             appStatus = HttpStatusCode.OK
         )
