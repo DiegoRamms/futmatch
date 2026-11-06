@@ -64,7 +64,7 @@ fun Application.configureDatabase() {
         driverClassName = config.requiredProperty("database.driver")
         username = config.requiredProperty("database.user")
         password = config.requiredProperty("database.password")
-        maximumPoolSize = config.intProperty("database.pool.maximum_size", default = 5)
+        maximumPoolSize = config.intProperty("database.pool.maximum_size", default = 8)
         minimumIdle = config.intProperty("database.pool.minimum_idle", default = 1)
         connectionTimeout = config.longProperty("database.pool.connection_timeout_ms", default = 5_000)
         validationTimeout = config.longProperty("database.pool.validation_timeout_ms", default = 3_000)

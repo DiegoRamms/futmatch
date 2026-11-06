@@ -38,7 +38,7 @@ fun Application.configureRateLimit() {
             requestWeight { call, key ->
                 val k = key as? String ?: return@requestWeight 150
                 val isTestHome = call.request.local.uri.substringBefore('?') == "/user/home" &&
-                    Instant.now().isBefore(Instant.parse("2026-11-06T05:00:00Z")) &&
+                    Instant.now().isBefore(Instant.parse("2026-11-06T08:00:00Z")) &&
                     listOf(
                         "protected:user:4891aa7d-1120-41b4-8ad0-73239ac2f276:ip:",
                         "protected:user:27223a88-8872-4cb3-aede-37b8cef99641:ip:"
