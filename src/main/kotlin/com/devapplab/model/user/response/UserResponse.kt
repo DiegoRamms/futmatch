@@ -21,5 +21,6 @@ data class UserResponse(
     val profilePic: String?,
     val level: PlayerLevel,
     val userRole: UserRole,
-    val isEmailVerified: Boolean
+    val isEmailVerified: Boolean,
+    val matchInviteNotificationsEnabled: Boolean = true
 )

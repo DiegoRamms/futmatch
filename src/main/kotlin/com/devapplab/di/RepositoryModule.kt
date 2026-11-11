@@ -29,6 +29,8 @@ import com.devapplab.data.repository.login_attempt.LoginAttemptRepository
 import com.devapplab.data.repository.login_attempt.LoginAttemptRepositoryImpl
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.match.MatchRepositoryImp
+import com.devapplab.data.repository.match.MatchInviteRepository
+import com.devapplab.data.repository.match.MatchInviteRepositoryImpl
 import com.devapplab.data.repository.match.MatchRefundFailureRepository
 import com.devapplab.data.repository.match.MatchRefundFailureRepositoryImpl
 import com.devapplab.data.repository.match.PublicMatchesVersionRepository
@@ -77,6 +79,7 @@ val repositoryModule = module {
     singleOf(::SocialLinkAttemptRepositoryImpl) { bind<SocialLinkAttemptRepository>() }
     singleOf(::FieldRepositoryImp) { bind<FieldRepository>() }
     singleOf(::MatchRepositoryImp) { bind<MatchRepository>() }
+    singleOf(::MatchInviteRepositoryImpl) { bind<MatchInviteRepository>() }
     singleOf(::TeamRepositoryImpl) { bind<TeamRepository>() }
     singleOf(::MatchRefundFailureRepositoryImpl) { bind<MatchRefundFailureRepository>() }
     singleOf(::PublicMatchesVersionRepositoryImpl) { bind<PublicMatchesVersionRepository>() }

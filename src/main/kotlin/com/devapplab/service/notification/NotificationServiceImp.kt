@@ -2,10 +2,14 @@ package com.devapplab.service.notification
 
 import com.devapplab.data.repository.device.DeviceRepository
 import com.devapplab.data.database.executor.DbExecutor
+import com.devapplab.data.repository.match.MatchInviteRepository
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.notification.NotificationRepository
 import com.devapplab.data.repository.notification.PaymentWarningNotification
 import com.devapplab.model.AppResult
+import com.devapplab.model.match.MatchInviteCandidate
+import com.devapplab.model.match.MatchInviteInfo
+import com.devapplab.model.match.MatchInviteNotification
 import com.devapplab.model.match.RefundStatus
 import com.devapplab.model.notification.NotificationResponse
 import com.devapplab.model.notification.NotificationType
@@ -41,6 +45,7 @@ class NotificationServiceImp(
     private val notificationRepository: NotificationRepository,
     private val matchRepository: MatchRepository,
     private val dbExecutor: DbExecutor,
+    private val matchInviteRepository: MatchInviteRepository,
 ) : NotificationService {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -125,6 +130,64 @@ class NotificationServiceImp(
             }
         }
         return true
+    }
+
+    override suspend fun sendMatchInviteNotifications(
+        match: MatchInviteInfo,
+        milestonesHours: Set<Int>,
+        recipients: List<MatchInviteCandidate>
+    ): Boolean {
+        val sentAt = System.currentTimeMillis()
+        val groups = recipients
+            .distinctBy { it.userId }
+            .groupBy { Locale.forLanguageTag(it.localeTag) }
+            .map { (locale, users) -> buildMatchInviteContent(match, locale) to users.map { it.userId } }
+
+        val notifications = groups.flatMap { (content, userIds) ->
+            userIds.map { MatchInviteNotification(it, content.title, content.body, convertMapToJson(content.data)) }
+        }
+        val saved = dbExecutor.tx {
+            matchInviteRepository.saveMatchInvitesTx(match.matchId, milestonesHours, notifications, sentAt)
+        }
+        if (!saved || notifications.isEmpty()) return saved
+
+        val tokensByUser = matchInviteRepository.getActiveFcmTokensByUserIds(notifications.map { it.userId })
+        groups.forEach { (content, userIds) ->
+            userIds.flatMap { tokensByUser[it].orEmpty() }
+                .distinct()
+                .chunked(FCM_MULTICAST_LIMIT)
+                .forEach { tokens ->
+                    try {
+                        sendToTokens(tokens, content.title, content.body, content.data)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn("Match invite saved but push failed for matchId={} tokens={}", match.matchId, tokens.size, e)
+                    }
+                }
+        }
+        return true
+    }
+
+    private fun buildMatchInviteContent(match: MatchInviteInfo, locale: Locale): MatchInviteContent {
+        val spots = match.availableSpots
+        val matchDateTime = formatMatchDateTime(match.dateTime, locale)
+        val bodyKey = if (spots == 1) StringResourcesKey.NOTIFICATION_MATCH_INVITE_BODY_ONE
+            else StringResourcesKey.NOTIFICATION_MATCH_INVITE_BODY_MANY
+        return MatchInviteContent(
+            title = locale.getString(StringResourcesKey.NOTIFICATION_MATCH_INVITE_TITLE),
+            body = locale.getString(
+                bodyKey,
+                mapOf("spots" to spots.toString(), "fieldName" to match.fieldName, "date" to matchDateTime)
+            ),
+            data = mapOf(
+                "matchId" to match.matchId.toString(),
+                "type" to NotificationType.MATCH_INVITE.name,
+                "fieldName" to match.fieldName,
+                "matchDateTime" to matchDateTime,
+                "availableSpots" to spots.toString()
+            )
+        )
     }
 
     override suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus, reason: String?) {
@@ -581,6 +644,17 @@ class NotificationServiceImp(
         return Instant.ofEpochMilli(matchDateTimeMs)
             .atZone(ZoneId.of("America/Mexico_City"))
             .format(formatter)
+    }
+
+    private data class MatchInviteContent(
+        val title: String,
+        val body: String,
+        val data: Map<String, String>
+    )
+
+    private companion object {
+        /** FCM accepts at most 500 tokens per multicast request. */
+        const val FCM_MULTICAST_LIMIT = 500
     }
 
     private data class MatchContext(

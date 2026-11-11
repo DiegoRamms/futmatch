@@ -3,6 +3,7 @@ package com.devapplab.di
 import com.devapplab.model.EmailConfig
 import com.devapplab.model.EmailDomainPolicyConfig
 import com.devapplab.model.AppCheckConfig
+import com.devapplab.model.MatchInviteConfig
 import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.StripeConfig
 import com.devapplab.model.WebhookConfig
@@ -103,6 +104,19 @@ val configModule = module {
                 ?.toLongOrNull()
                 ?.takeIf { it > 0 }
                 ?: 6
+        )
+    }
+
+    single {
+        val config = get<ApplicationConfig>()
+        MatchInviteConfig(
+            enabled = config.propertyOrNull("match.invite.enabled")?.getString()?.trim()?.toBooleanStrictOrNull() ?: true,
+            milestonesHours = MatchInviteConfig.parseMilestones(config.propertyOrNull("match.invite.milestonesHours")?.getString()),
+            intervalMinutes = config.propertyOrNull("match.invite.intervalMinutes")
+                ?.getString()
+                ?.toLongOrNull()
+                ?.takeIf { it > 0 }
+                ?: 15
         )
     }
 
