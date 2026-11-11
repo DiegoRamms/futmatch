@@ -36,6 +36,7 @@ interface UserRepository {
     fun updateCountryTx(userId: UUID, countryCode: String): Boolean
     fun updateGenderTx(userId: UUID, gender: Gender): Boolean
     fun updatePositionTx(userId: UUID, position: PlayerPosition): Boolean
+    fun updateMatchInviteNotificationsTx(userId: UUID, enabled: Boolean): Boolean
     fun markEmailAsVerified(userId: UUID): Boolean
     suspend fun deleteUser(id: UUID): Boolean
     suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String?

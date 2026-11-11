@@ -27,4 +27,5 @@ fun Application.module() {
     configureMatchLifecycleJob()
     configurePaymentCaptureJob()
     configureReservationCleanupJob()
+    configureMatchInviteJob()
 }

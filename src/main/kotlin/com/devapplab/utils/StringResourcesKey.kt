@@ -232,6 +232,9 @@ enum class StringResourcesKey(val value: String) {
     NOTIFICATION_MATCH_COMPLETED_LOSER_BODY("notification_match_completed_loser_body"),
     NOTIFICATION_MATCH_COMPLETED_DRAW_TITLE("notification_match_completed_draw_title"),
     NOTIFICATION_MATCH_COMPLETED_DRAW_BODY("notification_match_completed_draw_body"),
+    NOTIFICATION_MATCH_INVITE_TITLE("notification_match_invite_title"),
+    NOTIFICATION_MATCH_INVITE_BODY_ONE("notification_match_invite_body_one"),
+    NOTIFICATION_MATCH_INVITE_BODY_MANY("notification_match_invite_body_many"),
 
     // User Profile
     USER_PROFILE_NAME_UPDATED("user_profile_name_updated"),

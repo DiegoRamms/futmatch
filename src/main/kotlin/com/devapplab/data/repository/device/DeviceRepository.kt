@@ -10,6 +10,8 @@ interface DeviceRepository {
     fun isTrustedDeviceIdForUser(deviceId: UUID, userId: UUID): Boolean
     fun markDeviceAsTrusted(deviceId: UUID): Boolean
     fun changeDeviceLastUsed(deviceId: UUID): Boolean
+    /** Stops pushes to a device after sign-out; the app registers a new token on next sign-in. */
+    fun clearFcmTokenTx(deviceId: UUID): Boolean
     fun updateDesktopMetadata(deviceId: UUID, deviceInfo: String, appVersion: String?, osVersion: String?): Boolean
     fun deactivateDevicesByUserIdTx(userId: UUID, changedAt: Long): Int
     suspend fun updateDeviceFcmToken(

@@ -214,6 +214,13 @@ class UserRepositoryImpl(private val piiCrypto: PiiCrypto) : UserRepository {
         } > 0
     }
 
+    override fun updateMatchInviteNotificationsTx(userId: UUID, enabled: Boolean): Boolean {
+        return UserTable.update({ UserTable.id eq userId }) {
+            it[UserTable.matchInviteNotificationsEnabled] = enabled
+            it[updatedAt] = System.currentTimeMillis()
+        } > 0
+    }
+
     override fun updatePassword(userId: UUID, hashedPassword: String): Boolean {
         return UserTable.update({ UserTable.id eq userId }) {
             it[password] = hashedPassword
@@ -453,7 +460,8 @@ class UserRepositoryImpl(private val piiCrypto: PiiCrypto) : UserRepository {
             updatedAt = this[UserTable.updatedAt],
             gender = this[UserTable.gender],
             isEmailVerified = this[UserTable.isEmailVerified],
-            userRole = this[UserTable.role]
+            userRole = this[UserTable.role],
+            matchInviteNotificationsEnabled = this[UserTable.matchInviteNotificationsEnabled]
         )
     }
 

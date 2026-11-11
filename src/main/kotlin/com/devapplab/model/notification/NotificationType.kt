@@ -14,4 +14,5 @@ enum class NotificationType {
     MATCH_COMPLETED_WINNER_MVP,
     MATCH_COMPLETED_LOSER,
     MATCH_COMPLETED_DRAW,
+    MATCH_INVITE,
 }

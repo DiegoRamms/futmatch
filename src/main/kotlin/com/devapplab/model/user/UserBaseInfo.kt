@@ -18,6 +18,7 @@ data class UserBaseInfo(
     val userRole: UserRole,
     val isEmailVerified: Boolean,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val matchInviteNotificationsEnabled: Boolean = true
 )
 

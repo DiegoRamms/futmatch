@@ -26,6 +26,7 @@ object UserTable : Table("users") {
     val isEmailVerified = bool("is_email_verified").default(false)
     val emailVerifiedAt = long("email_verified_at").nullable()
     val isNotificationsEnabled = bool("is_notifications_enabled").default(true)
+    val matchInviteNotificationsEnabled = bool("match_invite_notifications_enabled").default(true)
     val locale = varchar("locale", 10).default(LocaleTag.LAN_TAG_MX.value)
     val role = enumerationByName("role", USER_ROLE_MAX_LENGTH, UserRole::class)
     val createdAt = long("created_at").clientDefault { System.currentTimeMillis() }
