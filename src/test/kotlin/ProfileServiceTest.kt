@@ -392,6 +392,7 @@ private class FakeUserRepository(
     override fun updateCountryTx(userId: UUID, countryCode: String): Boolean = error("not used")
     override fun updateGenderTx(userId: UUID, gender: Gender): Boolean = error("not used")
     override fun updatePositionTx(userId: UUID, position: PlayerPosition): Boolean = error("not used")
+    override fun updateMatchInviteNotificationsTx(userId: UUID, enabled: Boolean): Boolean = error("not used")
     override fun markEmailAsVerified(userId: UUID): Boolean = error("not used")
     override suspend fun deleteUser(id: UUID): Boolean = error("not used")
     override suspend fun getPaymentProfile(userId: UUID, provider: PaymentProvider): String? = error("not used")

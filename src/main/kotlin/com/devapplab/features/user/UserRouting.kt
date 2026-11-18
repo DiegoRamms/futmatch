@@ -60,6 +60,12 @@ fun Route.userRouting() {
             userController.updatePosition(call)
         }
 
+        patch("/notification-preferences") {
+            call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
+            val userController = call.scope.get<UserController>()
+            userController.updateNotificationPreferences(call)
+        }
+
         delete("/me") {
             call.requireRole(UserRole.PLAYER, UserRole.ADMIN, UserRole.ORGANIZER)
             val userController = call.scope.get<UserController>()

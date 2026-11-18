@@ -19,6 +19,7 @@ import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserBaseInfo
 import com.devapplab.model.user.request.DeleteAccountRequest
+import com.devapplab.model.user.request.UpdateNotificationPreferencesRequest
 import com.devapplab.model.auth.RefreshTokenStatusReason
 import com.devapplab.model.user.response.HomeLastMatchSection
 import com.devapplab.model.user.response.HomeProfileSection
@@ -381,6 +382,34 @@ class UserService(
         } else {
             logger.appRejected(
                 event = "user.profile.gender.update_failed",
+                context = context,
+                reason = "user_not_found",
+                userId = userId,
+                statusCode = HttpStatusCode.NotFound.value
+            )
+            locale.createError(status = HttpStatusCode.NotFound)
+        }
+    }
+
+    suspend fun updateNotificationPreferences(
+        userId: UUID,
+        request: UpdateNotificationPreferencesRequest,
+        locale: Locale,
+        context: AppRequestContext
+    ): AppResult<Unit> {
+        val updated = dbExecutor.tx { userRepository.updateMatchInviteNotificationsTx(userId, request.matchInvitesEnabled) }
+        return if (updated) {
+            logger.appSuccess(
+                event = "user.notification_preferences.updated",
+                context = context,
+                userId = userId,
+                statusCode = HttpStatusCode.OK.value,
+                extra = mapOf("matchInvitesEnabled" to request.matchInvitesEnabled)
+            )
+            AppResult.Success(data = Unit, appStatus = HttpStatusCode.OK)
+        } else {
+            logger.appRejected(
+                event = "user.notification_preferences.update_failed",
                 context = context,
                 reason = "user_not_found",
                 userId = userId,

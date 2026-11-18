@@ -45,6 +45,7 @@ import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.hashing.HashingServiceImpl
 import com.devapplab.service.image.ImageServiceImp
 import com.devapplab.service.location.LocationService
+import com.devapplab.service.match.MatchInviteService
 import com.devapplab.service.match.MatchService
 import com.devapplab.service.match.MatchPricingConfigProvider
 import com.devapplab.service.match.PublicMatchesCacheService
@@ -100,6 +101,7 @@ val serviceModule = module {
     singleOf(::MailtrapEmailService) { bind<com.devapplab.service.email.EmailService>() }
     singleOf(::FieldService)
     singleOf(::MatchService)
+    singleOf(::MatchInviteService)
     singleOf(::MatchPricingConfigProvider)
     singleOf(::PublicMatchesCacheService)
     singleOf(::LocationService)

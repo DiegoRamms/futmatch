@@ -18,6 +18,7 @@ fun UserBaseInfo.toUserResponse(profilePicUrl: String): UserResponse {
         profilePic = profilePicUrl,
         level = level,
         isEmailVerified = isEmailVerified,
-        userRole = userRole
+        userRole = userRole,
+        matchInviteNotificationsEnabled = matchInviteNotificationsEnabled
     )
 }

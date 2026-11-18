@@ -55,6 +55,7 @@ When receiving a notification (push or history):
 
 Current server enum values:
 
+- `PAYMENT_AUTHORIZED`
 - `PAYMENT_SUCCEEDED`
 - `PAYMENT_FAILED`
 - `RESERVATION_EXPIRED`
@@ -64,11 +65,13 @@ Current server enum values:
 - `MATCH_COMPLETED_WINNER_MVP`
 - `MATCH_COMPLETED_LOSER`
 - `MATCH_COMPLETED_DRAW`
+- `MATCH_INVITE`
 
 ### Type Matrix
 
 | Type | When Sent | Metadata Fields |
 |:-----|:----------|:----------------|
+| `PAYMENT_AUTHORIZED` | Payment authorized (held) when joining | `matchId`, `type`, `fieldName`, `matchDateTime` |
 | `PAYMENT_SUCCEEDED` | Payment captured successfully | `matchId`, `type` |
 | `PAYMENT_FAILED` | Payment attempt fails | `matchId`, `type` |
 | `RESERVATION_EXPIRED` | Reservation TTL expires | `matchId`, `fieldName`, `type` |
@@ -78,6 +81,7 @@ Current server enum values:
 | `MATCH_COMPLETED_WINNER_MVP` | Match completed, player is winner and MVP | `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type` |
 | `MATCH_COMPLETED_LOSER` | Match completed, player is in losing team | `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type` |
 | `MATCH_COMPLETED_DRAW` | Match completed and ended in draw | `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type` |
+| `MATCH_INVITE` | Automatic invite to a match the user is not in, while it has free spots (see [Match invites](#match-invites)) | `matchId`, `type`, `fieldName`, `matchDateTime`, `availableSpots` |
 
 ### Notes
 
@@ -203,6 +207,7 @@ Common metadata keys by family:
 - **Reservation expired:** `matchId`, `fieldName`, `type`
 - **Match canceled:** `matchId`, `fieldName`, `type`, `refundStatus`
 - **Match completed:** `matchId`, `fieldName`, `teamAScore`, `teamBScore`, `bestPlayerId`, `resultVariant`, `type`
+- **Match invite:** `matchId`, `type`, `fieldName`, `matchDateTime`, `availableSpots` (spots at send time, as a string)
 
 The `metadata` field is stored as a JSON-encoded string in notification history.
 
@@ -290,3 +295,63 @@ window opens (nine hours before kickoff when the capture window is six hours).
 The scheduler retries pending warnings until the capture window opens. All recipient
 notifications and the match completion marker are committed atomically under a match
 row lock. Push delivery is best effort after commit and is not retried by this flow.
+
+## Match invites
+
+`MATCH_INVITE` is an automatic push that asks players to join a match they are not in.
+It always lands in the `PLAYER` inbox and carries the same keys in push data and in
+history `metadata`. Tapping it should open the match detail for `matchId`.
+
+**When it is sent.** A scheduler runs every `match.invite.intervalMinutes` (default 15).
+Each match gets invites at fixed milestones before kick-off, `match.invite.milestonesHours`
+(default `24,6,2`), while it is `SCHEDULED` and has free spots. Milestones above
+`match.payment.maxJoinWindowHours` are ignored, so invites never go out before paid
+registration opens. When several milestones are due at once (e.g. a match created 90
+minutes before kick-off), they are consumed together and only one invite goes out.
+A full match keeps its milestone pending, so the invite still goes out if a spot frees
+up before the next milestone.
+
+**Who receives it.** Users with role `PLAYER`, status `ACTIVE`, at least one active
+device with a push token, `is_notifications_enabled = true` and the match-invite
+preference on. It skips players already `RESERVED`/`JOINED`, the match admin and
+supervisor, and matches the user can't see because of gender or level (same rules as
+the public match list).
+
+**Daily cap.** Each user gets at most one `MATCH_INVITE` in any rolling 24 hours.
+When several matches are due in the same run, the user is invited to the soonest one
+(ties go to the one with fewer spots left).
+
+**Delivery.** Milestone markers (`match_invite_dispatches`, one row per match and
+milestone) and all history rows are committed together under a match row lock, so a
+milestone is processed once even with several server replicas. Push goes out after
+commit in FCM multicast batches of 500, is best effort and is not retried.
+
+**Configuration** (`application.conf` → `match.invite`):
+
+| Key | Env var | Default |
+|:----|:--------|:--------|
+| `enabled` | `MATCH_INVITE_ENABLED` | `true` |
+| `milestonesHours` | `MATCH_INVITE_MILESTONES_HOURS` | `24,6,2` |
+| `intervalMinutes` | `MATCH_INVITE_INTERVAL_MINUTES` | `15` |
+
+### Opt-out: `PATCH /user/notification-preferences`
+
+- **Authentication:** Access token (`PLAYER`, `ADMIN` or `ORGANIZER`).
+- **Body:** `{"matchInvitesEnabled": false}`
+- **Success:** HTTP 200 with the standard envelope.
+
+The preference is on by default, including for existing users. Its current value is
+returned as `matchInviteNotificationsEnabled` in `GET /user`.
+
+```bash
+curl --location --request PATCH '{{base_url}}/user/notification-preferences' \
+--header 'Authorization: Bearer {{token}}' \
+--header 'Content-Type: application/json' \
+--data '{"matchInvitesEnabled": false}'
+```
+
+## Sign-out and push tokens
+
+Signing out clears the push token of that device, so it stops receiving every
+notification type. The app must register its token again with `PUT /device/fcm-token`
+after the next sign-in.

@@ -17,7 +17,10 @@ object NotificationTable : Table("notifications") {
     val metadata = text("metadata").nullable()
     val isRead = bool("is_read").default(false)
 
-    init { index(false, userId, inbox, createdAt) }
+    init {
+        index(false, userId, inbox, createdAt)
+        index(false, notificationType, createdAt)
+    }
 
     override val primaryKey = PrimaryKey(id)
 }

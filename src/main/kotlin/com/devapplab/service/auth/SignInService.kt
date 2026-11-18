@@ -738,6 +738,8 @@ class SignInService(
         }
 
         val wasRevoke = dbExecutor.tx {
+            // A signed-out device must stop receiving pushes (invites, payments, etc.).
+            deviceRepository.clearFcmTokenTx(deviceId)
             authRepository.revokeRefreshToken(deviceId)
         }
 

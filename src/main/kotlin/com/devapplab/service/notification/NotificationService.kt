@@ -1,6 +1,8 @@
 package com.devapplab.service.notification
 
 import com.devapplab.model.AppResult
+import com.devapplab.model.match.MatchInviteCandidate
+import com.devapplab.model.match.MatchInviteInfo
 import com.devapplab.model.match.RefundStatus
 import com.devapplab.model.notification.NotificationType
 import com.devapplab.model.notification.NotificationInbox
@@ -18,6 +20,13 @@ interface NotificationService {
     suspend fun sendPaymentFailedNotification(userId: UUID, matchId: UUID, locale: Locale)
     suspend fun sendReservationExpiredNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale)
     suspend fun sendMatchPaymentWindowWarningNotifications(matchId: UUID, recipients: List<PaymentWarningRecipient>): Boolean
+    /**
+     * Saves "join this match" invites for [recipients] and marks [milestonesHours] as processed
+     * in one transaction, then pushes them (best effort). An empty [recipients] list only
+     * consumes the milestones. Returns false when the invite was already handled or the match
+     * is no longer eligible.
+     */
+    suspend fun sendMatchInviteNotifications(match: MatchInviteInfo, milestonesHours: Set<Int>, recipients: List<MatchInviteCandidate>): Boolean
     suspend fun sendMatchCanceledNotification(userId: UUID, matchId: UUID, fieldName: String, locale: Locale, refundStatus: RefundStatus, reason: String? = null)
     suspend fun sendMatchCompletedNotification(
         userId: UUID,

@@ -14,6 +14,7 @@ import com.devapplab.data.database.field.FieldTable
 import com.devapplab.data.database.location.LocationsTable
 import com.devapplab.data.database.login_attempt.LoginAttemptTable
 import com.devapplab.data.database.match.MatchDiscountsTable
+import com.devapplab.data.database.match.MatchInviteDispatchTable
 import com.devapplab.data.database.match.MatchPlayerGoalsTable
 import com.devapplab.data.database.match.MatchRefundFailuresTable
 import com.devapplab.data.database.match.MatchPlayersTable
@@ -123,6 +124,7 @@ fun Application.configureDatabase() {
         UserPaymentProfileTable,
         StripeWebhookEventsTable,
         NotificationTable,
+        MatchInviteDispatchTable,
         MatchPricingConfigTable,
         ProfileImageCleanupJobsTable
     )

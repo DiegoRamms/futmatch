@@ -57,6 +57,13 @@ class DeviceRepositoryImpl : DeviceRepository {
         } > 0
     }
 
+    override fun clearFcmTokenTx(deviceId: UUID): Boolean {
+        return DeviceTable.update({ (DeviceTable.id eq deviceId) and (DeviceTable.fcmToken neq null) }) {
+            it[fcmToken] = null
+            it[pushTokenUpdatedAt] = System.currentTimeMillis()
+        } > 0
+    }
+
     override fun updateDesktopMetadata(
         deviceId: UUID,
         deviceInfo: String,
