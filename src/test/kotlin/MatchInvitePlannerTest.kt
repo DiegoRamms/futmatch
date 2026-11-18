@@ -42,6 +42,22 @@ class MatchInvitePlannerTest {
     }
 
     @Test
+    fun `48h milestone goes out first, then 24h`() {
+        val withTwoDays = listOf(48, 24, 6, 2)
+        assertTrue(MatchInvitePlanner.dueMilestones(inHours(50.0), now, withTwoDays, emptySet()).isEmpty())
+        assertEquals(setOf(48), MatchInvitePlanner.dueMilestones(inHours(47.9), now, withTwoDays, emptySet()))
+        assertTrue(MatchInvitePlanner.dueMilestones(inHours(30.0), now, withTwoDays, setOf(48)).isEmpty())
+        assertEquals(setOf(24), MatchInvitePlanner.dueMilestones(inHours(23.9), now, withTwoDays, setOf(48)))
+    }
+
+    @Test
+    fun `a newly added larger milestone never fires after a smaller one was sent`() {
+        val withTwoDays = listOf(48, 24, 6, 2)
+        assertTrue(MatchInvitePlanner.dueMilestones(inHours(10.0), now, withTwoDays, setOf(24)).isEmpty())
+        assertEquals(setOf(6), MatchInvitePlanner.dueMilestones(inHours(5.0), now, withTwoDays, setOf(24)))
+    }
+
+    @Test
     fun `started matches never get invites`() {
         assertTrue(MatchInvitePlanner.dueMilestones(now - 1.hours.inWholeMilliseconds, now, milestones, emptySet()).isEmpty())
     }
@@ -96,8 +112,8 @@ class MatchInvitePlannerTest {
     @Test
     fun `milestone config is parsed, sorted and falls back to defaults`() {
         assertEquals(listOf(12, 3), MatchInviteConfig.parseMilestones(" 3, 12,x,0,3"))
-        assertEquals(listOf(24, 6, 2), MatchInviteConfig.parseMilestones(""))
-        assertEquals(listOf(24, 6, 2), MatchInviteConfig.parseMilestones(null))
+        assertEquals(listOf(48, 24, 6, 2), MatchInviteConfig.parseMilestones(""))
+        assertEquals(listOf(48, 24, 6, 2), MatchInviteConfig.parseMilestones(null))
     }
 
     @Test

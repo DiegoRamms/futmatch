@@ -14,6 +14,8 @@ internal object MatchInvitePlanner {
      * Milestones (in hours before kick-off) that are due and not yet processed.
      * Only the smallest one is "sent"; any larger ones are consumed along with it,
      * so a match created 3h before kick-off gets one invite, not three.
+     * Milestones larger than one already dispatched are skipped, so adding a new,
+     * earlier milestone (e.g. 48h) never re-invites for a match that already got a later one.
      * Returns an empty set when nothing is due.
      */
     fun dueMilestones(
@@ -24,8 +26,9 @@ internal object MatchInvitePlanner {
     ): Set<Int> {
         val timeUntilMatch = matchDateTime - now
         if (timeUntilMatch <= 0) return emptySet()
+        val smallestDispatched = dispatched.minOrNull() ?: Int.MAX_VALUE
         return milestonesHours
-            .filter { it !in dispatched && timeUntilMatch <= it.hours.inWholeMilliseconds }
+            .filter { it !in dispatched && it < smallestDispatched && timeUntilMatch <= it.hours.inWholeMilliseconds }
             .toSet()
     }
 
