@@ -17,6 +17,7 @@ class MatchInviteService(
     private val notificationService: NotificationService,
     private val matchInviteConfig: MatchInviteConfig,
     private val matchPaymentConfig: MatchPaymentConfig,
+    private val milestonesProvider: MatchInviteMilestonesProvider,
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -24,7 +25,7 @@ class MatchInviteService(
         if (!matchInviteConfig.enabled) return
 
         // Never invite before paid registration opens.
-        val milestones = matchInviteConfig.milestonesHours
+        val milestones = milestonesProvider.milestonesHours()
             .filter { it <= matchPaymentConfig.maxJoinPaymentWindowHours }
         if (milestones.isEmpty()) return
 

@@ -45,6 +45,7 @@ import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.hashing.HashingServiceImpl
 import com.devapplab.service.image.ImageServiceImp
 import com.devapplab.service.location.LocationService
+import com.devapplab.service.match.MatchInviteMilestonesProvider
 import com.devapplab.service.match.MatchInviteService
 import com.devapplab.service.match.MatchService
 import com.devapplab.service.match.MatchPricingConfigProvider
@@ -102,6 +103,7 @@ val serviceModule = module {
     singleOf(::FieldService)
     singleOf(::MatchService)
     singleOf(::MatchInviteService)
+    single { MatchInviteMilestonesProvider(get()) }
     singleOf(::MatchPricingConfigProvider)
     singleOf(::PublicMatchesCacheService)
     singleOf(::LocationService)

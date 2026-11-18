@@ -304,10 +304,12 @@ history `metadata`. Tapping it should open the match detail for `matchId`.
 
 **When it is sent.** A scheduler runs every `match.invite.intervalMinutes` (default 15).
 Each match gets invites at fixed milestones before kick-off, `match.invite.milestonesHours`
-(default `24,6,2`), while it is `SCHEDULED` and has free spots. Milestones above
+(default `48,24,6,2`), while it is `SCHEDULED` and has free spots. Milestones above
 `match.payment.maxJoinWindowHours` are ignored, so invites never go out before paid
 registration opens. When several milestones are due at once (e.g. a match created 90
 minutes before kick-off), they are consumed together and only one invite goes out.
+A milestone larger than one already processed for the match is skipped, so adding a new
+milestone to the config never re-invites for matches already past a smaller one.
 A full match keeps its milestone pending, so the invite still goes out if a spot frees
 up before the next milestone.
 
@@ -326,12 +328,20 @@ milestone) and all history rows are committed together under a match row lock, s
 milestone is processed once even with several server replicas. Push goes out after
 commit in FCM multicast batches of 500, is best effort and is not retried.
 
-**Configuration** (`application.conf` → `match.invite`):
+**Milestones from Firebase Remote Config.** Every cycle the server reads the parameter
+`match_invite_milestones_hours` (string, comma-separated hours, e.g. `48,24,6`) from the
+Firebase Remote Config **server** template (Firebase console → Remote Config → *Server*
+tab; it is not sent to the apps). A change applies on the next cycle, with no redeploy.
+If the parameter is missing or empty, the server uses `match.invite.milestonesHours`.
+If Firebase can't be reached or the value has no valid hour, it keeps the last valid
+remote value (or the local config if there is none yet).
+
+**Configuration** (`application.conf` → `match.invite`; `milestonesHours` is the fallback):
 
 | Key | Env var | Default |
 |:----|:--------|:--------|
 | `enabled` | `MATCH_INVITE_ENABLED` | `true` |
-| `milestonesHours` | `MATCH_INVITE_MILESTONES_HOURS` | `24,6,2` |
+| `milestonesHours` | `MATCH_INVITE_MILESTONES_HOURS` | `48,24,6,2` |
 | `intervalMinutes` | `MATCH_INVITE_INTERVAL_MINUTES` | `15` |
 
 ### Opt-out: `PATCH /user/notification-preferences`
