@@ -40,6 +40,7 @@ import com.devapplab.observability.appRejected
 import com.devapplab.observability.appSuccess
 import com.devapplab.service.billing.BillingService
 import com.devapplab.service.firebase.MatchPlayerRealtimeService
+import com.devapplab.service.firebase.MatchSignalsService
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.notification.NotificationService
 import com.devapplab.service.notification.PaymentWarningRecipient
@@ -87,7 +88,8 @@ class MatchService(
     private val publicMatchesCacheService: PublicMatchesCacheService,
     private val matchPaymentConfig: MatchPaymentConfig,
     private val matchPricingConfigProvider: MatchPricingConfigProvider,
-    private val paymentMetrics: PaymentMetrics
+    private val paymentMetrics: PaymentMetrics,
+    private val matchSignalsService: MatchSignalsService
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -872,9 +874,20 @@ class MatchService(
             is MatchPricingValidation.Valid -> validation.match
         }
 
-        matchRepository.updateMatch(matchId, validatedMatch)
+        val updated = matchRepository.updateMatch(matchId, validatedMatch)
         val updatedMatch = matchRepository.getMatchById(matchId)
-            ?: throw IllegalStateException("Match not found after update")
+            ?: return locale.matchSeatError(MatchSeatChange.MATCH_NOT_FOUND)
+        if (!updated) {
+            if (updatedMatch.status == MatchStatus.COMPLETED || updatedMatch.status == MatchStatus.CANCELED) {
+                return locale.matchSeatError(MatchSeatChange.NOT_SCHEDULED)
+            }
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_REBALANCE_TEAM_LIMIT_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_REBALANCE_TEAM_LIMIT_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_REBALANCE_TEAM_LIMIT
+            )
+        }
 
         val totalDiscount = calculateTotalDiscount(updatedMatch.matchPrice, updatedMatch.discounts)
 
@@ -1001,7 +1014,8 @@ class MatchService(
         }
 
         val assignments = request.players.associate { it.userId to it.team }
-        val teamCounts = activePlayers.groupingBy { assignments[it.userId] ?: it.team }.eachCount()
+        val teamCounts = (activePlayers.map { assignments[it.userId] ?: it.team } + match.whatsappGuests.map { it.team })
+            .groupingBy { it }.eachCount()
         val maxPerTeam = match.maxPlayers / 2
 
         if ((teamCounts[TeamType.A] ?: 0) > maxPerTeam || (teamCounts[TeamType.B] ?: 0) > maxPerTeam) {
@@ -1031,14 +1045,14 @@ class MatchService(
                 event = "match.rebalance_failed",
                 context = context,
                 reason = "update_failed",
-                statusCode = HttpStatusCode.InternalServerError.value,
+                statusCode = HttpStatusCode.Conflict.value,
                 extra = mapOf("matchId" to matchId, "assignmentsCount" to assignments.size)
             )
             return locale.createError(
-                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
-                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
-                status = HttpStatusCode.InternalServerError,
-                errorCode = ErrorCode.GENERAL_ERROR
+                titleKey = StringResourcesKey.MATCH_REBALANCE_TEAM_LIMIT_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_REBALANCE_TEAM_LIMIT_DESCRIPTION,
+                status = HttpStatusCode.Conflict,
+                errorCode = ErrorCode.MATCH_REBALANCE_TEAM_LIMIT
             )
         }
 
@@ -1190,10 +1204,7 @@ class MatchService(
             )
         }
 
-        val activePlayers =
-            match.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }
-
-        if (activePlayers.size >= match.maxPlayers) {
+        if (match.activeAppPlayers.size + match.whatsappGuests.size >= match.maxPlayers) {
             paymentMetrics.recordJoin(
                 MatchJoinMetricOutcome.REJECTED,
                 paymentProvider,
@@ -1218,7 +1229,7 @@ class MatchService(
 
         val teamToJoin = if (team != null) {
             val maxPerTeam = match.maxPlayers / 2
-            val currentTeamCount = activePlayers.count { it.team == team }
+            val currentTeamCount = match.occupiedSeats(team)
 
             if (currentTeamCount >= maxPerTeam) {
                 paymentMetrics.recordJoin(
@@ -1244,14 +1255,14 @@ class MatchService(
             }
             team
         } else {
-            val teamA = activePlayers.count { it.team == TeamType.A }
-            val teamB = activePlayers.count { it.team == TeamType.B }
+            val teamA = match.occupiedSeats(TeamType.A)
+            val teamB = match.occupiedSeats(TeamType.B)
             if (teamA <= teamB) TeamType.A else TeamType.B
         }
 
-        val joined = matchRepository.addPlayerToMatch(matchId, userId, teamToJoin)
+        val joinResult = matchRepository.addPlayerToMatch(matchId, userId, teamToJoin)
 
-        if (joined) {
+        if (joinResult == MatchSeatChange.SUCCESS) {
             val totalDiscount = calculateTotalDiscount(match.matchPrice, match.discounts)
             val finalPrice = match.matchPrice - totalDiscount
             val amountInCents = (finalPrice * BigDecimal(100)).toLong()
@@ -1410,13 +1421,7 @@ class MatchService(
             }
         } else {
             paymentMetrics.recordJoin(MatchJoinMetricOutcome.RESERVATION_FAILED, paymentProvider)
-            logger.error("❌ [MATCH_TRACE] joinMatch | Failed to add player to match DB | userId=$userId | matchId=$matchId")
-            return locale.createError(
-                titleKey = StringResourcesKey.GENERIC_TITLE_ERROR_KEY,
-                descriptionKey = StringResourcesKey.GENERIC_DESCRIPTION_ERROR_KEY,
-                status = HttpStatusCode.InternalServerError,
-                errorCode = ErrorCode.GENERAL_ERROR
-            )
+            return locale.matchSeatError(joinResult)
         }
     }
 
@@ -1735,12 +1740,9 @@ class MatchService(
     private suspend fun notifyMatchUpdate(
         matchId: UUID,
         expireAtMillis: Long? = null,
-        sendRegionalPush: Boolean = false
+        sendRegionalPush: Boolean = false,
+        signalDetail: Boolean = false
     ) {
-        //matchUpdateBus.publish(matchId)
-        //matchSignalsService.signalMatchUpdateUpsert(matchId.toString(), expireAtMillis)
-
-        // New logic: Update Firestore projection
         val match = matchRepository.getMatchById(matchId)
         if (match != null) {
             val region = resolvePublicRegion(match.fieldCountryCode, match.fieldCityCode)
@@ -1770,7 +1772,16 @@ class MatchService(
                     reservationExpiresAt = reservationExpiresAt
                 )
             }
-            matchPlayerRealtimeService.updateMatchPlayers(matchId.toString(), MatchPlayerList(firestorePlayers))
+            matchPlayerRealtimeService.updateMatchPlayers(
+                matchId.toString(),
+                MatchPlayerList(firestorePlayers, match.guestCount(TeamType.A), match.guestCount(TeamType.B))
+            )
+            if (signalDetail || match.whatsappGuests.isNotEmpty()) {
+                matchUpdateBus.publish(matchId)
+                matchSignalsService.signalMatchUpdateUpsert(
+                    matchId.toString(), expireAtMillis ?: (match.dateTimeEnd + 1.days.inWholeMilliseconds)
+                )
+            }
         }
     }
 
@@ -2113,6 +2124,50 @@ class MatchService(
         ))
     }
 
+    suspend fun addWhatsAppGuest(matchId: UUID, request: AddMatchWhatsAppGuestRequest, locale: Locale): AppResult<Boolean> {
+        val name = request.name.trim()
+        if (name.length !in 1..80 || name.any { it.isISOControl() }) {
+            return locale.createError(
+                titleKey = StringResourcesKey.MATCH_WHATSAPP_GUEST_INVALID_NAME_TITLE,
+                descriptionKey = StringResourcesKey.MATCH_WHATSAPP_GUEST_INVALID_NAME_DESCRIPTION,
+                status = HttpStatusCode.BadRequest
+            )
+        }
+        return respondToGuestMutation(matchId, matchRepository.addWhatsAppGuest(matchId, name, request.team), locale)
+    }
+
+    suspend fun removeWhatsAppGuest(matchId: UUID, guestId: UUID, locale: Locale): AppResult<Boolean> =
+        respondToGuestMutation(matchId, matchRepository.removeWhatsAppGuest(matchId, guestId), locale)
+
+    private suspend fun respondToGuestMutation(matchId: UUID, result: MatchSeatChange, locale: Locale): AppResult<Boolean> {
+        if (result != MatchSeatChange.SUCCESS) return locale.matchSeatError(result)
+        notifyMatchUpdate(matchId, sendRegionalPush = true, signalDetail = true)
+        return AppResult.Success(true)
+    }
+
+    private fun Locale.matchSeatError(result: MatchSeatChange): AppResult.Failure = when (result) {
+        MatchSeatChange.MATCH_NOT_FOUND, MatchSeatChange.GUEST_NOT_FOUND -> createError(
+            StringResourcesKey.NOT_FOUND_TITLE, StringResourcesKey.NOT_FOUND_DESCRIPTION, status = HttpStatusCode.NotFound
+        )
+        MatchSeatChange.NOT_SCHEDULED -> createError(
+            StringResourcesKey.MATCH_NOT_SCHEDULED_TITLE, StringResourcesKey.MATCH_NOT_SCHEDULED_DESCRIPTION,
+            status = HttpStatusCode.Conflict, errorCode = ErrorCode.MATCH_NOT_SCHEDULED
+        )
+        MatchSeatChange.MATCH_FULL -> createError(
+            StringResourcesKey.MATCH_FULL_TITLE, StringResourcesKey.MATCH_FULL_DESCRIPTION,
+            status = HttpStatusCode.Conflict, errorCode = ErrorCode.MATCH_FULL
+        )
+        MatchSeatChange.TEAM_FULL -> createError(
+            StringResourcesKey.MATCH_TEAM_FULL_TITLE, StringResourcesKey.MATCH_TEAM_FULL_DESCRIPTION,
+            status = HttpStatusCode.Conflict, errorCode = ErrorCode.MATCH_TEAM_FULL
+        )
+        MatchSeatChange.ALREADY_JOINED -> createError(
+            StringResourcesKey.MATCH_ALREADY_JOINED_TITLE, StringResourcesKey.MATCH_ALREADY_JOINED_DESCRIPTION,
+            status = HttpStatusCode.Conflict, errorCode = ErrorCode.ALREADY_EXISTS
+        )
+        MatchSeatChange.SUCCESS -> error("Successful seat mutations have no error response")
+    }
+
     suspend fun completeMatch(
         matchId: UUID,
         userId: UUID,
@@ -2139,9 +2194,7 @@ class MatchService(
             logger.warn("🏆 [COMPLETE_DEBUG] service repair attempt | match already completed before atomic write | matchId=$matchId")
         }
 
-        val enrolledPlayers = matchWithField.players.filter {
-            it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED
-        }
+        val enrolledPlayers = matchWithField.activeAppPlayers
         val enrolledPlayerIds = enrolledPlayers.map { it.userId }.toSet()
         val absentPlayerIds = request.absentPlayerIds.toSet()
         val attendingPlayerIds = enrolledPlayerIds - absentPlayerIds
@@ -2159,7 +2212,9 @@ class MatchService(
             )
         }
 
-        if (!attendingPlayerIds.contains(request.bestPlayerId)) {
+        val bestPlayerId = request.bestPlayerId
+        val validMvp = if (bestPlayerId == null) matchWithField.canCompleteWithoutMvp else bestPlayerId in attendingPlayerIds
+        if (!validMvp) {
             logger.warn(
                 "🏆 [COMPLETE_DEBUG] service STOP | invalid best player | matchId=$matchId | bestPlayerId=${request.bestPlayerId} | attendingPlayerIds=$attendingPlayerIds"
             )
@@ -2206,15 +2261,17 @@ class MatchService(
         } else {
             val attendingPlayers = enrolledPlayers.filter { it.userId in attendingPlayerIds }
             logger.info("🏆 [COMPLETE_DEBUG] service sending notifications | matchId=$matchId | players=${attendingPlayers.map { it.userId }}")
-            sendMatchCompletedNotifications(
-                players = attendingPlayers,
-                matchId = matchId,
-                fieldName = matchWithField.fieldName,
-                bestPlayerId = request.bestPlayerId,
-                teamAScore = teamAScore,
-                teamBScore = teamBScore,
-                locale = locale
-            )
+            if (bestPlayerId != null) {
+                sendMatchCompletedNotifications(
+                    players = attendingPlayers,
+                    matchId = matchId,
+                    fieldName = matchWithField.fieldName,
+                    bestPlayerId = bestPlayerId,
+                    teamAScore = teamAScore,
+                    teamBScore = teamBScore,
+                    locale = locale
+                )
+            }
             notifyMatchUpdate(matchId, sendRegionalPush = true)
         }
 

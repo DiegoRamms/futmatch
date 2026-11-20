@@ -10,7 +10,9 @@ import com.google.cloud.firestore.FieldValue
  * This is a projection of the data in Postgres, optimized for client-side real-time updates.
  */
 data class MatchPlayerList(
-    val players: List<Player> = emptyList()
+    val players: List<Player> = emptyList(),
+    val whatsappGuestCountA: Int = 0,
+    val whatsappGuestCountB: Int = 0
 ) {
     data class Player(
         val playerId: String,
@@ -37,6 +39,8 @@ data class MatchPlayerList(
                     "reservationExpiresAt" to player.reservationExpiresAt
                 )
             },
+            "whatsappGuestCountA" to whatsappGuestCountA,
+            "whatsappGuestCountB" to whatsappGuestCountB,
             "lastUpdated" to FieldValue.serverTimestamp()
         )
     }

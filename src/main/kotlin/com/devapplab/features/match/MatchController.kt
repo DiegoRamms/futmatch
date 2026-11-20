@@ -2,6 +2,7 @@ package com.devapplab.features.match
 
 import com.devapplab.config.getIdentifier
 import com.devapplab.model.auth.ClaimType
+import com.devapplab.model.match.AddMatchWhatsAppGuestRequest
 import com.devapplab.model.match.CompleteMatchRequest
 import com.devapplab.model.match.mapper.toMatch
 import com.devapplab.model.match.request.CancelMatchRequest
@@ -190,6 +191,18 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val locale = call.retrieveLocale()
         val result = matchService.leaveMatch(userId, matchId, locale, call.requestContext())
         call.respond(result)
+    }
+
+    suspend fun addWhatsAppGuest(call: ApplicationCall) {
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't find match id")
+        val request = call.receive<AddMatchWhatsAppGuestRequest>()
+        call.respond(matchService.addWhatsAppGuest(matchId, request, call.retrieveLocale()))
+    }
+
+    suspend fun removeWhatsAppGuest(call: ApplicationCall) {
+        val matchId = call.parameters["matchId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't find match id")
+        val guestId = call.parameters["guestId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't find guest id")
+        call.respond(matchService.removeWhatsAppGuest(matchId, guestId, call.retrieveLocale()))
     }
 
     suspend fun completeMatch(call: ApplicationCall) {

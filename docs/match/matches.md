@@ -526,12 +526,12 @@ Registers the final result of a match, including player goals, external team goa
 | `externalGoals` | List | No | Goals scored by players outside the app, grouped by team. Defaults to an empty list. |
 | `externalGoals[].team` | Enum | Yes | Supported values: `A`, `B`. |
 | `externalGoals[].goals` | Int | Yes | Must be >= 0. These goals affect only the final team score. |
-| `bestPlayerId` | UUID | Yes | Must be a valid UUID of an enrolled player who attended the match. |
+| `bestPlayerId` | UUID or null | Conditional | Must identify an enrolled player who attended. Omit it or send null only for a match in `PENDING_RESULT` with WhatsApp guests and no active app players. |
 | `absentPlayerIds` | List\<UUID\> | No | IDs of enrolled active players who did not attend. Defaults to an empty list; every enrolled active player not included is recorded as present. |
 
 > `goals[].isBestPlayer` is not supported. Use only `bestPlayerId` at the root of the payload.
 
-> External players are not returned by any backend endpoint and are not persisted as users. The client UI should render local controls such as "External Team A" and "External Team B", then send those values through `externalGoals`.
+> Named WhatsApp guests appear separately from app players in authenticated match detail. Report their goals through the team totals in `externalGoals`. For a 0–0 match with only WhatsApp guests, send `goals: []`, `bestPlayerId: null`, and a zero goal entry for each team in `externalGoals`.
 
 > `externalGoals` are added to `match_results.team_a_score` and `match_results.team_b_score`. They are not stored in `match_player_goals`, do not belong to any user, and do not affect individual player statistics.
 
@@ -1502,10 +1502,20 @@ Example for a completed match:
 }
 ```
 
+### WhatsApp guests
+
+- `POST /match/admin/{matchId}/whatsapp-guests` with `{"name":"Alex","team":"A"}` adds one guest to an available team slot. The trimmed name or nickname must contain 1–80 characters with no control characters.
+- `DELETE /match/admin/{matchId}/whatsapp-guests/{guestId}` removes that guest and releases the slot.
+- Both operations require `ADMIN`, accept only scheduled matches before kickoff, and return `{"status":"success","data":true}` on success. Missing matches or guests return **404**. A closed roster or a filled match/team returns **409**.
+- Guests share total and per-team capacity with app reservations and confirmed app players. They have no user account, payment attempt, or individual statistics.
+- Authenticated detail may include `whatsappGuests`, a list of objects with `id`, `name`, and `team`. The roster is retained after completion. Names and IDs are omitted from public detail. Team counts and available places include guests.
+- The detail flag `canCompleteWithoutMvp` is true for matches in `PENDING_RESULT` with guests and no active app players. The default is false.
+- Firestore `match_players` still lists app players and also carries numeric `whatsappGuestCountA` and `whatsappGuestCountB`. Listen for `match-updates/{matchId}` and fetch the authenticated detail to refresh the named guest roster.
+
 ### Best Player
 
 - `bestPlayer` is returned only when `status = COMPLETED`; otherwise it is `null`.
-- It identifies the MVP selected when the match was completed.
+- It identifies the MVP selected when the match was completed. A guest-only result has no `bestPlayer` value.
 
 ```json
 {

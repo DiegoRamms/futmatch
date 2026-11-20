@@ -11,6 +11,7 @@ import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.match.MatchTeamsTable
+import com.devapplab.data.database.match.MatchWhatsAppGuestsTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.field.FieldImageBaseInfo
@@ -319,6 +320,7 @@ class MatchRepositoryImp : MatchRepository {
             if (matchFieldLocationRows.isEmpty()) return@dbQuery emptyList()
 
             val matchIds = matchFieldLocationRows.map { it[MatchTable.id] }.distinct()
+            val guestsByMatch = getWhatsAppGuestsByMatchId(matchIds)
             val fieldIds = matchFieldLocationRows.map { it[FieldTable.id] }.distinct()
             val teamVisualsByMatch = getTeamVisualsByMatchId(matchIds)
 
@@ -428,7 +430,8 @@ class MatchRepositoryImp : MatchRepository {
                     fieldImages = currentFieldImages,
                     teamVisuals = teamVisualsByMatch[matchId],
                     players = players,
-                    discounts = discounts
+                    discounts = discounts,
+                    whatsappGuests = guestsByMatch[matchId].orEmpty()
                 )
             }
         }
@@ -501,6 +504,7 @@ class MatchRepositoryImp : MatchRepository {
             if (userMatchRows.isEmpty()) return@dbQuery emptyList()
 
             val matchIds = userMatchRows.map { it[MatchTable.id] }.distinct()
+            val guestsByMatch = getWhatsAppGuestsByMatchId(matchIds)
             val fieldIds = userMatchRows.map { it[FieldTable.id] }.distinct()
             val teamVisualsByMatch = getTeamVisualsByMatchId(matchIds)
 
@@ -610,7 +614,8 @@ class MatchRepositoryImp : MatchRepository {
                     fieldImages = currentFieldImages,
                     teamVisuals = teamVisualsByMatch[matchId],
                     players = players,
-                    discounts = discounts
+                    discounts = discounts,
+                    whatsappGuests = guestsByMatch[matchId].orEmpty()
                 )
             }
         }
@@ -722,7 +727,8 @@ class MatchRepositoryImp : MatchRepository {
                 fieldImages = currentFieldImages,
                 teamVisuals = teamVisuals,
                 players = players,
-                discounts = discounts
+                discounts = discounts,
+                whatsappGuests = getWhatsAppGuestsByMatchId(listOf(matchId))[matchId].orEmpty()
             )
         }
     }
@@ -730,7 +736,7 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun cancelMatch(matchId: UUID, reason: String): Boolean {
         return dbQuery {
-            MatchTable.update({ MatchTable.id eq matchId }) {
+            MatchTable.update({ (MatchTable.id eq matchId) and (MatchTable.status neq MatchStatus.COMPLETED) }) {
                 it[status] = MatchStatus.CANCELED
                 it[cancelReason] = reason
                 it[updatedAt] = System.currentTimeMillis()
@@ -740,6 +746,19 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun updateMatch(matchId: UUID, match: Match): Boolean {
         return dbQuery {
+            val current = lockMatchForRosterEdit(matchId) ?: return@dbQuery false
+            if (current[MatchTable.status] in listOf(MatchStatus.COMPLETED, MatchStatus.CANCELED) &&
+                match.status != current[MatchTable.status] &&
+                countWhatsAppGuestsByMatchId(listOf(matchId)).isNotEmpty()
+            ) return@dbQuery false
+
+            if (match.maxPlayers != current[MatchTable.maxPlayers]) {
+                val occupied = countOccupiedSeats(matchId)
+                if (occupied.values.sum() > match.maxPlayers || occupied.values.any { it > match.maxPlayers / 2 }) {
+                    return@dbQuery false
+                }
+            }
+
             val updatedRows = MatchTable.update({ MatchTable.id eq matchId }) {
                 it[fieldId] = match.fieldId
                 it[supervisorId] = match.supervisorId
@@ -788,69 +807,106 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
-    override suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): Boolean {
-        return dbQuery {
-            val matchRow = MatchTable.select(MatchTable.maxPlayers)
-                .where { MatchTable.id eq matchId }
-                .forUpdate()
-                .singleOrNull() ?: return@dbQuery false
+    private val activePlayerStatuses = listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)
 
-            val maxPlayers = matchRow[MatchTable.maxPlayers]
+    private fun lockMatchForRosterEdit(matchId: UUID): ResultRow? = MatchTable
+        .select(MatchTable.maxPlayers, MatchTable.status, MatchTable.dateTime)
+        .where { MatchTable.id eq matchId }
+        .forUpdate()
+        .singleOrNull()
 
-            val currentPlayersCount = MatchPlayersTable
-                .select(MatchPlayersTable.userId)
-                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.status neq MatchPlayerStatus.CANCELED) and (MatchPlayersTable.status neq MatchPlayerStatus.LEFT) }
-                .count()
+    private fun ResultRow.canEditRoster(): Boolean =
+        this[MatchTable.status] == MatchStatus.SCHEDULED && this[MatchTable.dateTime] > System.currentTimeMillis()
 
-            if (currentPlayersCount >= maxPlayers) {
-                return@dbQuery false
-            }
+    private fun countOccupiedSeats(matchId: UUID, assignments: Map<UUID, TeamType> = emptyMap()): Map<TeamType, Int> {
+        val appTeams = MatchPlayersTable.select(MatchPlayersTable.userId, MatchPlayersTable.team)
+            .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.status inList activePlayerStatuses) }
+            .map { row -> assignments[row[MatchPlayersTable.userId]] ?: row[MatchPlayersTable.team] }
+        val guestTeams = MatchWhatsAppGuestsTable.select(MatchWhatsAppGuestsTable.team)
+            .where { MatchWhatsAppGuestsTable.matchId eq matchId }
+            .map { it[MatchWhatsAppGuestsTable.team] }
+        return (appTeams + guestTeams).groupingBy { it }.eachCount()
+    }
 
-            val existingPlayerRow = MatchPlayersTable
-                .select(MatchPlayersTable.status)
-                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) }
-                .singleOrNull()
+    private fun seatAvailability(matchId: UUID, maxPlayers: Int, team: TeamType): MatchSeatChange {
+        val occupied = countOccupiedSeats(matchId)
+        return when {
+            occupied.values.sum() >= maxPlayers -> MatchSeatChange.MATCH_FULL
+            (occupied[team] ?: 0) >= maxPlayers / 2 -> MatchSeatChange.TEAM_FULL
+            else -> MatchSeatChange.SUCCESS
+        }
+    }
 
-            if (existingPlayerRow != null) {
-                val status = existingPlayerRow[MatchPlayersTable.status]
-                if (status == MatchPlayerStatus.CANCELED || status == MatchPlayerStatus.LEFT) {
-                    // Re-join logic: Update existing record
-                     val updated = MatchPlayersTable.update({ (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) }) {
-                        it[this.status] = MatchPlayerStatus.RESERVED
-                        it[this.team] = team
-                        it[this.joinedAt] = System.currentTimeMillis()
-                    } > 0
+    private fun touchMatch(matchId: UUID) {
+        MatchTable.update({ MatchTable.id eq matchId }) {
+            it[updatedAt] = System.currentTimeMillis()
+        }
+    }
 
-                    if (updated) {
-                        MatchTable.update({ MatchTable.id eq matchId }) {
-                            it[updatedAt] = System.currentTimeMillis()
-                        }
-                    }
-                    return@dbQuery updated
-                } else {
-                    // Already in match (RESERVED or JOINED)
-                    return@dbQuery false
-                }
-            }
+    override suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): MatchSeatChange = dbQuery {
+        val match = lockMatchForRosterEdit(matchId) ?: return@dbQuery MatchSeatChange.MATCH_NOT_FOUND
+        if (!match.canEditRoster()) return@dbQuery MatchSeatChange.NOT_SCHEDULED
 
-            val inserted = MatchPlayersTable.insert {
+        val existingStatus = MatchPlayersTable.select(MatchPlayersTable.status)
+            .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId) }
+            .singleOrNull()?.get(MatchPlayersTable.status)
+        if (existingStatus in activePlayerStatuses) return@dbQuery MatchSeatChange.ALREADY_JOINED
+
+        val available = seatAvailability(matchId, match[MatchTable.maxPlayers], team)
+        if (available != MatchSeatChange.SUCCESS) return@dbQuery available
+
+        if (existingStatus == null) {
+            MatchPlayersTable.insert {
                 it[this.matchId] = matchId
                 it[this.userId] = userId
                 it[this.team] = team
-                it[this.status] = MatchPlayerStatus.RESERVED
-            }.insertedCount > 0
-
-            if (inserted) {
-                MatchTable.update({ MatchTable.id eq matchId }) {
-                    it[updatedAt] = System.currentTimeMillis()
-                }
+                it[status] = MatchPlayerStatus.RESERVED
             }
-            inserted
+        } else {
+            MatchPlayersTable.update({
+                (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId)
+            }) {
+                it[status] = MatchPlayerStatus.RESERVED
+                it[this.team] = team
+                it[joinedAt] = System.currentTimeMillis()
+            }
         }
+        touchMatch(matchId)
+        MatchSeatChange.SUCCESS
+    }
+
+    override suspend fun addWhatsAppGuest(matchId: UUID, name: String, team: TeamType): MatchSeatChange = dbQuery {
+        val match = lockMatchForRosterEdit(matchId) ?: return@dbQuery MatchSeatChange.MATCH_NOT_FOUND
+        if (!match.canEditRoster()) return@dbQuery MatchSeatChange.NOT_SCHEDULED
+
+        val available = seatAvailability(matchId, match[MatchTable.maxPlayers], team)
+        if (available != MatchSeatChange.SUCCESS) return@dbQuery available
+
+        MatchWhatsAppGuestsTable.insert {
+            it[this.matchId] = matchId
+            it[this.team] = team
+            it[this.name] = name
+        }
+        touchMatch(matchId)
+        MatchSeatChange.SUCCESS
+    }
+
+    override suspend fun removeWhatsAppGuest(matchId: UUID, guestId: UUID): MatchSeatChange = dbQuery {
+        val match = lockMatchForRosterEdit(matchId) ?: return@dbQuery MatchSeatChange.MATCH_NOT_FOUND
+        if (!match.canEditRoster()) return@dbQuery MatchSeatChange.NOT_SCHEDULED
+
+        val removed = MatchWhatsAppGuestsTable.deleteWhere {
+            (MatchWhatsAppGuestsTable.matchId eq matchId) and (MatchWhatsAppGuestsTable.id eq guestId)
+        }
+        if (removed == 0) return@dbQuery MatchSeatChange.GUEST_NOT_FOUND
+
+        touchMatch(matchId)
+        MatchSeatChange.SUCCESS
     }
 
     override suspend fun removePlayerFromMatch(matchId: UUID, userId: UUID): Boolean {
         return dbQuery {
+            lockMatchForRosterEdit(matchId) ?: return@dbQuery false
             // Soft delete: Update status to LEFT
             val updated = MatchPlayersTable.update({
                 (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.userId eq userId)
@@ -884,17 +940,40 @@ class MatchRepositoryImp : MatchRepository {
         }
     }
 
-    override suspend fun updatePlayerStatus(matchPlayerId: UUID, status: MatchPlayerStatus): Boolean {
-        return dbQuery {
-            MatchPlayersTable.update({ MatchPlayersTable.id eq matchPlayerId }) {
-                it[this.status] = status
-            } > 0
+    override suspend fun updatePlayerStatus(matchPlayerId: UUID, status: MatchPlayerStatus): Boolean = dbQuery {
+        if (status == MatchPlayerStatus.JOINED) {
+            val matchId = MatchPlayersTable.select(MatchPlayersTable.matchId)
+                .where { MatchPlayersTable.id eq matchPlayerId }.singleOrNull()
+                ?.get(MatchPlayersTable.matchId) ?: return@dbQuery false
+            val match = lockMatchForRosterEdit(matchId) ?: return@dbQuery false
+            val player = MatchPlayersTable.select(MatchPlayersTable.status, MatchPlayersTable.team)
+                .where { MatchPlayersTable.id eq matchPlayerId }.forUpdate().singleOrNull() ?: return@dbQuery false
+
+            // A late payment cannot reclaim a released seat that has since been assigned.
+            if (player[MatchPlayersTable.status] !in activePlayerStatuses) {
+                if (!match.canEditRoster() ||
+                    seatAvailability(matchId, match[MatchTable.maxPlayers], player[MatchPlayersTable.team]) != MatchSeatChange.SUCCESS
+                ) return@dbQuery false
+            }
         }
+        MatchPlayersTable.update({ MatchPlayersTable.id eq matchPlayerId }) {
+            it[this.status] = status
+        } > 0
     }
 
     override suspend fun updatePlayerTeams(matchId: UUID, assignments: Map<UUID, TeamType>): Boolean {
         return dbQuery {
             if (assignments.isEmpty()) return@dbQuery false
+            val match = lockMatchForRosterEdit(matchId) ?: return@dbQuery false
+            if (!match.canEditRoster()) return@dbQuery false
+
+            val activeIds = MatchPlayersTable.select(MatchPlayersTable.userId)
+                .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.status inList activePlayerStatuses) }
+                .mapTo(mutableSetOf()) { it[MatchPlayersTable.userId] }
+            if (!activeIds.containsAll(assignments.keys)) return@dbQuery false
+            if (countOccupiedSeats(matchId, assignments).values.any { it > match[MatchTable.maxPlayers] / 2 }) {
+                return@dbQuery false
+            }
 
             val updatedRows = assignments.entries.count { (userId, team) ->
                 MatchPlayersTable.update({
@@ -1001,7 +1080,7 @@ class MatchRepositoryImp : MatchRepository {
         if (matchIds.isEmpty()) return emptyMap()
 
         val enrolledPlayersCount = MatchPlayersTable.userId.count()
-        return MatchPlayersTable
+        val playersByMatch = MatchPlayersTable
             .select(MatchPlayersTable.matchId, enrolledPlayersCount)
             .where {
                 (MatchPlayersTable.matchId inList matchIds) and
@@ -1013,7 +1092,19 @@ class MatchRepositoryImp : MatchRepository {
                 val count = row[enrolledPlayersCount].toInt()
                 row[MatchPlayersTable.matchId] to count
             }
+        val guestsByMatch = countWhatsAppGuestsByMatchId(matchIds)
+        return (playersByMatch.keys + guestsByMatch.keys).associateWith {
+            (playersByMatch[it] ?: 0) + (guestsByMatch[it] ?: 0)
+        }
     }
+
+    private fun getWhatsAppGuestsByMatchId(matchIds: List<UUID>): Map<UUID, List<MatchWhatsAppGuest>> =
+        MatchWhatsAppGuestsTable.selectAll()
+            .where { MatchWhatsAppGuestsTable.matchId inList matchIds }
+            .orderBy(MatchWhatsAppGuestsTable.createdAt to SortOrder.ASC, MatchWhatsAppGuestsTable.id to SortOrder.ASC)
+            .groupBy({ it[MatchWhatsAppGuestsTable.matchId] }) { row ->
+                MatchWhatsAppGuest(row[MatchWhatsAppGuestsTable.id], row[MatchWhatsAppGuestsTable.name], row[MatchWhatsAppGuestsTable.team])
+            }
 
     override suspend fun setPlayerGoals(matchId: UUID, goals: List<PlayerGoalInput>): Boolean {
         return dbQuery {
@@ -1059,7 +1150,7 @@ class MatchRepositoryImp : MatchRepository {
 
     override suspend fun completeMatchAtomic(
         matchId: UUID,
-        bestPlayerId: UUID,
+        bestPlayerId: UUID?,
         goals: List<PlayerGoalInput>,
         externalGoals: List<TeamGoalInput>,
         absentPlayerIds: Set<UUID>
@@ -1089,6 +1180,19 @@ class MatchRepositoryImp : MatchRepository {
             if (matchRow[MatchTable.status] == MatchStatus.COMPLETED && existingResult != null) {
                 logger.warn("🏆 [COMPLETE_DEBUG] repo.atomic STOP | already completed with result | matchId=$matchId")
                 return@dbQuery null
+            }
+
+            if (matchRow[MatchTable.status] == MatchStatus.CANCELED) return@dbQuery null
+            if (bestPlayerId == null) {
+                val hasGuests = !MatchWhatsAppGuestsTable.select(MatchWhatsAppGuestsTable.id)
+                    .where { MatchWhatsAppGuestsTable.matchId eq matchId }
+                    .empty()
+                val hasActivePlayers = !MatchPlayersTable.select(MatchPlayersTable.userId)
+                    .where { (MatchPlayersTable.matchId eq matchId) and (MatchPlayersTable.status inList activePlayerStatuses) }
+                    .empty()
+                if (!hasGuests || hasActivePlayers || matchRow[MatchTable.status] != MatchStatus.PENDING_RESULT) {
+                    return@dbQuery null
+                }
             }
 
             val uniqueGoals = goals

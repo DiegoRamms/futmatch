@@ -33,6 +33,6 @@ data class CompleteMatchRequest(
     val goals: List<PlayerGoalInput>,
     val externalGoals: List<TeamGoalInput> = emptyList(),
     @Serializable(with = UUIDSerializer::class)
-    val bestPlayerId: UUID,
+    val bestPlayerId: UUID? = null,
     val absentPlayerIds: List<@Serializable(with = UUIDSerializer::class) UUID> = emptyList(),
 )

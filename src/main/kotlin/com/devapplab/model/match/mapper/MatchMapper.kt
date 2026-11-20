@@ -75,7 +75,7 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
     val prices = calculatePrices()
     val teams = buildTeamSummary()
     val location = buildLocation()
-    val availableSpots = this.maxPlayers - this.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }.size
+    val availableSpots = maxPlayers - activeAppPlayers.size - whatsappGuests.size
 
     return MatchSummaryResponse(
         id = this.matchId,
@@ -100,7 +100,7 @@ fun MatchWithField.toMatchSummaryResponse(): MatchSummaryResponse {
 fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = emptyList()): MatchDetailResponse {
     val prices = calculatePrices()
     val location = buildLocation()
-    val availableSpots = this.maxPlayers - this.players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }.size
+    val availableSpots = maxPlayers - activeAppPlayers.size - whatsappGuests.size
     val scores = if (this.status == MatchStatus.COMPLETED) {
         this.teamAScore to this.teamBScore
     } else {
@@ -109,8 +109,8 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
 
     // Return empty teams to avoid breaking client
     val emptyTeams = TeamSummaryResponse(
-        teamA = TeamPlayersSummary(0, emptyList()),
-        teamB = TeamPlayersSummary(0, emptyList())
+        teamA = TeamPlayersSummary(occupiedSeats(TeamType.A), emptyList()),
+        teamB = TeamPlayersSummary(occupiedSeats(TeamType.B), emptyList())
     )
     val teams = if (this.status == MatchStatus.CANCELED || this.status == MatchStatus.COMPLETED) {
         buildTeamSummary()
@@ -160,7 +160,9 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
         hasParking = this.fieldHasParking,
         extraInfo = this.fieldExtraInfo,
         description = this.fieldDescription,
-        rules = this.fieldRules
+        rules = this.fieldRules,
+        whatsappGuests = this.whatsappGuests,
+        canCompleteWithoutMvp = this.canCompleteWithoutMvp
     )
 }
 
@@ -199,11 +201,11 @@ private fun MatchWithField.buildTeamSummary(): TeamSummaryResponse {
     val teamB = this.players.filter { it.team == TeamType.B && (it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED) }
 
     val teamASummary = TeamPlayersSummary(
-        playerCount = teamA.size,
+        playerCount = teamA.size + whatsappGuests.count { it.team == TeamType.A },
         players = teamA.map { PlayerSummary(it.userId, it.avatarUrl, it.gender, it.name, it.country, it.status, it.attendanceStatus) }
     )
     val teamBSummary = TeamPlayersSummary(
-        playerCount = teamB.size,
+        playerCount = teamB.size + whatsappGuests.count { it.team == TeamType.B },
         players = teamB.map { PlayerSummary(it.userId, it.avatarUrl, it.gender, it.name, it.country, it.status, it.attendanceStatus) }
     )
     return TeamSummaryResponse(teamASummary, teamBSummary)

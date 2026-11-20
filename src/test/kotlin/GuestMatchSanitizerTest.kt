@@ -1,5 +1,7 @@
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.match.MatchWhatsAppGuest
+import com.devapplab.model.match.TeamType
 import com.devapplab.model.match.response.MatchBestPlayerResponse
 import com.devapplab.model.match.response.MatchDetailResponse
 import com.devapplab.model.match.response.MatchGoalBreakdownResponse
@@ -29,6 +31,7 @@ class GuestMatchSanitizerTest {
     private val avatarUrl = "https://cdn.example.com/avatar-private.jpg"
     private val organizerId = UUID.randomUUID()
     private val organizerLastName = "Organizadora"
+    private val namedGuest = MatchWhatsAppGuest(UUID.randomUUID(), "Invitado privado", TeamType.B)
 
     private fun teams() = TeamSummaryResponse(
         teamA = TeamPlayersSummary(
@@ -86,7 +89,8 @@ class GuestMatchSanitizerTest {
         extraInfo = null,
         description = "Partido amistoso",
         rules = "Fair play",
-        organizer = MatchOrganizerResponse(organizerId, "Ana", organizerLastName, avatarUrl)
+        organizer = MatchOrganizerResponse(organizerId, "Ana", organizerLastName, avatarUrl),
+        whatsappGuests = listOf(namedGuest)
     )
 
     @Test
@@ -120,6 +124,7 @@ class GuestMatchSanitizerTest {
         assertNull(sanitized.goalBreakdown)
         assertNull(sanitized.bestPlayer)
         assertNull(sanitized.organizer)
+        assertTrue(sanitized.whatsappGuests.isEmpty())
         assertEquals("Partido amistoso", sanitized.description)
     }
 
@@ -133,5 +138,7 @@ class GuestMatchSanitizerTest {
         assertFalse(json.contains(avatarUrl))
         assertFalse(json.contains(organizerId.toString()))
         assertFalse(json.contains(organizerLastName))
+        assertFalse(json.contains(namedGuest.name))
+        assertFalse(json.contains(namedGuest.id.toString()))
     }
 }

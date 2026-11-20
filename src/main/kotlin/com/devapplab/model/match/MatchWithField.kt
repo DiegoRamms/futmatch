@@ -44,8 +44,19 @@ data class MatchWithField(
     val fieldImages: List<FieldImageBaseInfo> = emptyList(), // All images for the field
     val teamVisuals: MatchTeamVisuals? = null,
     val players: List<MatchPlayerInfo>, // From MatchPlayersTable and UserTable
-    val discounts: List<Discount> // From MatchDiscountsTable and DiscountsTable
-)
+    val discounts: List<Discount>, // From MatchDiscountsTable and DiscountsTable
+    val whatsappGuests: List<MatchWhatsAppGuest> = emptyList()
+) {
+    val activeAppPlayers: List<MatchPlayerInfo>
+        get() = players.filter { it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED }
+
+    val canCompleteWithoutMvp: Boolean
+        get() = status == MatchStatus.PENDING_RESULT && whatsappGuests.isNotEmpty() && activeAppPlayers.isEmpty()
+
+    fun guestCount(team: TeamType): Int = whatsappGuests.count { it.team == team }
+
+    fun occupiedSeats(team: TeamType): Int = activeAppPlayers.count { it.team == team } + guestCount(team)
+}
 
 data class MatchPlayerInfo(
     val userId: UUID,

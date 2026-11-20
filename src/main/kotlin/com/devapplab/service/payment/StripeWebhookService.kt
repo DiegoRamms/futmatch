@@ -7,6 +7,7 @@ import com.devapplab.features.match.MatchUpdateBus
 import com.devapplab.model.WebhookConfig
 import com.devapplab.model.firestore.MatchPlayerList
 import com.devapplab.model.match.MatchPlayerStatus
+import com.devapplab.model.match.TeamType
 import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.observability.PaymentMetrics
 import com.devapplab.observability.StripeWebhookMetricOutcome
@@ -411,7 +412,10 @@ class StripeWebhookService(
                     country = player.country
                 )
             }
-            matchPlayerRealtimeService.updateMatchPlayers(matchId.toString(), MatchPlayerList(firestorePlayers))
+            matchPlayerRealtimeService.updateMatchPlayers(
+                matchId.toString(),
+                MatchPlayerList(firestorePlayers, match.guestCount(TeamType.A), match.guestCount(TeamType.B))
+            )
         }
     }
 

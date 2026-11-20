@@ -28,7 +28,7 @@ class MatchUpdateDiscountsTest {
                 payment_fixed_fee_cents_snapshot BIGINT, price_rounding_step_cents_snapshot BIGINT,
                 status VARCHAR(20), gender_type VARCHAR(20), player_level VARCHAR(20), updated_at BIGINT)""")
             exec("CREATE TABLE match_discounts (match_id UUID, discount_id UUID)")
-            exec("INSERT INTO matches (id) VALUES ('$matchId')")
+            exec("INSERT INTO matches (id, max_players, status, date_time) VALUES ('$matchId', 10, 'SCHEDULED', 1000)")
             exec("INSERT INTO match_discounts VALUES ('$matchId', '$first')")
         }
         try {

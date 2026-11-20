@@ -463,7 +463,9 @@ private class FakeMatchRepository(
     override suspend fun synchronizeMatchStatuses(now: Long): List<UUID> = error("not used")
     override suspend fun getUserMatches(userId: UUID): List<MatchWithField> = error("not used")
     override suspend fun getMatchById(matchId: UUID): MatchWithField? = error("not used")
-    override suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): Boolean = error("not used")
+    override suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): MatchSeatChange = error("not used")
+    override suspend fun addWhatsAppGuest(matchId: UUID, name: String, team: TeamType): MatchSeatChange = error("not used")
+    override suspend fun removeWhatsAppGuest(matchId: UUID, guestId: UUID): MatchSeatChange = error("not used")
     override suspend fun removePlayerFromMatch(matchId: UUID, userId: UUID): Boolean = error("not used")
     override suspend fun isUserInMatch(matchId: UUID, userId: UUID): Boolean = error("not used")
     override suspend fun getMatchPlayerId(matchId: UUID, userId: UUID): UUID? = error("not used")
@@ -475,7 +477,7 @@ private class FakeMatchRepository(
     override suspend fun setBestPlayer(matchId: UUID, bestPlayerId: UUID): Boolean = error("not used")
     override suspend fun completeMatchAtomic(
         matchId: UUID,
-        bestPlayerId: UUID,
+        bestPlayerId: UUID?,
         goals: List<PlayerGoalInput>,
         externalGoals: List<TeamGoalInput>,
         absentPlayerIds: Set<UUID>

@@ -172,11 +172,15 @@ class MatchInviteRepositoryImpl : MatchInviteRepository {
     private fun countActivePlayers(matchIds: List<UUID>): Map<UUID, Int> {
         if (matchIds.isEmpty()) return emptyMap()
         val count = MatchPlayersTable.userId.count()
-        return MatchPlayersTable
+        val playersByMatch = MatchPlayersTable
             .select(MatchPlayersTable.matchId, count)
             .where { (MatchPlayersTable.matchId inList matchIds) and (MatchPlayersTable.status inList activePlayerStatuses) }
             .groupBy(MatchPlayersTable.matchId)
             .associate { it[MatchPlayersTable.matchId] to it[count].toInt() }
+        val guestsByMatch = countWhatsAppGuestsByMatchId(matchIds)
+        return (playersByMatch.keys + guestsByMatch.keys).associateWith {
+            (playersByMatch[it] ?: 0) + (guestsByMatch[it] ?: 0)
+        }
     }
 
     private companion object {

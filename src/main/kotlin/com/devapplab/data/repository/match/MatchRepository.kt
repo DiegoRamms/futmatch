@@ -16,7 +16,9 @@ interface MatchRepository {
     suspend fun synchronizeMatchStatuses(now: Long): List<UUID>
     suspend fun getUserMatches(userId: UUID): List<MatchWithField>
     suspend fun getMatchById(matchId: UUID): MatchWithField?
-    suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): Boolean
+    suspend fun addPlayerToMatch(matchId: UUID, userId: UUID, team: TeamType): MatchSeatChange
+    suspend fun addWhatsAppGuest(matchId: UUID, name: String, team: TeamType): MatchSeatChange
+    suspend fun removeWhatsAppGuest(matchId: UUID, guestId: UUID): MatchSeatChange
     suspend fun removePlayerFromMatch(matchId: UUID, userId: UUID): Boolean
     suspend fun isUserInMatch(matchId: UUID, userId: UUID): Boolean
     suspend fun getMatchPlayerId(matchId: UUID, userId: UUID): UUID?
@@ -28,7 +30,7 @@ interface MatchRepository {
     suspend fun setBestPlayer(matchId: UUID, bestPlayerId: UUID): Boolean
     suspend fun completeMatchAtomic(
         matchId: UUID,
-        bestPlayerId: UUID,
+        bestPlayerId: UUID?,
         goals: List<PlayerGoalInput>,
         externalGoals: List<TeamGoalInput>,
         absentPlayerIds: Set<UUID>

@@ -3,13 +3,19 @@ import com.devapplab.data.database.device.DeviceTable
 import com.devapplab.data.database.field.FieldTable
 import com.devapplab.data.database.location.LocationsTable
 import com.devapplab.data.database.match.MatchInviteDispatchTable
+import com.devapplab.data.database.match.MatchPlayerGoalsTable
 import com.devapplab.data.database.match.MatchPlayersTable
+import com.devapplab.data.database.match.MatchResultsTable
+import com.devapplab.data.database.match.MatchWhatsAppGuestsTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.notification.NotificationTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.data.repository.match.MatchInviteRepositoryImpl
+import com.devapplab.data.repository.match.MatchRepositoryImp
 import com.devapplab.model.match.MatchInviteNotification
 import com.devapplab.model.match.MatchPlayerStatus
+import com.devapplab.model.match.MatchSeatChange
+import com.devapplab.model.match.TeamGoalInput
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.match.TeamType
 import com.devapplab.model.user.*
@@ -30,6 +36,7 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class MatchInviteRepositoryTest {
@@ -44,7 +51,8 @@ class MatchInviteRepositoryTest {
         transaction(database) {
             SchemaUtils.create(
                 UserTable, DeviceTable, LocationsTable, FieldTable, MatchTable,
-                MatchPlayersTable, MatchInviteDispatchTable, NotificationTable
+                MatchPlayersTable, MatchInviteDispatchTable, NotificationTable,
+                MatchWhatsAppGuestsTable, MatchResultsTable, MatchPlayerGoalsTable
             )
         }
         try {
@@ -138,11 +146,12 @@ class MatchInviteRepositoryTest {
         db.match(admin, startsInHours = 3, status = MatchStatus.CANCELED)
         db.join(soon, joined)
         db.join(soon, left, MatchPlayerStatus.LEFT)
+        assertEquals(MatchSeatChange.SUCCESS, MatchRepositoryImp().addWhatsAppGuest(soon, "Invitado", TeamType.B))
 
         val repo = MatchInviteRepositoryImpl()
         val matches = repo.getMatchesForInvite(now, now + 24 * hour)
         assertEquals(listOf(soon), matches.map { it.matchId })
-        assertEquals(9, matches.single().availableSpots)
+        assertEquals(8, matches.single().availableSpots)
         assertEquals(mapOf(soon to setOf(joined)), repo.getActivePlayerIds(listOf(soon)))
     }
 
@@ -198,6 +207,81 @@ class MatchInviteRepositoryTest {
         }
         assertEquals(listOf(false, true), results.sorted())
         assertEquals(1L, transaction(db) { NotificationTable.selectAll().count() })
+    }
+
+    @Test
+    fun `guest and app reservation serialize on last team seat`() = withDb(";LOCK_TIMEOUT=10000") { db ->
+        val admin = db.user(role = UserRole.ADMIN)
+        val player = db.user()
+        val matchId = db.match(admin, startsInHours = 5, maxPlayers = 2)
+        val repository = MatchRepositoryImp()
+        val start = CompletableDeferred<Unit>()
+        val attempts = coroutineScope {
+            val appJoin = async(Dispatchers.IO) {
+                start.await()
+                repository.addPlayerToMatch(matchId, player, TeamType.A)
+            }
+            val guestJoin = async(Dispatchers.IO) {
+                start.await()
+                repository.addWhatsAppGuest(matchId, "Invitado", TeamType.A)
+            }
+            start.complete(Unit)
+            listOf(appJoin.await(), guestJoin.await())
+        }
+        assertEquals(setOf(MatchSeatChange.SUCCESS, MatchSeatChange.TEAM_FULL), attempts.toSet())
+        assertEquals(1L, transaction(db) {
+            MatchPlayersTable.selectAll().count() + MatchWhatsAppGuestsTable.selectAll().count()
+        })
+    }
+
+    @Test
+    fun `removing a named guest frees the seat and a late app payment cannot displace a guest`() = withDb { db ->
+        val matchId = db.match(db.user(role = UserRole.ADMIN), startsInHours = 5, maxPlayers = 2)
+        val player = db.user()
+        val repository = MatchRepositoryImp()
+        assertEquals(MatchSeatChange.SUCCESS, repository.addPlayerToMatch(matchId, player, TeamType.A))
+        val playerId = checkNotNull(repository.getMatchPlayerId(matchId, player))
+        assertTrue(repository.removePlayerFromMatch(matchId, player))
+        assertEquals(MatchSeatChange.SUCCESS, repository.addWhatsAppGuest(matchId, "Invitado", TeamType.A))
+        assertFalse(repository.updatePlayerStatus(playerId, MatchPlayerStatus.JOINED))
+
+        val guest = transaction(db) { MatchWhatsAppGuestsTable.selectAll().single() }
+        assertEquals("Invitado", guest[MatchWhatsAppGuestsTable.name])
+        val otherMatch = db.match(db.user(role = UserRole.ADMIN), startsInHours = 5)
+        val guestId = guest[MatchWhatsAppGuestsTable.id]
+        assertEquals(MatchSeatChange.GUEST_NOT_FOUND, repository.removeWhatsAppGuest(otherMatch, guestId))
+        assertEquals(MatchSeatChange.SUCCESS, repository.removeWhatsAppGuest(matchId, guestId))
+        assertEquals(MatchSeatChange.SUCCESS, repository.addPlayerToMatch(matchId, player, TeamType.A))
+    }
+
+    @Test
+    fun `guest-only draw freezes named guests and stores no MVP`() = withDb { db ->
+        val admin = db.user(role = UserRole.ADMIN)
+        val matchId = db.match(admin, startsInHours = 5)
+        val mixed = db.match(admin, startsInHours = 5)
+        val repository = MatchRepositoryImp()
+        assertEquals(MatchSeatChange.SUCCESS, repository.addWhatsAppGuest(matchId, "Invitado A", TeamType.A))
+        assertEquals(MatchSeatChange.SUCCESS, repository.addWhatsAppGuest(mixed, "Invitado B", TeamType.B))
+        db.join(mixed, db.user())
+        transaction(db) {
+            MatchTable.update({ MatchTable.id eq matchId }) { it[status] = MatchStatus.PENDING_RESULT }
+            MatchTable.update({ MatchTable.id eq mixed }) { it[status] = MatchStatus.PENDING_RESULT }
+        }
+        val score = listOf(TeamGoalInput(TeamType.A, 0), TeamGoalInput(TeamType.B, 0))
+        assertNull(repository.completeMatchAtomic(mixed, null, emptyList(), score, emptySet()))
+        assertEquals(0 to 0, repository.completeMatchAtomic(matchId, null, emptyList(), score, emptySet()))
+        transaction(db) {
+            val result = MatchResultsTable.selectAll().single()
+            assertNull(result[MatchResultsTable.bestPlayerId])
+            assertEquals(0L, MatchPlayerGoalsTable.selectAll().count())
+            val guest = MatchWhatsAppGuestsTable.selectAll().where { MatchWhatsAppGuestsTable.matchId eq matchId }.single()
+            assertEquals("Invitado A", guest[MatchWhatsAppGuestsTable.name])
+        }
+        val guestId = transaction(db) {
+            MatchWhatsAppGuestsTable.selectAll().where { MatchWhatsAppGuestsTable.matchId eq matchId }
+                .single()[MatchWhatsAppGuestsTable.id]
+        }
+        assertEquals(MatchSeatChange.NOT_SCHEDULED, repository.removeWhatsAppGuest(matchId, guestId))
     }
 
     @Test

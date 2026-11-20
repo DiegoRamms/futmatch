@@ -129,6 +129,8 @@ enum class StringResourcesKey(val value: String) {
     MATCH_DISCOUNT_INVALID_ERROR("match_discount_invalid_error"),
     MATCH_OVERLAP_TITLE("match_overlap_title"),
     MATCH_OVERLAP_DESCRIPTION("match_overlap_description"),
+    MATCH_WHATSAPP_GUEST_INVALID_NAME_TITLE("match_whatsapp_guest_invalid_name_title"),
+    MATCH_WHATSAPP_GUEST_INVALID_NAME_DESCRIPTION("match_whatsapp_guest_invalid_name_description"),
     MATCH_FULL_TITLE("match_full_title"),
     MATCH_FULL_DESCRIPTION("match_full_description"),
     MATCH_ALREADY_JOINED_TITLE("match_already_joined_title"),

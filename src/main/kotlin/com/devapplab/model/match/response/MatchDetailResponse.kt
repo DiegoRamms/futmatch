@@ -6,6 +6,7 @@ import com.devapplab.model.field.response.FieldImageResponse
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.match.MatchWhatsAppGuest
 import com.devapplab.model.user.PlayerLevel
 import com.devapplab.utils.UUIDSerializer
 import kotlinx.serialization.Serializable
@@ -44,7 +45,9 @@ data class MatchDetailResponse(
     val rules: String,
     val fieldImages: List<FieldImageResponse> = emptyList(),
     /** Who runs the match. Stripped for guests by `GuestMatchSanitizer`. */
-    val organizer: MatchOrganizerResponse? = null
+    val organizer: MatchOrganizerResponse? = null,
+    val whatsappGuests: List<MatchWhatsAppGuest> = emptyList(),
+    val canCompleteWithoutMvp: Boolean = false
 )
 
 @Serializable

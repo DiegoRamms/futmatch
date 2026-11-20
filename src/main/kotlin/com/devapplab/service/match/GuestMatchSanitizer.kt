@@ -22,7 +22,9 @@ object GuestMatchSanitizer {
             teams = sanitize(detail.teams),
             goalBreakdown = null,
             bestPlayer = null,
-            organizer = null
+            organizer = null,
+            whatsappGuests = emptyList(),
+            canCompleteWithoutMvp = false
         )
 
     private fun sanitize(teams: TeamSummaryResponse): TeamSummaryResponse =

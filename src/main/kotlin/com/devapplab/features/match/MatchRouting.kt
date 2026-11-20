@@ -54,6 +54,14 @@ fun Route.matchRouting() {
             val matchController = call.scope.get<MatchController>()
             matchController.resolveFailedRefundManually(call)
         }
+        post("admin/{matchId}/whatsapp-guests") {
+            call.requireRole(UserRole.ADMIN)
+            call.scope.get<MatchController>().addWhatsAppGuest(call)
+        }
+        delete("admin/{matchId}/whatsapp-guests/{guestId}") {
+            call.requireRole(UserRole.ADMIN)
+            call.scope.get<MatchController>().removeWhatsAppGuest(call)
+        }
         post("admin/{matchId}/complete") {
             call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
             val matchController = call.scope.get<MatchController>()
