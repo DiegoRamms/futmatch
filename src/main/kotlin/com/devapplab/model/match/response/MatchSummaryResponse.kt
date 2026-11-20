@@ -51,7 +51,8 @@ data class TeamSummaryResponse(
 @Serializable
 data class TeamPlayersSummary(
     val playerCount: Int,
-    val players: List<PlayerSummary>
+    val players: List<PlayerSummary>,
+    val whatsappGuestCount: Int = 0
 )
 
 @Serializable

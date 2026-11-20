@@ -42,8 +42,9 @@ class GuestMatchSanitizerTest {
             )
         ),
         teamB = TeamPlayersSummary(
-            playerCount = 1,
-            players = listOf(PlayerSummary(UUID.randomUUID(), null, Gender.MALE, "Tercero"))
+            playerCount = 2,
+            players = listOf(PlayerSummary(UUID.randomUUID(), null, Gender.MALE, "Tercero")),
+            whatsappGuestCount = 1
         )
     )
 
@@ -59,7 +60,7 @@ class GuestMatchSanitizerTest {
         playerLevel = PlayerLevel.ANY,
         status = MatchStatus.SCHEDULED,
         maxPlayers = 14,
-        availableSpots = 11,
+        availableSpots = 10,
         teams = teams(),
         location = null
     )
@@ -80,7 +81,7 @@ class GuestMatchSanitizerTest {
         ),
         bestPlayer = MatchBestPlayerResponse(playerId, playerName),
         maxPlayers = 14,
-        availableSpots = 11,
+        availableSpots = 10,
         teams = teams(),
         location = null,
         footwearType = null,
@@ -101,7 +102,8 @@ class GuestMatchSanitizerTest {
         assertTrue(sanitized.teams.teamA.players.isEmpty())
         assertTrue(sanitized.teams.teamB.players.isEmpty())
         assertEquals(2, sanitized.teams.teamA.playerCount)
-        assertEquals(1, sanitized.teams.teamB.playerCount)
+        assertEquals(2, sanitized.teams.teamB.playerCount)
+        assertEquals(0, sanitized.teams.teamB.whatsappGuestCount)
         assertEquals(original.availableSpots, sanitized.availableSpots)
         assertEquals(original.copy(teams = sanitized.teams), sanitized)
     }
@@ -112,6 +114,7 @@ class GuestMatchSanitizerTest {
         GuestMatchSanitizer.sanitize(original)
 
         assertEquals(2, original.teams.teamA.players.size)
+        assertEquals(1, original.teams.teamB.whatsappGuestCount)
     }
 
     @Test

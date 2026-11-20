@@ -109,10 +109,11 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
 
     // Return empty teams to avoid breaking client
     val emptyTeams = TeamSummaryResponse(
-        teamA = TeamPlayersSummary(occupiedSeats(TeamType.A), emptyList()),
-        teamB = TeamPlayersSummary(occupiedSeats(TeamType.B), emptyList())
+        teamA = TeamPlayersSummary(occupiedSeats(TeamType.A), emptyList(), guestCount(TeamType.A)),
+        teamB = TeamPlayersSummary(occupiedSeats(TeamType.B), emptyList(), guestCount(TeamType.B))
     )
-    val teams = if (this.status == MatchStatus.CANCELED || this.status == MatchStatus.COMPLETED) {
+    val isFinal = status == MatchStatus.CANCELED || status == MatchStatus.COMPLETED
+    val teams = if (isFinal) {
         buildTeamSummary()
     } else {
         emptyTeams
@@ -161,7 +162,7 @@ fun MatchWithField.toMatchDetailResponse(playerGoals: List<MatchPlayerGoal> = em
         extraInfo = this.fieldExtraInfo,
         description = this.fieldDescription,
         rules = this.fieldRules,
-        whatsappGuests = this.whatsappGuests,
+        whatsappGuests = if (isFinal) whatsappGuests else emptyList(),
         canCompleteWithoutMvp = this.canCompleteWithoutMvp
     )
 }
@@ -201,11 +202,13 @@ private fun MatchWithField.buildTeamSummary(): TeamSummaryResponse {
     val teamB = this.players.filter { it.team == TeamType.B && (it.status == MatchPlayerStatus.JOINED || it.status == MatchPlayerStatus.RESERVED) }
 
     val teamASummary = TeamPlayersSummary(
-        playerCount = teamA.size + whatsappGuests.count { it.team == TeamType.A },
+        playerCount = teamA.size + guestCount(TeamType.A),
+        whatsappGuestCount = guestCount(TeamType.A),
         players = teamA.map { PlayerSummary(it.userId, it.avatarUrl, it.gender, it.name, it.country, it.status, it.attendanceStatus) }
     )
     val teamBSummary = TeamPlayersSummary(
-        playerCount = teamB.size + whatsappGuests.count { it.team == TeamType.B },
+        playerCount = teamB.size + guestCount(TeamType.B),
+        whatsappGuestCount = guestCount(TeamType.B),
         players = teamB.map { PlayerSummary(it.userId, it.avatarUrl, it.gender, it.name, it.country, it.status, it.attendanceStatus) }
     )
     return TeamSummaryResponse(teamASummary, teamBSummary)

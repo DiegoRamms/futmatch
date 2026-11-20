@@ -1508,9 +1508,10 @@ Example for a completed match:
 - `DELETE /match/admin/{matchId}/whatsapp-guests/{guestId}` removes that guest and releases the slot.
 - Both operations require `ADMIN`, accept only scheduled matches before kickoff, and return `{"status":"success","data":true}` on success. Missing matches or guests return **404**. A closed roster or a filled match/team returns **409**.
 - Guests share total and per-team capacity with app reservations and confirmed app players. They have no user account, payment attempt, or individual statistics.
-- Authenticated detail may include `whatsappGuests`, a list of objects with `id`, `name`, and `team`. The roster is retained after completion. Names and IDs are omitted from public detail. Team counts and available places include guests.
+- Authenticated detail returns the historical `whatsappGuests` roster with `id`, `name`, and `team` only for `COMPLETED` and `CANCELED`. Active matches expose guest occupancy in HTTP, while the named roster comes from Firestore. Public detail omits guest names and IDs.
+- Each team in authenticated match summaries and detail may include `whatsappGuestCount` (default `0`). It lets clients show generic guest avatars in match cards without loading names or adding entries to the app player roster. Public responses retain total occupancy and omit the guest breakdown.
 - The detail flag `canCompleteWithoutMvp` is true for matches in `PENDING_RESULT` with guests and no active app players. The default is false.
-- Firestore `match_players` still lists app players and also carries numeric `whatsappGuestCountA` and `whatsappGuestCountB`. Listen for `match-updates/{matchId}` and fetch the authenticated detail to refresh the named guest roster.
+- Firestore `match_players/{matchId}` keeps app players in `players` and broadcasts named guests in the separate `whatsappGuests` array for `SCHEDULED`, `IN_PROGRESS`, and `PENDING_RESULT`. It continues sending `whatsappGuestCountA` and `whatsappGuestCountB`. An absent array indicates a legacy document. An empty array clears a previously shown guest roster. New detail reads backfill legacy active documents with guests. The `match-updates/{matchId}` signal refreshes HTTP match state so clients can switch to the historical roster.
 
 ### Best Player
 

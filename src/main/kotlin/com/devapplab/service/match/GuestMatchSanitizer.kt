@@ -29,7 +29,7 @@ object GuestMatchSanitizer {
 
     private fun sanitize(teams: TeamSummaryResponse): TeamSummaryResponse =
         TeamSummaryResponse(
-            teamA = teams.teamA.copy(players = emptyList()),
-            teamB = teams.teamB.copy(players = emptyList())
+            teamA = teams.teamA.copy(players = emptyList(), whatsappGuestCount = 0),
+            teamB = teams.teamB.copy(players = emptyList(), whatsappGuestCount = 0)
         )
 }

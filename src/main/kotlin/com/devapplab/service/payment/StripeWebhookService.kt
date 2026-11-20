@@ -5,9 +5,8 @@ import com.devapplab.data.repository.payment.PaymentRepository
 import com.devapplab.data.repository.payment.StripeWebhookEventRepository
 import com.devapplab.features.match.MatchUpdateBus
 import com.devapplab.model.WebhookConfig
-import com.devapplab.model.firestore.MatchPlayerList
+import com.devapplab.model.firestore.toRealtimePlayerList
 import com.devapplab.model.match.MatchPlayerStatus
-import com.devapplab.model.match.TeamType
 import com.devapplab.model.payment.PaymentAttemptStatus
 import com.devapplab.observability.PaymentMetrics
 import com.devapplab.observability.StripeWebhookMetricOutcome
@@ -394,27 +393,9 @@ class StripeWebhookService(
         // New logic: Update Firestore projection
         val match = matchRepository.getMatchById(matchId)
         if (match != null) {
-            val firestorePlayers = match.players.map { player ->
-                val reservationExpiresAt = if (player.status == MatchPlayerStatus.RESERVED) {
-                    player.joinedAt + RESERVATION_TTL.inWholeMilliseconds
-                } else {
-                    null
-                }
-
-                MatchPlayerList.Player(
-                    playerId = player.userId.toString(),
-                    name = player.name,
-                    avatarUrl = resolvePlayerAvatarUrl(player.userId, player.avatarUrl),
-                    gender = player.gender,
-                    team = player.team,
-                    status = player.status,
-                    reservationExpiresAt = reservationExpiresAt,
-                    country = player.country
-                )
-            }
             matchPlayerRealtimeService.updateMatchPlayers(
                 matchId.toString(),
-                MatchPlayerList(firestorePlayers, match.guestCount(TeamType.A), match.guestCount(TeamType.B))
+                match.toRealtimePlayerList(RESERVATION_TTL.inWholeMilliseconds, ::resolvePlayerAvatarUrl)
             )
         }
     }

@@ -1,9 +1,13 @@
 package com.devapplab.model.firestore
 
 import com.devapplab.model.match.MatchPlayerStatus
+import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.match.MatchWhatsAppGuest
+import com.devapplab.model.match.MatchWithField
 import com.devapplab.model.match.TeamType
 import com.devapplab.model.user.Gender
 import com.google.cloud.firestore.FieldValue
+import java.util.UUID
 
 /**
  * Represents the real-time player list for a single match, stored in a Firestore document.
@@ -12,7 +16,8 @@ import com.google.cloud.firestore.FieldValue
 data class MatchPlayerList(
     val players: List<Player> = emptyList(),
     val whatsappGuestCountA: Int = 0,
-    val whatsappGuestCountB: Int = 0
+    val whatsappGuestCountB: Int = 0,
+    val whatsappGuests: List<MatchWhatsAppGuest> = emptyList()
 ) {
     data class Player(
         val playerId: String,
@@ -39,9 +44,41 @@ data class MatchPlayerList(
                     "reservationExpiresAt" to player.reservationExpiresAt
                 )
             },
+            "whatsappGuests" to whatsappGuests.map { guest ->
+                mapOf("id" to guest.id.toString(), "name" to guest.name, "team" to guest.team.name)
+            },
             "whatsappGuestCountA" to whatsappGuestCountA,
             "whatsappGuestCountB" to whatsappGuestCountB,
             "lastUpdated" to FieldValue.serverTimestamp()
         )
     }
 }
+
+internal fun MatchWithField.toRealtimePlayerList(
+    reservationTtlMillis: Long,
+    resolveAvatar: (UUID, String?) -> String?
+): MatchPlayerList = MatchPlayerList(
+    players = players.map { player ->
+        MatchPlayerList.Player(
+            playerId = player.userId.toString(),
+            name = player.name,
+            avatarUrl = resolveAvatar(player.userId, player.avatarUrl),
+            gender = player.gender,
+            team = player.team,
+            status = player.status,
+            country = player.country,
+            reservationExpiresAt = if (player.status == MatchPlayerStatus.RESERVED) {
+                player.joinedAt + reservationTtlMillis
+            } else {
+                null
+            }
+        )
+    },
+    whatsappGuestCountA = guestCount(TeamType.A),
+    whatsappGuestCountB = guestCount(TeamType.B),
+    whatsappGuests = if (status == MatchStatus.COMPLETED || status == MatchStatus.CANCELED) {
+        emptyList()
+    } else {
+        whatsappGuests
+    }
+)

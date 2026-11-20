@@ -1,23 +1,29 @@
 import com.devapplab.config.dbQuery
 import com.devapplab.data.database.device.DeviceTable
+import com.devapplab.data.database.discount.DiscountsTable
+import com.devapplab.data.database.field.FieldImagesTable
 import com.devapplab.data.database.field.FieldTable
 import com.devapplab.data.database.location.LocationsTable
+import com.devapplab.data.database.match.MatchDiscountsTable
 import com.devapplab.data.database.match.MatchInviteDispatchTable
 import com.devapplab.data.database.match.MatchPlayerGoalsTable
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchWhatsAppGuestsTable
 import com.devapplab.data.database.match.MatchTable
+import com.devapplab.data.database.match.MatchTeamsTable
 import com.devapplab.data.database.notification.NotificationTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.data.repository.match.MatchInviteRepositoryImpl
 import com.devapplab.data.repository.match.MatchRepositoryImp
+import com.devapplab.model.firestore.toRealtimePlayerList
 import com.devapplab.model.match.MatchInviteNotification
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchSeatChange
 import com.devapplab.model.match.TeamGoalInput
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.match.TeamType
+import com.devapplab.model.match.mapper.toMatchDetailResponse
 import com.devapplab.model.user.*
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +42,7 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -52,7 +59,8 @@ class MatchInviteRepositoryTest {
             SchemaUtils.create(
                 UserTable, DeviceTable, LocationsTable, FieldTable, MatchTable,
                 MatchPlayersTable, MatchInviteDispatchTable, NotificationTable,
-                MatchWhatsAppGuestsTable, MatchResultsTable, MatchPlayerGoalsTable
+                MatchWhatsAppGuestsTable, MatchResultsTable, MatchPlayerGoalsTable,
+                MatchTeamsTable, FieldImagesTable, DiscountsTable, MatchDiscountsTable
             )
         }
         try {
@@ -267,9 +275,26 @@ class MatchInviteRepositoryTest {
             MatchTable.update({ MatchTable.id eq matchId }) { it[status] = MatchStatus.PENDING_RESULT }
             MatchTable.update({ MatchTable.id eq mixed }) { it[status] = MatchStatus.PENDING_RESULT }
         }
+        val active = assertNotNull(repository.getMatchById(matchId))
+        assertTrue(active.toMatchDetailResponse().whatsappGuests.isEmpty())
+        assertEquals(1, active.toMatchDetailResponse().teams.teamA.whatsappGuestCount)
+        val realtime = active.toRealtimePlayerList(300_000) { _, avatar -> avatar }
+        assertEquals(listOf("Invitado A"), realtime.whatsappGuests.map { it.name })
+        assertTrue(realtime.players.isEmpty())
+        assertEquals(
+            listOf(mapOf("id" to active.whatsappGuests.single().id.toString(), "name" to "Invitado A", "team" to "A")),
+            realtime.toMap()["whatsappGuests"]
+        )
+        val canceled = active.copy(status = MatchStatus.CANCELED)
+        assertEquals(active.whatsappGuests, canceled.toMatchDetailResponse().whatsappGuests)
+        assertTrue(canceled.toRealtimePlayerList(300_000) { _, avatar -> avatar }.whatsappGuests.isEmpty())
+
         val score = listOf(TeamGoalInput(TeamType.A, 0), TeamGoalInput(TeamType.B, 0))
         assertNull(repository.completeMatchAtomic(mixed, null, emptyList(), score, emptySet()))
         assertEquals(0 to 0, repository.completeMatchAtomic(matchId, null, emptyList(), score, emptySet()))
+        val completed = assertNotNull(repository.getMatchById(matchId))
+        assertEquals(active.whatsappGuests, completed.toMatchDetailResponse().whatsappGuests)
+        assertTrue(completed.toRealtimePlayerList(300_000) { _, avatar -> avatar }.whatsappGuests.isEmpty())
         transaction(db) {
             val result = MatchResultsTable.selectAll().single()
             assertNull(result[MatchResultsTable.bestPlayerId])

@@ -17,7 +17,7 @@ import com.devapplab.model.MatchPaymentConfig
 import com.devapplab.model.discount.Discount
 import com.devapplab.model.discount.DiscountType
 import com.devapplab.model.field.Field
-import com.devapplab.model.firestore.MatchPlayerList
+import com.devapplab.model.firestore.toRealtimePlayerList
 import com.devapplab.model.match.*
 import com.devapplab.model.match.mapper.toMatchDetailResponse
 import com.devapplab.model.match.mapper.toMatchSummaryResponse
@@ -573,6 +573,7 @@ class MatchService(
             )
             }
 
+        ensureActiveGuestProjection(match)
         val playerGoals = if (match.status == MatchStatus.COMPLETED) {
             matchRepository.getMatchPlayerGoals(matchId)
         } else {
@@ -597,6 +598,7 @@ class MatchService(
     private suspend fun getMatchDetailJson(locale: Locale, matchId: UUID): String {
         val match = matchRepository.getMatchById(matchId)
         return if (match != null) {
+            ensureActiveGuestProjection(match)
             val playerGoals = if (match.status == MatchStatus.COMPLETED) {
                 matchRepository.getMatchPlayerGoals(matchId)
             } else {
@@ -625,6 +627,16 @@ class MatchService(
                 errorCode = ErrorCode.NOT_FOUND
             )
             Json.encodeToString(error)
+        }
+    }
+
+    private suspend fun ensureActiveGuestProjection(match: MatchWithField) {
+        if (match.whatsappGuests.isEmpty() || match.status == MatchStatus.COMPLETED ||
+            match.status == MatchStatus.CANCELED
+        ) return
+
+        matchPlayerRealtimeService.backfillGuestProjection(match.matchId.toString()) {
+            match.toRealtimePlayerList(RESERVATION_TTL.inWholeMilliseconds, ::resolvePlayerAvatarUrl)
         }
     }
 
@@ -1754,27 +1766,9 @@ class MatchService(
                 sendRegionalMatchesUpdatedPush(region)
             }
 
-            val firestorePlayers = match.players.map { player ->
-                val reservationExpiresAt = if (player.status == MatchPlayerStatus.RESERVED) {
-                    player.joinedAt + RESERVATION_TTL.inWholeMilliseconds
-                } else {
-                    null
-                }
-
-                MatchPlayerList.Player(
-                    playerId = player.userId.toString(),
-                    name = player.name,
-                    avatarUrl = resolvePlayerAvatarUrl(player.userId, player.avatarUrl),
-                    gender = player.gender,
-                    team = player.team,
-                    status = player.status,
-                    country = player.country,
-                    reservationExpiresAt = reservationExpiresAt
-                )
-            }
             matchPlayerRealtimeService.updateMatchPlayers(
                 matchId.toString(),
-                MatchPlayerList(firestorePlayers, match.guestCount(TeamType.A), match.guestCount(TeamType.B))
+                match.toRealtimePlayerList(RESERVATION_TTL.inWholeMilliseconds, ::resolvePlayerAvatarUrl)
             )
             if (signalDetail || match.whatsappGuests.isNotEmpty()) {
                 matchUpdateBus.publish(matchId)
