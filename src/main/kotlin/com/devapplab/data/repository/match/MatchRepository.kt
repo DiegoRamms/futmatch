@@ -1,10 +1,13 @@
 package com.devapplab.data.repository.match
 
 import com.devapplab.model.match.*
+import com.devapplab.model.match.request.CreateMatchRequest
+import com.devapplab.model.match.response.MatchTemplateResponse
 import java.util.*
 
 interface MatchRepository {
-    suspend fun create(match: Match): MatchBaseInfo
+    suspend fun create(match: Match, template: CreateMatchRequest? = null): MatchBaseInfo?
+    suspend fun getMatchTemplates(adminId: UUID): List<MatchTemplateResponse>
     suspend fun getMatchesByFieldId(fieldId: UUID): List<MatchWithFieldBaseInfo>
     suspend fun getMatchesBySupervisorId(supervisorId: UUID): List<MatchWithFieldBaseInfo>
     suspend fun getMatchTimeSlotsByFieldId(fieldId: UUID): List<MatchTimeSlot>

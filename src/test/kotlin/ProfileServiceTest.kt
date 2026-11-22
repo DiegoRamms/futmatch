@@ -451,7 +451,13 @@ private class FakeMatchRepository(
     override suspend fun getUserTotalGoals(userId: UUID): Int = totalGoals
     override suspend fun getHomeLastMatch(userId: UUID): HomeLastMatch? = lastMatch
 
-    override suspend fun create(match: Match): MatchBaseInfo = error("not used")
+    override suspend fun create(
+        match: Match,
+        template: com.devapplab.model.match.request.CreateMatchRequest?
+    ): MatchBaseInfo = error("not used")
+
+    override suspend fun getMatchTemplates(adminId: UUID) =
+        emptyList<com.devapplab.model.match.response.MatchTemplateResponse>()
     override suspend fun getMatchesByFieldId(fieldId: UUID): List<MatchWithFieldBaseInfo> = error("not used")
     override suspend fun getMatchesBySupervisorId(supervisorId: UUID): List<MatchWithFieldBaseInfo> = error("not used")
     override suspend fun getMatchTimeSlotsByFieldId(fieldId: UUID): List<MatchTimeSlot> = error("not used")

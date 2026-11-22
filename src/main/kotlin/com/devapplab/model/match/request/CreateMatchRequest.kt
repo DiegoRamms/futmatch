@@ -26,4 +26,6 @@ data class CreateMatchRequest(
     val teamAId: UUID? = null,
     @Serializable(with = UUIDSerializer::class)
     val teamBId: UUID? = null,
+    @Serializable(with = UUIDSerializer::class)
+    val templateId: UUID? = null,
 )

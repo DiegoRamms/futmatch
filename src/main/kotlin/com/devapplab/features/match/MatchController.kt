@@ -1,6 +1,10 @@
 package com.devapplab.features.match
 
 import com.devapplab.config.getIdentifier
+import com.devapplab.config.getRole
+import com.devapplab.config.requireRole
+import com.devapplab.model.match.MatchStatus
+import com.devapplab.model.user.UserRole
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.match.AddMatchWhatsAppGuestRequest
 import com.devapplab.model.match.CompleteMatchRequest
@@ -28,8 +32,17 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<CreateMatchRequest>()
         val locale = call.retrieveLocale()
-        val result = matchService.create(request.toMatch(adminId), locale, call.requestContext())
+        if (request.templateId != null) call.requireRole(UserRole.ADMIN)
+        val template = request.takeIf {
+            call.getRole() == UserRole.ADMIN && it.status == MatchStatus.SCHEDULED
+        }
+        val result = matchService.create(request.toMatch(adminId), locale, call.requestContext(), template)
         call.respond(result)
+    }
+
+    suspend fun getMatchTemplates(call: ApplicationCall) {
+        val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        call.respond(matchService.getMatchTemplates(adminId))
     }
 
     suspend fun getMatchesByFieldId(call: ApplicationCall) {

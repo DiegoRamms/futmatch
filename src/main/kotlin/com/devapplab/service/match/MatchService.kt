@@ -22,6 +22,7 @@ import com.devapplab.model.match.*
 import com.devapplab.model.match.mapper.toMatchDetailResponse
 import com.devapplab.model.match.mapper.toMatchSummaryResponse
 import com.devapplab.model.match.mapper.toResponse
+import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.model.match.request.RebalanceMatchTeamsRequest
 import com.devapplab.model.match.response.*
 import com.devapplab.model.notification.NotificationType
@@ -106,7 +107,15 @@ class MatchService(
         val RESERVATION_TTL = 5.minutes
     }
 
-    suspend fun create(match: Match, locale: Locale, context: AppRequestContext): AppResult<MatchResponse> {
+    suspend fun getMatchTemplates(adminId: UUID): AppResult<List<MatchTemplateResponse>> =
+        AppResult.Success(matchRepository.getMatchTemplates(adminId))
+
+    suspend fun create(
+        match: Match,
+        locale: Locale,
+        context: AppRequestContext,
+        template: CreateMatchRequest? = null
+    ): AppResult<MatchResponse> {
         val matchWithTeams = resolveTeamSnapshots(match) ?: return locale.createError(status = HttpStatusCode.NotFound)
         val field = fieldRepository.getFieldById(match.fieldId)
             ?: run {
@@ -150,7 +159,12 @@ class MatchService(
             )
         }
 
-        val matchCreated = matchRepository.create(validatedMatch)
+        val matchCreated = matchRepository.create(validatedMatch, template) ?: return locale.createError(
+            titleKey = StringResourcesKey.NOT_FOUND_TITLE,
+            descriptionKey = StringResourcesKey.NOT_FOUND_DESCRIPTION,
+            status = HttpStatusCode.NotFound,
+            errorCode = ErrorCode.NOT_FOUND
+        )
 
         val expireAtMillis = matchCreated.dateTimeEnd + SIGNAL_TTL_AFTER_END.inWholeMilliseconds
         notifyMatchUpdate(matchCreated.id, expireAtMillis, sendRegionalPush = true)

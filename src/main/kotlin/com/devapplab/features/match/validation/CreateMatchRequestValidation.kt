@@ -1,11 +1,15 @@
 package com.devapplab.features.match.validation
 
+import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.match.request.CreateMatchRequest
 import com.devapplab.utils.StringResourcesKey
 import io.ktor.server.plugins.requestvalidation.*
 
 fun CreateMatchRequest.validate(): ValidationResult {
     return when {
+        templateId != null && status != MatchStatus.SCHEDULED ->
+            ValidationResult.Invalid(StringResourcesKey.MATCH_TEMPLATE_STATUS_INVALID_ERROR.value)
+
         dateTime <= 0L ->
             ValidationResult.Invalid(StringResourcesKey.MATCH_DATE_TIME_INVALID_ERROR.value)
 

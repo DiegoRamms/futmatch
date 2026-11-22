@@ -100,6 +100,21 @@ Creates a new scheduled match.
 | `playerLevel` | Enum | No | Must be a valid `PlayerLevel` value. Valid values: `ANY`, `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `PROFESSIONAL`. Default: `ANY`. |
 | `teamAId`, `teamBId` | UUID | No | Must be sent together, be different, and identify catalog teams. Their current name and color are copied to the match as an immutable snapshot. |
 
+### Admin quick-create templates
+
+`GET /match/admin/templates` requires the `ADMIN` role. The response is an
+`AppResult` whose `data` is a list of `{ id, fieldName, settings }` entries,
+sorted by most recently saved. `settings` has the same shape as the create
+request, without `templateId`. The caller's JWT identifies the owner.
+
+Every successful scheduled match creation by an admin saves a template. To reuse
+an entry, send its UUID in the optional `templateId` field of
+`POST /match/admin/create`, along with the complete reviewed settings and the
+new dates. The API creates a separate scheduled match and updates that template
+in the same database transaction. A missing template or a template owned by
+another admin returns `404`. Organizer requests cannot specify a template ID.
+Matches published before this change are not backfilled.
+
 ### Pricing Validation
 
 Before a match is created, the backend validates the economic scenario against the selected field and the active pricing policy:

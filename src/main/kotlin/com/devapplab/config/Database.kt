@@ -20,6 +20,7 @@ import com.devapplab.data.database.match.MatchRefundFailuresTable
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
 import com.devapplab.data.database.match.MatchTable
+import com.devapplab.data.database.match.MatchTemplatesTable
 import com.devapplab.data.database.match.MatchTeamsTable
 import com.devapplab.data.database.match.MatchWhatsAppGuestsTable
 import com.devapplab.data.database.match.PublicMatchesVersionTable
@@ -109,6 +110,7 @@ fun Application.configureDatabase() {
         UserMatchDiscountsTable,
         TeamTable,
         MatchTable,
+        MatchTemplatesTable,
         MatchTeamsTable,
         MatchDiscountsTable,
         MatchPlayersTable,

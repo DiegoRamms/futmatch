@@ -9,6 +9,7 @@ import com.devapplab.data.database.match.MatchDiscountsTable
 import com.devapplab.data.database.match.MatchPlayerGoalsTable
 import com.devapplab.data.database.match.MatchPlayersTable
 import com.devapplab.data.database.match.MatchResultsTable
+import com.devapplab.data.database.match.MatchTemplatesTable
 import com.devapplab.data.database.match.MatchTable
 import com.devapplab.data.database.match.MatchTeamsTable
 import com.devapplab.data.database.match.MatchWhatsAppGuestsTable
@@ -17,6 +18,9 @@ import com.devapplab.model.discount.Discount
 import com.devapplab.model.field.FieldImageBaseInfo
 import com.devapplab.model.location.Location
 import com.devapplab.model.match.*
+import com.devapplab.model.match.request.CreateMatchRequest
+import com.devapplab.model.match.response.MatchTemplateResponse
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
 import org.slf4j.LoggerFactory
@@ -26,8 +30,23 @@ import kotlin.time.Duration.Companion.days
 class MatchRepositoryImp : MatchRepository {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    override suspend fun create(match: Match): MatchBaseInfo {
+    override suspend fun getMatchTemplates(adminId: UUID): List<MatchTemplateResponse> = dbQuery {
+        (MatchTemplatesTable innerJoin FieldTable)
+            .select(MatchTemplatesTable.id, FieldTable.name, MatchTemplatesTable.settings)
+            .where { MatchTemplatesTable.adminId eq adminId }
+            .orderBy(MatchTemplatesTable.updatedAt to SortOrder.DESC, MatchTemplatesTable.id to SortOrder.DESC)
+            .map { row ->
+                MatchTemplateResponse(
+                    id = row[MatchTemplatesTable.id],
+                    fieldName = row[FieldTable.name],
+                    settings = Json.decodeFromString<CreateMatchRequest>(row[MatchTemplatesTable.settings])
+                )
+            }
+    }
+
+    override suspend fun create(match: Match, template: CreateMatchRequest?): MatchBaseInfo? {
         val result = dbQuery {
+            if (template != null && !saveTemplate(match.adminId, template)) return@dbQuery null
             val matchResult = MatchTable.insert {
                 it[fieldId] = match.fieldId
                 it[adminId] = match.adminId
@@ -71,7 +90,7 @@ class MatchRepositoryImp : MatchRepository {
                 }
             }
             matchResult
-        }
+        } ?: return null
 
         return MatchBaseInfo(
             id = result[MatchTable.id],
@@ -85,6 +104,29 @@ class MatchRepositoryImp : MatchRepository {
             genderType = result[MatchTable.genderType],
             playerLevel = result[MatchTable.playerLevel]
         )
+    }
+
+    private fun saveTemplate(ownerId: UUID, request: CreateMatchRequest): Boolean {
+        val snapshot = Json.encodeToString(request.copy(templateId = null))
+        val savedAt = System.currentTimeMillis()
+        val templateId = request.templateId
+        if (templateId == null) {
+            MatchTemplatesTable.insert {
+                it[adminId] = ownerId
+                it[fieldId] = request.fieldId
+                it[settings] = snapshot
+                it[updatedAt] = savedAt
+            }
+            return true
+        }
+
+        return MatchTemplatesTable.update({
+            (MatchTemplatesTable.id eq templateId) and (MatchTemplatesTable.adminId eq ownerId)
+        }) {
+            it[fieldId] = request.fieldId
+            it[settings] = snapshot
+            it[updatedAt] = savedAt
+        } == 1
     }
 
     override suspend fun getMatchesByFieldId(fieldId: UUID): List<MatchWithFieldBaseInfo> {
