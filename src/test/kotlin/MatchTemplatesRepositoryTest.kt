@@ -26,13 +26,14 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class MatchTemplatesRepositoryTest {
     @Test
-    fun `publishing saves and updates only the owning admin template and rolls back on insert failure`() = runBlocking {
+    fun `publishing saves and updates only the owning admin template and rolls back on insert failure and only its owner can remove it`() = runBlocking {
         val database = Database.connect(
             "jdbc:h2:mem:match_templates_${UUID.randomUUID()};DB_CLOSE_DELAY=-1",
             driver = "org.h2.Driver"
@@ -86,6 +87,11 @@ class MatchTemplatesRepositoryTest {
             val invalid = changed.copy(discountIds = listOf(UUID.randomUUID()))
             assertFailsWith<ExposedSQLException> { repository.create(invalid.toMatch(owner), invalid) }
             assertEquals(updated, repository.getMatchTemplates(owner).single())
+            assertFalse(repository.deleteMatchTemplate(otherAdmin, saved.id))
+            assertEquals(updated, repository.getMatchTemplates(owner).single())
+            assertTrue(repository.deleteMatchTemplate(owner, saved.id))
+            assertFalse(repository.deleteMatchTemplate(owner, saved.id))
+            assertTrue(repository.getMatchTemplates(owner).isEmpty())
             assertEquals(2L, transaction(database) { MatchTable.selectAll().count() })
         } finally {
             transaction(database) { exec("DROP ALL OBJECTS") }

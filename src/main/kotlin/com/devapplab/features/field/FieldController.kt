@@ -113,8 +113,9 @@ class FieldController(
         call.respond(fields)
     }
 
-    suspend fun getAllFieldBasics(call: ApplicationCall) {
-        val fields = fieldService.getAllFieldBasics()
+    suspend fun getFieldBasics(call: ApplicationCall) {
+        val userId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val fields = fieldService.getFieldBasics(userId, call.getRole())
         call.respond(fields)
     }
 

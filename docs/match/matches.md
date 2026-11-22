@@ -61,7 +61,7 @@ Creates a new scheduled match.
 
 -   **Method:** `POST`
 -   **Path:** `/match/admin/create`
--   **Required Role:** `ADMIN` or `ORGANIZER`
+-   **Required Role:** `ADMIN`
 
 ### Request Body
 
@@ -112,8 +112,13 @@ an entry, send its UUID in the optional `templateId` field of
 `POST /match/admin/create`, along with the complete reviewed settings and the
 new dates. The API creates a separate scheduled match and updates that template
 in the same database transaction. A missing template or a template owned by
-another admin returns `404`. Organizer requests cannot specify a template ID.
+another admin returns `404`. Only admins can publish new matches.
 Matches published before this change are not backfilled.
+
+`DELETE /match/admin/templates/{templateId}` requires `ADMIN` and removes only
+the caller's saved template. It returns `AppResult.Success(true)` if the row
+was deleted and `AppResult.Success(false)` if the caller has no matching row
+(including repeated deletes). Published matches are unaffected.
 
 ### Pricing Validation
 
@@ -743,6 +748,9 @@ Gets a list of matches associated with a specific field.
 -   **Method:** `GET`
 -   **Path:** `/match/admin/matches/{fieldId}`
 -   **Required Role:** `ADMIN` or `ORGANIZER`
+
+Admins can query any field. Organizers can query fields they own or are
+assigned to. An organizer without an assignment receives `403 ACCESS_DENIED`.
 
 ### Path Parameters
 -   `fieldId` (UUID): The ID of the field.

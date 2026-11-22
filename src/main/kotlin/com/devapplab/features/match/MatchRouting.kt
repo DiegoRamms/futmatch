@@ -10,13 +10,17 @@ fun Route.matchRouting() {
 
     route("match") {
         post("admin/create") {
-            call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
+            call.requireRole(UserRole.ADMIN)
             val matchController = call.scope.get<MatchController>()
             matchController.createMatch(call)
         }
         get("admin/templates") {
             call.requireRole(UserRole.ADMIN)
             call.scope.get<MatchController>().getMatchTemplates(call)
+        }
+        delete("admin/templates/{templateId}") {
+            call.requireRole(UserRole.ADMIN)
+            call.scope.get<MatchController>().deleteMatchTemplate(call)
         }
         get("admin/teams") {
             call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)

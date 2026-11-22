@@ -1,23 +1,40 @@
+import com.devapplab.data.database.field.FieldAdminsTable
+import com.devapplab.data.database.field.FieldTable
+import com.devapplab.data.database.location.LocationsTable
+import com.devapplab.data.database.user.UserTable
 import com.devapplab.data.repository.FieldRepository
+import com.devapplab.data.repository.FieldRepositoryImp
 import com.devapplab.data.repository.config.MatchPricingConfigRepository
+import com.devapplab.model.AppResult
 import com.devapplab.model.MatchPricingConfig
 import com.devapplab.model.field.Field
 import com.devapplab.model.field.FieldBaseInfo
 import com.devapplab.model.field.FieldBasicInfo
 import com.devapplab.model.field.FieldImage
 import com.devapplab.model.field.FieldWithImagesBaseInfo
+import com.devapplab.model.field.response.FieldBasicResponse
 import com.devapplab.model.image.ImageData
+import com.devapplab.model.user.Gender
+import com.devapplab.model.user.PlayerLevel
+import com.devapplab.model.user.PlayerPosition
 import com.devapplab.model.user.UserRole
+import com.devapplab.model.user.UserStatus
 import com.devapplab.service.field.FieldService
 import com.devapplab.service.image.ImageService
 import com.devapplab.service.match.MatchPricingConfigProvider
 import com.devapplab.utils.AccessDeniedException
 import io.ktor.http.content.MultiPartData
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.math.BigDecimal
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 
 class FieldAdminAccessTest {
     private val userId = UUID.randomUUID()
@@ -46,6 +63,68 @@ class FieldAdminAccessTest {
         assertEquals(1, repository.assignmentChecks)
     }
 
+    @Test
+    fun `basic catalog respects ownership and collaboration for organizers`() = runBlocking {
+        val database = Database.connect(
+            "jdbc:h2:mem:field_catalog_${UUID.randomUUID()};DB_CLOSE_DELAY=-1",
+            driver = "org.h2.Driver"
+        )
+        try {
+            val (organizer, otherOrganizer, emptyOrganizer) = transaction(database) {
+                SchemaUtils.create(UserTable, LocationsTable, FieldTable, FieldAdminsTable)
+                Triple(insertUser(), insertUser(), insertUser())
+            }
+            val (owned, assigned, other) = transaction(database) {
+                val ownedField = insertField(organizer, "Owned field")
+                val assignedField = insertField(otherOrganizer, "Shared field")
+                val otherField = insertField(otherOrganizer, "Other field")
+                FieldAdminsTable.insert {
+                    it[FieldAdminsTable.fieldId] = assignedField
+                    it[adminId] = organizer
+                }
+                Triple(ownedField, assignedField, otherField)
+            }
+            val fieldService = service(FieldRepositoryImp())
+
+            suspend fun catalogIds(userId: UUID, role: UserRole): Set<UUID> =
+                assertIs<AppResult.Success<List<FieldBasicResponse>>>(fieldService.getFieldBasics(userId, role))
+                    .data.map { it.id }.toSet()
+
+            assertEquals(setOf(owned, assigned), catalogIds(organizer, UserRole.ORGANIZER))
+            assertEquals(emptySet(), catalogIds(emptyOrganizer, UserRole.ORGANIZER))
+
+            fieldService.ensureAdminAssignedToField(organizer, owned, UserRole.ORGANIZER)
+            fieldService.ensureAdminAssignedToField(organizer, assigned, UserRole.ORGANIZER)
+            assertFailsWith<AccessDeniedException> {
+                fieldService.ensureAdminAssignedToField(organizer, other, UserRole.ORGANIZER)
+            }
+            assertEquals(setOf(owned, assigned, other), catalogIds(emptyOrganizer, UserRole.ADMIN))
+        } finally {
+            transaction(database) { exec("DROP ALL OBJECTS") }
+        }
+    }
+
+    private fun insertUser(): UUID = UserTable.insert {
+        it[name] = "Test"
+        it[lastName] = "Organizer"
+        it[country] = "MX"
+        it[birthDate] = 0L
+        it[gender] = Gender.MALE
+        it[playerPosition] = PlayerPosition.FORWARD
+        it[level] = PlayerLevel.ANY
+        it[role] = UserRole.ORGANIZER
+        it[status] = UserStatus.ACTIVE
+    }[UserTable.id]
+
+    private fun insertField(ownerId: UUID, fieldName: String): UUID = FieldTable.insert {
+        it[name] = fieldName
+        it[adminId] = ownerId
+        it[fieldCost] = BigDecimal("100.00")
+        it[capacity] = 14
+        it[description] = ""
+        it[rules] = ""
+    }[FieldTable.id]
+
     private fun service(repository: FieldRepository) = FieldService(
         fieldRepository = repository,
         imageService = UnusedImages(),
@@ -72,7 +151,7 @@ class FieldAdminAccessTest {
         override suspend fun updateFieldLocation(fieldId: UUID, locationId: UUID): Boolean = error("unused")
         override suspend fun deleteField(fieldId: UUID): Boolean = error("unused")
         override suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo> = error("unused")
-        override suspend fun getAllFieldBasics(): List<FieldBasicInfo> = error("unused")
+        override suspend fun getFieldBasics(assignedTo: UUID?): List<FieldBasicInfo> = error("unused")
         override suspend fun getFields(): List<FieldWithImagesBaseInfo> = error("unused")
         override suspend fun getFieldById(fieldId: UUID): Field? = error("unused")
     }

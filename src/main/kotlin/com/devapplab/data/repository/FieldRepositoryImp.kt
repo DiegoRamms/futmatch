@@ -8,7 +8,9 @@ import com.devapplab.data.database.location.LocationsTable
 import com.devapplab.model.field.*
 import com.devapplab.model.location.Location
 import com.devapplab.utils.ValueAlreadyExistsException
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -94,15 +96,10 @@ class FieldRepositoryImp : FieldRepository {
 
     override suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo> {
         return dbQuery {
-            val coAdminFieldIds = FieldAdminsTable
-                .selectAll()
-                .where { FieldAdminsTable.adminId eq adminId }
-                .map { it[FieldAdminsTable.fieldId] }
-
             val fieldsQuery = FieldTable
                 .leftJoin(LocationsTable)
                 .selectAll()
-                .where { (FieldTable.adminId eq adminId) or (FieldTable.id inList coAdminFieldIds) }
+                .where { assignedToUser(adminId) }
 
             val fields = fieldsQuery.map { it.toFieldBaseInfo() }
             if (fields.isEmpty()) return@dbQuery emptyList()
@@ -120,10 +117,11 @@ class FieldRepositoryImp : FieldRepository {
         }
     }
 
-    override suspend fun getAllFieldBasics(): List<FieldBasicInfo> {
+    override suspend fun getFieldBasics(assignedTo: UUID?): List<FieldBasicInfo> {
         return dbQuery {
             FieldTable
                 .select(FieldTable.id, FieldTable.name, FieldTable.fieldCost, FieldTable.capacity)
+                .where { assignedTo?.let(::assignedToUser) ?: Op.TRUE }
                 .map {
                     FieldBasicInfo(
                         id = it[FieldTable.id],
@@ -236,15 +234,16 @@ class FieldRepositoryImp : FieldRepository {
 
     override suspend fun isAdminAssignedToField(adminId: UUID, fieldId: UUID): Boolean {
         return dbQuery {
-            val isMainAdmin = FieldTable.selectAll()
-                .where { (FieldTable.id eq fieldId) and (FieldTable.adminId eq adminId) }
-                .any()
-            if (isMainAdmin) return@dbQuery true
-
-            FieldAdminsTable.selectAll()
-                .where { (FieldAdminsTable.fieldId eq fieldId) and (FieldAdminsTable.adminId eq adminId) }
+            FieldTable.select(FieldTable.id)
+                .where { (FieldTable.id eq fieldId) and assignedToUser(adminId) }
                 .any()
         }
+    }
+
+    private fun assignedToUser(userId: UUID): Op<Boolean> {
+        val assignedFields = FieldAdminsTable.select(FieldAdminsTable.fieldId)
+            .where { FieldAdminsTable.adminId eq userId }
+        return (FieldTable.adminId eq userId) or (FieldTable.id inSubQuery assignedFields)
     }
 
     private fun ResultRow.toFieldBaseInfo(): FieldBaseInfo {

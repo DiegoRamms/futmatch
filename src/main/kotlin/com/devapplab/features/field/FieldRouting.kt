@@ -51,7 +51,7 @@ fun Route.fieldRouting() {
         get("id-name") {
             call.requireRole(UserRole.ADMIN, UserRole.ORGANIZER)
             val fieldController = call.scope.get<FieldController>()
-            fieldController.getAllFieldBasics(call)
+            fieldController.getFieldBasics(call)
         }
 
         post("{fieldId}/pricing-estimate") {

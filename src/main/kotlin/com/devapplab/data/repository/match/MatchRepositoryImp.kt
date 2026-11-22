@@ -44,6 +44,12 @@ class MatchRepositoryImp : MatchRepository {
             }
     }
 
+    override suspend fun deleteMatchTemplate(adminId: UUID, templateId: UUID): Boolean = dbQuery {
+        MatchTemplatesTable.deleteWhere {
+            (MatchTemplatesTable.id eq templateId) and (MatchTemplatesTable.adminId eq adminId)
+        } == 1
+    }
+
     override suspend fun create(match: Match, template: CreateMatchRequest?): MatchBaseInfo? {
         val result = dbQuery {
             if (template != null && !saveTemplate(match.adminId, template)) return@dbQuery null

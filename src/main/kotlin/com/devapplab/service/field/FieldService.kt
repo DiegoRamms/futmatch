@@ -480,8 +480,9 @@ class FieldService(
         return AppResult.Success(fields)
     }
 
-    suspend fun getAllFieldBasics(): AppResult<List<FieldBasicResponse>> {
-        val fields = fieldRepository.getAllFieldBasics()
+    suspend fun getFieldBasics(userId: UUID, role: UserRole): AppResult<List<FieldBasicResponse>> {
+        val assignedTo = userId.takeUnless { role == UserRole.ADMIN }
+        val fields = fieldRepository.getFieldBasics(assignedTo)
             .map {
                 FieldBasicResponse(
                     id = it.id,

@@ -2,9 +2,7 @@ package com.devapplab.features.match
 
 import com.devapplab.config.getIdentifier
 import com.devapplab.config.getRole
-import com.devapplab.config.requireRole
 import com.devapplab.model.match.MatchStatus
-import com.devapplab.model.user.UserRole
 import com.devapplab.model.auth.ClaimType
 import com.devapplab.model.match.AddMatchWhatsAppGuestRequest
 import com.devapplab.model.match.CompleteMatchRequest
@@ -32,10 +30,7 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
         val request = call.receive<CreateMatchRequest>()
         val locale = call.retrieveLocale()
-        if (request.templateId != null) call.requireRole(UserRole.ADMIN)
-        val template = request.takeIf {
-            call.getRole() == UserRole.ADMIN && it.status == MatchStatus.SCHEDULED
-        }
+        val template = request.takeIf { it.status == MatchStatus.SCHEDULED }
         val result = matchService.create(request.toMatch(adminId), locale, call.requestContext(), template)
         call.respond(result)
     }
@@ -45,9 +40,20 @@ class MatchController(private val matchService: com.devapplab.service.match.Matc
         call.respond(matchService.getMatchTemplates(adminId))
     }
 
+    suspend fun deleteMatchTemplate(call: ApplicationCall) {
+        val adminId = call.getIdentifier(ClaimType.USER_IDENTIFIER)
+        val templateId = call.parameters["templateId"]?.toUUIDOrNull() ?: throw NotFoundException()
+        call.respond(matchService.deleteMatchTemplate(adminId, templateId))
+    }
+
     suspend fun getMatchesByFieldId(call: ApplicationCall) {
         val fieldId = call.parameters["fieldId"]?.toUUIDOrNull() ?: throw NotFoundException("Can't find field id")
-        val result = matchService.getMatchesByFieldId(fieldId = fieldId)
+        val result = matchService.getMatchesByFieldId(
+            fieldId = fieldId,
+            userId = call.getIdentifier(ClaimType.USER_IDENTIFIER),
+            role = call.getRole(),
+            locale = call.retrieveLocale()
+        )
         call.respond(result)
     }
 

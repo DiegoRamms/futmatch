@@ -290,9 +290,11 @@ curl --location "$BASE_URL/fields/by-admin" \
   --header "Accept-Language: es-MX"
 ```
 
-### 1.6 Obtener Todos los Campos (ID + Nombre)
+### 1.6 Obtener el catálogo de canchas
 
-Obtiene todos los campos registrados retornando `id`, `name`, `priceInCents` y `maxPlayersAllowed`.
+Retorna `id`, `name`, `priceInCents` y `maxPlayersAllowed` por cancha.
+`ADMIN` recibe todas las canchas. `ORGANIZER` recibe las que administra como titular
+o tiene asignadas como colaborador. Sin canchas asignadas, recibe una lista vacía.
 Este endpoint está pensado para catálogos de selección en formularios (por ejemplo, asignar campo a un partido).
 
 -   **Método:** `GET`

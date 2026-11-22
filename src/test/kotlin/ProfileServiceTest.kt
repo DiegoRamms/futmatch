@@ -456,6 +456,8 @@ private class FakeMatchRepository(
         template: com.devapplab.model.match.request.CreateMatchRequest?
     ): MatchBaseInfo = error("not used")
 
+    override suspend fun deleteMatchTemplate(adminId: UUID, templateId: UUID): Boolean = error("not used")
+
     override suspend fun getMatchTemplates(adminId: UUID) =
         emptyList<com.devapplab.model.match.response.MatchTemplateResponse>()
     override suspend fun getMatchesByFieldId(fieldId: UUID): List<MatchWithFieldBaseInfo> = error("not used")

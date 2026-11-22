@@ -110,6 +110,9 @@ class MatchService(
     suspend fun getMatchTemplates(adminId: UUID): AppResult<List<MatchTemplateResponse>> =
         AppResult.Success(matchRepository.getMatchTemplates(adminId))
 
+    suspend fun deleteMatchTemplate(adminId: UUID, templateId: UUID): AppResult<Boolean> =
+        AppResult.Success(matchRepository.deleteMatchTemplate(adminId, templateId))
+
     suspend fun create(
         match: Match,
         locale: Locale,
@@ -339,7 +342,20 @@ class MatchService(
         }
     }
 
-    suspend fun getMatchesByFieldId(fieldId: UUID): AppResult<List<MatchWithFieldResponse>> {
+    suspend fun getMatchesByFieldId(
+        fieldId: UUID,
+        userId: UUID,
+        role: UserRole,
+        locale: Locale
+    ): AppResult<List<MatchWithFieldResponse>> {
+        if (role != UserRole.ADMIN && !fieldRepository.isAdminAssignedToField(userId, fieldId)) {
+            return locale.createError(
+                titleKey = StringResourcesKey.ACCESS_DENIED_TITLE,
+                descriptionKey = StringResourcesKey.ACCESS_DENIED_DESCRIPTION,
+                status = HttpStatusCode.Forbidden,
+                errorCode = ErrorCode.ACCESS_DENIED
+            )
+        }
         val matches = matchRepository.getMatchesByFieldId(fieldId).map { match ->
             val response = match.toResponse()
 

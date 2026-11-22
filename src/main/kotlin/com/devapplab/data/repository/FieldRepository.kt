@@ -21,7 +21,7 @@ interface FieldRepository {
     suspend fun updateFieldLocation(fieldId: UUID, locationId: UUID): Boolean
     suspend fun deleteField(fieldId: UUID): Boolean
     suspend fun getFieldsByAdminId(adminId: UUID): List<FieldWithImagesBaseInfo>
-    suspend fun getAllFieldBasics(): List<FieldBasicInfo>
+    suspend fun getFieldBasics(assignedTo: UUID?): List<FieldBasicInfo>
     suspend fun getFields(): List<FieldWithImagesBaseInfo>
     suspend fun getFieldById(fieldId: UUID): Field?
 }
