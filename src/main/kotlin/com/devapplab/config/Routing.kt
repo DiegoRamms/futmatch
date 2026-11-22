@@ -1,5 +1,6 @@
 package com.devapplab.config
 
+import com.devapplab.features.training.trainingRouting
 import com.devapplab.features.auth.authRouting
 import com.devapplab.features.admin.adminUserRouting
 import com.devapplab.features.admin.adminDashboardRouting
@@ -169,6 +170,7 @@ fun Application.configureRouting() {
                     desktopDeviceAdminRouting()
                     fieldRouting()
                     matchRouting()
+                    trainingRouting()
                     locationRouting()
                     paymentsRouting()
                     deviceRouting()

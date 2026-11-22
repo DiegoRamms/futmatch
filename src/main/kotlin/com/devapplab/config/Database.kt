@@ -1,5 +1,7 @@
 package com.devapplab.config
 
+import com.devapplab.data.database.training.TrainingEnrollmentTable
+import com.devapplab.data.database.training.TrainingTable
 import com.devapplab.data.database.device.DeviceTable
 import com.devapplab.data.database.device.DesktopDeviceTable
 import com.devapplab.data.database.device.DesktopEnrollmentRequestTable
@@ -110,6 +112,8 @@ fun Application.configureDatabase() {
         UserMatchDiscountsTable,
         TeamTable,
         MatchTable,
+        TrainingTable,
+        TrainingEnrollmentTable,
         MatchTemplatesTable,
         MatchTeamsTable,
         MatchDiscountsTable,

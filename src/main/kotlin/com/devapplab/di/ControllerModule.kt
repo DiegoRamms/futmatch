@@ -1,5 +1,6 @@
 package com.devapplab.di
 
+import com.devapplab.features.training.TrainingController
 import com.devapplab.features.auth.AuthController
 import com.devapplab.features.admin.AdminUserController
 import com.devapplab.features.admin.AdminDashboardController
@@ -28,6 +29,7 @@ val controllerModule = module {
         scopedOf(::UserController)
         scopedOf(::FieldController)
         scopedOf(::MatchController)
+        scopedOf(::TrainingController)
         scopedOf(::DemoMatchController)
         scopedOf(::LocationController)
         scopedOf(::PaymentController)

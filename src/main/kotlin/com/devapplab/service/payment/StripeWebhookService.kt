@@ -1,5 +1,6 @@
 package com.devapplab.service.payment
 
+import com.devapplab.data.repository.training.TrainingEnrollmentRepository
 import com.devapplab.data.repository.match.MatchRepository
 import com.devapplab.data.repository.payment.PaymentRepository
 import com.devapplab.data.repository.payment.StripeWebhookEventRepository
@@ -40,6 +41,7 @@ class StripeWebhookService(
     private val notificationService: NotificationService,
     private val stripeWebhookEventRepository: StripeWebhookEventRepository,
     private val webhookConfig: WebhookConfig,
+    private val trainingEnrollments: TrainingEnrollmentRepository,
     private val paymentMetrics: PaymentMetrics
 ) {
 
@@ -81,6 +83,18 @@ class StripeWebhookService(
                     event.id, event.type
                 )
                 metricOutcome = StripeWebhookMetricOutcome.IGNORED_NO_PAYMENT_INTENT
+                return true
+            }
+
+            if (paymentIntent.metadata.containsKey("trainingEnrollmentId")) {
+                val status = when (event.type) {
+                    "payment_intent.succeeded", "charge.captured" -> PaymentAttemptStatus.SUCCEEDED
+                    "payment_intent.amount_capturable_updated" -> PaymentAttemptStatus.AUTHORIZED
+                    "payment_intent.canceled" -> PaymentAttemptStatus.CANCELED
+                    else -> null
+                }
+                if (status != null) trainingEnrollments.updatePayment(paymentIntent.id, status)
+                metricOutcome = StripeWebhookMetricOutcome.PROCESSED
                 return true
             }
 

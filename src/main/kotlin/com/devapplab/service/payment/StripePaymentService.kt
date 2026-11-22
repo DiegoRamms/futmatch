@@ -22,6 +22,7 @@ import com.devapplab.utils.createError
 import com.stripe.Stripe
 import com.stripe.exception.StripeException
 import com.stripe.model.Customer
+import com.stripe.net.RequestOptions
 import com.stripe.model.CustomerSession
 import com.stripe.model.PaymentIntent
 import com.stripe.model.Refund
@@ -31,6 +32,7 @@ import com.stripe.param.PaymentIntentCaptureParams
 import com.stripe.param.PaymentIntentCreateParams
 import com.stripe.param.PaymentIntentListParams
 import com.stripe.param.RefundCreateParams
+import com.stripe.param.RefundListParams
 import io.ktor.http.*
 import org.slf4j.LoggerFactory
 import java.util.Locale
@@ -57,7 +59,8 @@ class StripePaymentService(
         metadata: Map<String, String>,
         captureMethod: PaymentCaptureMethod,
         customerId: String?,
-        receiptEmail: String?
+        receiptEmail: String?,
+        idempotencyKey: String?
     ): PaymentOperationResult {
         val creationTimer = paymentMetrics.startPaymentIntentTimer()
 
@@ -150,7 +153,11 @@ class StripePaymentService(
                 .build()
 
             logger.info("➡️ Creating payment intent...")
-            val intent: PaymentIntent = PaymentIntent.create(params)
+            val intent = if (idempotencyKey == null) {
+                PaymentIntent.create(params)
+            } else {
+                PaymentIntent.create(params, RequestOptions.builder().setIdempotencyKey(idempotencyKey).build())
+            }
 
             val clientSecret = intent.clientSecret
             if (clientSecret.isNullOrBlank()) {
@@ -256,12 +263,12 @@ class StripePaymentService(
             val status = when (intent.status) {
                 "succeeded" -> PaymentAttemptStatus.SUCCEEDED
                 "canceled" -> PaymentAttemptStatus.CANCELED
+                "requires_capture" -> PaymentAttemptStatus.AUTHORIZED
 
                 "requires_payment_method",
                 "requires_confirmation",
                 "requires_action",
-                "processing",
-                "requires_capture" -> PaymentAttemptStatus.CREATED
+                "processing" -> PaymentAttemptStatus.CREATED
 
                 else -> PaymentAttemptStatus.FAILED
             }
@@ -371,7 +378,7 @@ class StripePaymentService(
         }
     }
 
-    override suspend fun refundPayment(paymentId: String, amount: Long?): Boolean {
+    override suspend fun refundPayment(paymentId: String, amount: Long?, idempotencyKey: String?): Boolean {
         logger.info("💰 Refunding Stripe PaymentIntent. paymentId={}, amount={}", paymentId, amount)
 
         return try {
@@ -382,7 +389,17 @@ class StripePaymentService(
                 paramsBuilder.setAmount(it)
             }
 
-            val refund = Refund.create(paramsBuilder.build())
+            val refund = if (idempotencyKey == null) {
+                Refund.create(paramsBuilder.build())
+            } else {
+                val previous = Refund.list(RefundListParams.builder().setPaymentIntent(paymentId).build())
+                    .autoPagingIterable()
+                    .firstOrNull { it.metadata["futmatchOperation"] == idempotencyKey }
+                previous ?: Refund.create(
+                    paramsBuilder.putMetadata("futmatchOperation", idempotencyKey).build(),
+                    RequestOptions.builder().setIdempotencyKey(idempotencyKey).build()
+                )
+            }
 
             if (refund.status == "succeeded") {
                 logger.info("✅ Stripe Refund processed successfully. paymentId={}, refundId={}", paymentId, refund.id)

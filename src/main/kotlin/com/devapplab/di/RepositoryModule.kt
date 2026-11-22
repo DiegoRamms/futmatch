@@ -1,5 +1,7 @@
 package com.devapplab.di
 
+import com.devapplab.data.repository.training.TrainingEnrollmentRepository
+import com.devapplab.data.repository.training.TrainingRepository
 import com.devapplab.data.repository.*
 import com.devapplab.data.repository.auth.AuthRepository
 import com.devapplab.data.repository.auth.AuthRepositoryImpl
@@ -79,6 +81,8 @@ val repositoryModule = module {
     singleOf(::SocialLinkAttemptRepositoryImpl) { bind<SocialLinkAttemptRepository>() }
     singleOf(::FieldRepositoryImp) { bind<FieldRepository>() }
     singleOf(::MatchRepositoryImp) { bind<MatchRepository>() }
+    singleOf(::TrainingRepository)
+    singleOf(::TrainingEnrollmentRepository)
     singleOf(::MatchInviteRepositoryImpl) { bind<MatchInviteRepository>() }
     singleOf(::TeamRepositoryImpl) { bind<TeamRepository>() }
     singleOf(::MatchRefundFailureRepositoryImpl) { bind<MatchRefundFailureRepository>() }

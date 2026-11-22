@@ -1,5 +1,7 @@
 package com.devapplab.di
 
+import com.devapplab.service.training.TrainingEnrollmentService
+import com.devapplab.service.training.TrainingService
 import com.devapplab.service.UserService
 import com.devapplab.service.AdminUserService
 import com.devapplab.service.payment.PaymentCardDetailsService
@@ -102,6 +104,8 @@ val serviceModule = module {
     singleOf(::MailtrapEmailService) { bind<com.devapplab.service.email.EmailService>() }
     singleOf(::FieldService)
     singleOf(::MatchService)
+    singleOf(::TrainingService)
+    singleOf(::TrainingEnrollmentService)
     singleOf(::MatchInviteService)
     single { MatchInviteMilestonesProvider(get()) }
     singleOf(::MatchPricingConfigProvider)

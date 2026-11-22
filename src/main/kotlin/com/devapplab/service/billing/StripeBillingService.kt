@@ -6,6 +6,7 @@ import com.devapplab.model.StripeConfig
 import com.devapplab.model.payment.PaymentProvider
 import com.stripe.Stripe
 import com.stripe.model.Customer
+import com.stripe.net.RequestOptions
 import com.stripe.model.CustomerSession
 import com.stripe.model.PaymentMethod
 import com.stripe.model.SetupIntent
@@ -38,7 +39,10 @@ class StripeBillingService(
             .putMetadata("appUserId", userId.toString())
             .build()
 
-        val customer = Customer.create(params)
+        val customer = Customer.create(
+            params,
+            RequestOptions.builder().setIdempotencyKey("futmatch-customer-$userId").build()
+        )
         userRepository.upsertPaymentProfile(userId, provider, customer.id)
         return customer.id
     }

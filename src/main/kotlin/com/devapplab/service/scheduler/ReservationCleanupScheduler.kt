@@ -1,5 +1,6 @@
 package com.devapplab.service.scheduler
 
+import com.devapplab.service.training.TrainingEnrollmentService
 import com.devapplab.service.match.MatchService
 import kotlinx.coroutines.*
 import org.koin.core.component.KoinComponent
@@ -14,6 +15,7 @@ object ReservationCleanupScheduler : KoinComponent {
     private var job: Job? = null
 
     private val matchService: MatchService by inject()
+    private val trainingEnrollmentService: TrainingEnrollmentService by inject()
     
     private val INTERVAL_MS = 2.minutes.inWholeMilliseconds
 
@@ -25,6 +27,8 @@ object ReservationCleanupScheduler : KoinComponent {
             while (isActive) {
                 try {
                     matchService.processExpiredReservations()
+                    trainingEnrollmentService.reconcilePayments()
+                    trainingEnrollmentService.refundCancelledPayments()
                 } catch (e: Exception) {
                     logger.error("❌ Error in reservation cleanup cycle", e)
                 }

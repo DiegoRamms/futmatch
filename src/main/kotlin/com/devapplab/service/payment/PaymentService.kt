@@ -19,7 +19,8 @@ interface PaymentService {
         metadata: Map<String, String>,
         captureMethod: PaymentCaptureMethod,
         customerId: String?,
-        receiptEmail: String? = null
+        receiptEmail: String? = null,
+        idempotencyKey: String? = null
     ): PaymentOperationResult
 
     suspend fun confirmPayment(
@@ -50,7 +51,8 @@ interface PaymentService {
      */
     suspend fun refundPayment(
         paymentId: String,
-        amount: Long? = null
+        amount: Long? = null,
+        idempotencyKey: String? = null
     ): Boolean
 
     suspend fun recoverPaymentStatus(
