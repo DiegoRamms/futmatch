@@ -32,7 +32,7 @@ class MatchInviteMilestonesProvider(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn("Could not read Remote Config '{}', using {}", PARAMETER_KEY, lastRemote ?: config.milestonesHours, e)
+            logger.warn("Could not read Remote Config '{}': {}", PARAMETER_KEY, e.message)
             return lastRemote ?: config.milestonesHours
         }
 
@@ -43,7 +43,7 @@ class MatchInviteMilestonesProvider(
 
         val parsed = MatchInviteConfig.parseMilestonesOrNull(raw)
         if (parsed == null) {
-            logger.warn("Invalid Remote Config '{}'='{}', using {}", PARAMETER_KEY, raw, lastRemote ?: config.milestonesHours)
+            logger.warn("Invalid Remote Config '{}'='{}'", PARAMETER_KEY, raw)
             return lastRemote ?: config.milestonesHours
         }
 

@@ -131,17 +131,18 @@ class MatchInviteRepositoryTest {
     private fun invite(userId: UUID) = MatchInviteNotification(userId, "Title", "Body", "{}")
 
     @Test
-    fun `candidates are active opted-in players with an active push token`() = withDb { db ->
-        val eligible = db.user()
+    fun `candidates are active opted-in players and admins with an active push token`() = withDb { db ->
+        val player = db.user()
+        val admin = db.user(role = UserRole.ADMIN)
         db.user(invitesEnabled = false)
         db.user(token = null)
         db.user(deviceActive = false)
-        db.user(role = UserRole.ADMIN)
+        db.user(role = UserRole.ORGANIZER)
         db.user(status = UserStatus.BLOCKED)
 
         val candidates = MatchInviteRepositoryImpl().getInviteCandidates()
-        assertEquals(listOf(eligible), candidates.map { it.userId })
-        assertEquals("es-MX", candidates.single().localeTag)
+        assertEquals(setOf(player, admin), candidates.map { it.userId }.toSet())
+        assertTrue(candidates.all { it.localeTag == "es-MX" })
     }
 
     @Test
@@ -307,6 +308,30 @@ class MatchInviteRepositoryTest {
                 .single()[MatchWhatsAppGuestsTable.id]
         }
         assertEquals(MatchSeatChange.NOT_SCHEDULED, repository.removeWhatsAppGuest(matchId, guestId))
+    }
+
+    @Test
+    fun `diagnosis reads any match and any user with their last invite`() = withDb { db ->
+        val admin = db.user(role = UserRole.ADMIN, token = null)
+        val player = db.user()
+        val canceled = db.match(admin, startsInHours = 72, status = MatchStatus.CANCELED)
+        val repo = MatchInviteRepositoryImpl()
+        assertTrue(dbQuery { repo.saveMatchInvitesTx(db.match(admin, startsInHours = 5), setOf(6), listOf(invite(player)), now) })
+
+        val state = assertNotNull(repo.getMatchState(canceled))
+        assertEquals(MatchStatus.CANCELED, state.status)
+        assertEquals(10, state.info.availableSpots)
+        assertNull(repo.getMatchState(UUID.randomUUID()))
+
+        val adminInfo = assertNotNull(repo.getUserEligibility(admin))
+        assertEquals(UserRole.ADMIN, adminInfo.role)
+        assertFalse(adminInfo.hasPushToken)
+        assertNull(adminInfo.lastInviteAt)
+
+        val playerInfo = assertNotNull(repo.getUserEligibility(player))
+        assertTrue(playerInfo.hasPushToken)
+        assertEquals(now, playerInfo.lastInviteAt)
+        assertNull(repo.getUserEligibility(UUID.randomUUID()))
     }
 
     @Test

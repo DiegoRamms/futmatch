@@ -313,7 +313,7 @@ milestone to the config never re-invites for matches already past a smaller one.
 A full match keeps its milestone pending, so the invite still goes out if a spot frees
 up before the next milestone.
 
-**Who receives it.** Users with role `PLAYER`, status `ACTIVE`, at least one active
+**Who receives it.** Users with role `PLAYER` or `ADMIN`, status `ACTIVE`, at least one active
 device with a push token, `is_notifications_enabled = true` and the match-invite
 preference on. It skips players already `RESERVED`/`JOINED`, the match admin and
 supervisor, and matches the user can't see because of gender or level (same rules as
@@ -359,6 +359,43 @@ curl --location --request PATCH '{{base_url}}/user/notification-preferences' \
 --header 'Content-Type: application/json' \
 --data '{"matchInvitesEnabled": false}'
 ```
+
+### Troubleshooting: invites don't arrive
+
+Each cycle logs one line, `Match invite cycle: …`. It shows either why nothing was sent
+(`no SCHEDULED match in the next 48h`, `no milestone due yet`, `every due match is full`,
+`no milestone within match.payment.maxJoinWindowHours=…`) or
+`matches=<n> recipients=<n> errors=<n>`. `recipients=0` means the milestone was used with
+nobody eligible, and it is not retried. Use `POST /admin/match-invites/run` for the
+per-match breakdown.
+
+**`GET /admin/match-invites/diagnose?matchId=<uuid>&userId=<uuid>`** (role `ADMIN`)
+returns `eligible` and a list of checks, each with `passed` and a `detail`:
+
+| Check | Fails when |
+|:------|:-----------|
+| `match_scheduled` / `match_upcoming` / `match_has_spots` | Match not `SCHEDULED`, already started, or full |
+| `milestone_pending` | Every milestone for this match was already used |
+| `user_found` | Unknown `userId` |
+| `role_allowed` | The user is `ORGANIZER`: only `PLAYER` and `ADMIN` accounts get invites |
+| `status_active`, `notifications_enabled`, `match_invites_enabled` | The account is blocked, or it opted out |
+| `has_push_token` | No active device with an FCM token (sign in again on the device) |
+| `not_match_admin` / `not_match_supervisor` | The user runs this match |
+| `not_in_match` | Already `RESERVED`/`JOINED` |
+| `gender_and_level_visible` | Same rule as the public match list |
+| `no_invite_last_24h` | Got a `MATCH_INVITE` less than 24 h ago (`detail` shows when it is allowed again) |
+
+It also returns `milestonesHours` (effective), `dispatchedMilestones`, `dueNowMilestones`
+and `nextMilestoneAt` (epoch ms). If a user is due for two matches in the same cycle,
+they only get the soonest one, so check that match too.
+
+**`POST /admin/match-invites/run`** (role `ADMIN`) runs one cycle now and returns the same
+summary as the log line. It uses the same per-match lock as the scheduler, so it never
+sends a milestone twice.
+
+If the `notifications` row for the invite exists but the phone shows nothing, the server
+did its part: look for `Match invite saved but push failed` in the logs, then check that
+the app creates the `match_invites` channel and handles `type = MATCH_INVITE`.
 
 ## Sign-out and push tokens
 

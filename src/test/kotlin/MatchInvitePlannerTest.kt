@@ -2,8 +2,12 @@ import com.devapplab.model.MatchInviteConfig
 import com.devapplab.model.match.GenderType
 import com.devapplab.model.match.MatchInviteCandidate
 import com.devapplab.model.match.MatchInviteInfo
+import com.devapplab.model.match.MatchInviteUserEligibility
+import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerLevel
+import com.devapplab.model.user.UserRole
+import com.devapplab.model.user.UserStatus
 import com.devapplab.service.match.MatchInvitePlanner
 import com.devapplab.utils.StringResourcesKey
 import com.devapplab.utils.getString
@@ -115,6 +119,82 @@ class MatchInvitePlannerTest {
         assertEquals(listOf(48, 24, 6, 2), MatchInviteConfig.parseMilestones(""))
         assertEquals(listOf(48, 24, 6, 2), MatchInviteConfig.parseMilestones(null))
     }
+
+    @Test
+    fun `diagnosis passes for an eligible player`() {
+        val m = match(inHours(47.0))
+        val checks = diagnose(m, eligibility())
+        assertTrue(checks.all { it.passed }, checks.filterNot { it.passed }.toString())
+    }
+
+    @Test
+    fun `diagnosis names each reason a user is excluded`() {
+        val m = match(inHours(47.0), genderType = GenderType.FEMALE_ONLY)
+        val user = eligibility(
+            userId = m.adminId,
+            role = UserRole.ORGANIZER,
+            hasPushToken = false,
+            lastInviteAt = now - 2.hours.inWholeMilliseconds,
+        )
+        val failed = diagnose(m, user, activePlayers = setOf(m.adminId)).filterNot { it.passed }.map { it.name }
+        assertEquals(
+            listOf(
+                "role_allowed", "has_push_token", "not_match_admin", "not_in_match",
+                "gender_and_level_visible", "no_invite_last_24h"
+            ),
+            failed
+        )
+    }
+
+    @Test
+    fun `an admin who doesn't run the match is eligible`() {
+        val checks = diagnose(match(inHours(47.0)), eligibility(role = UserRole.ADMIN))
+        assertTrue(checks.all { it.passed }, checks.filterNot { it.passed }.toString())
+    }
+
+    @Test
+    fun `diagnosis flags the match side and a missing user`() {
+        val m = match(inHours(10.0), enrolled = 10)
+        val failed = diagnose(m, null, status = MatchStatus.CANCELED, dispatched = setOf(24, 6))
+            .filterNot { it.passed }.map { it.name }
+        assertEquals(listOf("match_scheduled", "match_has_spots", "milestone_pending", "user_found"), failed)
+        assertEquals(listOf(2), MatchInvitePlanner.pendingMilestones(listOf(48, 24, 6, 2), setOf(24, 6)))
+        assertTrue(MatchInvitePlanner.pendingMilestones(listOf(48, 24, 6, 2), setOf(2)).isEmpty())
+    }
+
+    private fun diagnose(
+        m: MatchInviteInfo,
+        user: MatchInviteUserEligibility?,
+        activePlayers: Set<UUID> = emptySet(),
+        status: MatchStatus = MatchStatus.SCHEDULED,
+        dispatched: Set<Int> = emptySet(),
+    ) = MatchInvitePlanner.diagnose(
+        match = m,
+        matchStatus = status,
+        user = user,
+        activePlayers = activePlayers,
+        milestonesHours = listOf(48, 24, 6),
+        dispatched = dispatched,
+        now = now,
+        dailyWindowMs = 24.hours.inWholeMilliseconds,
+    )
+
+    private fun eligibility(
+        userId: UUID = UUID.randomUUID(),
+        role: UserRole = UserRole.PLAYER,
+        hasPushToken: Boolean = true,
+        lastInviteAt: Long? = null,
+    ) = MatchInviteUserEligibility(
+        userId = userId,
+        role = role,
+        status = UserStatus.ACTIVE,
+        notificationsEnabled = true,
+        matchInvitesEnabled = true,
+        hasPushToken = hasPushToken,
+        gender = Gender.MALE,
+        level = PlayerLevel.ANY,
+        lastInviteAt = lastInviteAt,
+    )
 
     @Test
     fun `invite strings resolve with accents and placeholders in both languages`() {

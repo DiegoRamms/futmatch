@@ -2,6 +2,8 @@ package com.devapplab.model.match
 
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerLevel
+import com.devapplab.model.user.UserRole
+import com.devapplab.model.user.UserStatus
 import java.util.*
 
 /** Upcoming match that may receive "join this match" invites. */
@@ -33,4 +35,24 @@ data class MatchInviteNotification(
     val title: String,
     val body: String,
     val metadata: String,
+)
+
+/** Everything that decides whether one user can receive invites (used by the admin diagnosis). */
+data class MatchInviteUserEligibility(
+    val userId: UUID,
+    val role: UserRole,
+    val status: UserStatus,
+    val notificationsEnabled: Boolean,
+    val matchInvitesEnabled: Boolean,
+    val hasPushToken: Boolean,
+    val gender: Gender,
+    val level: PlayerLevel,
+    /** created_at of the user's latest MATCH_INVITE, or null if never invited. */
+    val lastInviteAt: Long?,
+)
+
+/** A match in any status, for the admin diagnosis. */
+data class MatchInviteMatchState(
+    val info: MatchInviteInfo,
+    val status: MatchStatus,
 )
