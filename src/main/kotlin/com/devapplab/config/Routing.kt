@@ -4,6 +4,7 @@ import com.devapplab.features.training.trainingRouting
 import com.devapplab.features.auth.authRouting
 import com.devapplab.features.admin.adminUserRouting
 import com.devapplab.features.admin.adminDashboardRouting
+import com.devapplab.features.admin.matchInviteAdminRouting
 import com.devapplab.features.admin.desktopDeviceAdminRouting
 import com.devapplab.features.cron.cronRouting
 import com.devapplab.features.device.deviceRouting
@@ -167,6 +168,7 @@ fun Application.configureRouting() {
                     userRouting()
                     adminDashboardRouting()
                     adminUserRouting()
+                    matchInviteAdminRouting()
                     desktopDeviceAdminRouting()
                     fieldRouting()
                     matchRouting()

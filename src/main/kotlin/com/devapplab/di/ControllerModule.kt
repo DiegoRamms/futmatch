@@ -4,6 +4,7 @@ import com.devapplab.features.training.TrainingController
 import com.devapplab.features.auth.AuthController
 import com.devapplab.features.admin.AdminUserController
 import com.devapplab.features.admin.AdminDashboardController
+import com.devapplab.features.admin.MatchInviteAdminController
 import com.devapplab.features.cron.CronController
 import com.devapplab.features.device.DeviceController
 import com.devapplab.features.device.DesktopDeviceController
@@ -26,6 +27,7 @@ val controllerModule = module {
         scopedOf(::AdminDashboardController)
         scopedOf(::AuthController)
         scopedOf(::AdminUserController)
+        scopedOf(::MatchInviteAdminController)
         scopedOf(::UserController)
         scopedOf(::FieldController)
         scopedOf(::MatchController)

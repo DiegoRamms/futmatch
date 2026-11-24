@@ -2,7 +2,9 @@ package com.devapplab.data.repository.match
 
 import com.devapplab.model.match.MatchInviteCandidate
 import com.devapplab.model.match.MatchInviteInfo
+import com.devapplab.model.match.MatchInviteMatchState
 import com.devapplab.model.match.MatchInviteNotification
+import com.devapplab.model.match.MatchInviteUserEligibility
 import java.util.*
 
 interface MatchInviteRepository {
@@ -14,11 +16,17 @@ interface MatchInviteRepository {
     /** RESERVED/JOINED players per match. */
     suspend fun getActivePlayerIds(matchIds: List<UUID>): Map<UUID, Set<UUID>>
 
-    /** Active players who opted in to invites and have at least one active push token. */
+    /** Active players and admins who opted in to invites and have at least one active push token. */
     suspend fun getInviteCandidates(): List<MatchInviteCandidate>
 
     /** Users that already got a MATCH_INVITE at or after [since]. */
     suspend fun getUsersInvitedSince(since: Long): Set<UUID>
+
+    /** One match in any status, with its enrolled-player count (admin diagnosis). */
+    suspend fun getMatchState(matchId: UUID): MatchInviteMatchState?
+
+    /** Invite-related fields of one user, whatever their role or status (admin diagnosis). */
+    suspend fun getUserEligibility(userId: UUID): MatchInviteUserEligibility?
 
     suspend fun getActiveFcmTokensByUserIds(userIds: Collection<UUID>): Map<UUID, List<String>>
 

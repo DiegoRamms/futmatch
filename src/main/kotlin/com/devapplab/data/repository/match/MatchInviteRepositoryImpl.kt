@@ -10,12 +10,14 @@ import com.devapplab.data.database.notification.NotificationTable
 import com.devapplab.data.database.user.UserTable
 import com.devapplab.model.match.MatchInviteCandidate
 import com.devapplab.model.match.MatchInviteInfo
+import com.devapplab.model.match.MatchInviteMatchState
 import com.devapplab.model.match.MatchInviteNotification
+import com.devapplab.model.match.MatchInviteUserEligibility
 import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.notification.NotificationInbox
 import com.devapplab.model.notification.NotificationType
-import com.devapplab.model.user.UserRole
+import com.devapplab.service.match.MatchInvitePlanner
 import com.devapplab.model.user.UserStatus
 import com.devapplab.utils.LocaleTag
 import org.jetbrains.exposed.v1.core.*
@@ -27,11 +29,7 @@ class MatchInviteRepositoryImpl : MatchInviteRepository {
     private val activePlayerStatuses = listOf(MatchPlayerStatus.RESERVED, MatchPlayerStatus.JOINED)
 
     override suspend fun getMatchesForInvite(from: Long, to: Long): List<MatchInviteInfo> = dbQuery {
-        val rows = (MatchTable innerJoin FieldTable)
-            .select(
-                MatchTable.id, FieldTable.name, MatchTable.dateTime, MatchTable.maxPlayers,
-                MatchTable.genderType, MatchTable.playerLevel, MatchTable.adminId, MatchTable.supervisorId
-            )
+        val rows = selectMatchRows()
             .where {
                 (MatchTable.status eq MatchStatus.SCHEDULED) and
                     (MatchTable.dateTime greater from) and
@@ -41,20 +39,71 @@ class MatchInviteRepositoryImpl : MatchInviteRepository {
         if (rows.isEmpty()) return@dbQuery emptyList()
 
         val enrolled = countActivePlayers(rows.map { it[MatchTable.id] })
-        rows.map { row ->
-            val matchId = row[MatchTable.id]
-            MatchInviteInfo(
-                matchId = matchId,
-                fieldName = row[FieldTable.name],
-                dateTime = row[MatchTable.dateTime],
-                maxPlayers = row[MatchTable.maxPlayers],
-                enrolledPlayers = enrolled[matchId] ?: 0,
-                genderType = row[MatchTable.genderType],
-                playerLevel = row[MatchTable.playerLevel],
-                adminId = row[MatchTable.adminId],
-                supervisorId = row[MatchTable.supervisorId],
+        rows.map { it.toMatchInviteInfo(enrolled) }
+    }
+
+    override suspend fun getMatchState(matchId: UUID): MatchInviteMatchState? = dbQuery {
+        val row = selectMatchRows().where { MatchTable.id eq matchId }.singleOrNull() ?: return@dbQuery null
+        MatchInviteMatchState(
+            info = row.toMatchInviteInfo(countActivePlayers(listOf(matchId))),
+            status = row[MatchTable.status],
+        )
+    }
+
+    override suspend fun getUserEligibility(userId: UUID): MatchInviteUserEligibility? = dbQuery {
+        val row = UserTable
+            .select(
+                UserTable.id, UserTable.role, UserTable.status, UserTable.isNotificationsEnabled,
+                UserTable.matchInviteNotificationsEnabled, UserTable.gender, UserTable.level
             )
-        }
+            .where { UserTable.id eq userId }
+            .singleOrNull() ?: return@dbQuery null
+        val hasPushToken = DeviceTable
+            .select(DeviceTable.id)
+            .where { (DeviceTable.userId eq userId) and (DeviceTable.isActive eq true) and DeviceTable.fcmToken.isNotNull() }
+            .limit(1)
+            .any()
+        val lastInvite = NotificationTable.createdAt.max()
+        val lastInviteAt = NotificationTable
+            .select(lastInvite)
+            .where {
+                (NotificationTable.userId eq userId) and
+                    (NotificationTable.notificationType eq NotificationType.MATCH_INVITE.name)
+            }
+            .singleOrNull()
+            ?.get(lastInvite)
+        MatchInviteUserEligibility(
+            userId = userId,
+            role = row[UserTable.role],
+            status = row[UserTable.status],
+            notificationsEnabled = row[UserTable.isNotificationsEnabled],
+            matchInvitesEnabled = row[UserTable.matchInviteNotificationsEnabled],
+            hasPushToken = hasPushToken,
+            gender = row[UserTable.gender],
+            level = row[UserTable.level],
+            lastInviteAt = lastInviteAt,
+        )
+    }
+
+    private fun selectMatchRows() = (MatchTable innerJoin FieldTable)
+        .select(
+            MatchTable.id, FieldTable.name, MatchTable.dateTime, MatchTable.maxPlayers, MatchTable.status,
+            MatchTable.genderType, MatchTable.playerLevel, MatchTable.adminId, MatchTable.supervisorId
+        )
+
+    private fun ResultRow.toMatchInviteInfo(enrolled: Map<UUID, Int>): MatchInviteInfo {
+        val matchId = this[MatchTable.id]
+        return MatchInviteInfo(
+            matchId = matchId,
+            fieldName = this[FieldTable.name],
+            dateTime = this[MatchTable.dateTime],
+            maxPlayers = this[MatchTable.maxPlayers],
+            enrolledPlayers = enrolled[matchId] ?: 0,
+            genderType = this[MatchTable.genderType],
+            playerLevel = this[MatchTable.playerLevel],
+            adminId = this[MatchTable.adminId],
+            supervisorId = this[MatchTable.supervisorId],
+        )
     }
 
     override suspend fun getDispatchedMilestones(matchIds: List<UUID>): Map<UUID, Set<Int>> = dbQuery {
@@ -83,7 +132,7 @@ class MatchInviteRepositoryImpl : MatchInviteRepository {
             .select(UserTable.id, UserTable.locale, UserTable.gender, UserTable.level)
             .where {
                 (UserTable.status eq UserStatus.ACTIVE) and
-                    (UserTable.role eq UserRole.PLAYER) and
+                    (UserTable.role inList MatchInvitePlanner.INVITE_ROLES) and
                     (UserTable.isNotificationsEnabled eq true) and
                     (UserTable.matchInviteNotificationsEnabled eq true) and
                     (UserTable.id inSubQuery usersWithPushToken)
