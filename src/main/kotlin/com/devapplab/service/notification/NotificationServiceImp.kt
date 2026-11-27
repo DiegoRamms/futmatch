@@ -32,6 +32,8 @@ import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MulticastMessage
 import com.google.firebase.messaging.Notification
 import com.google.firebase.messaging.AndroidConfig
+import com.google.firebase.messaging.ApnsConfig
+import com.google.firebase.messaging.Aps
 import io.ktor.http.*
 import org.slf4j.LoggerFactory
 import java.time.Instant
@@ -306,7 +308,8 @@ class NotificationServiceImp(
         token: String,
         title: String,
         body: String,
-        data: Map<String, String>
+        data: Map<String, String>,
+        badge: Int?
     ): String {
         val message = Message.builder()
             .setToken(token)
@@ -317,6 +320,7 @@ class NotificationServiceImp(
                     .build()
             )
             .putAllData(data)
+            .apply { badge?.let { setApnsConfig(apnsBadgeConfig(it)) } }
             .build()
 
         return FirebaseMessaging.getInstance().send(message)
@@ -326,7 +330,8 @@ class NotificationServiceImp(
         tokens: List<String>,
         title: String,
         body: String,
-        data: Map<String, String>
+        data: Map<String, String>,
+        badge: Int?
     ) {
         if (tokens.isEmpty()) return
 
@@ -339,6 +344,7 @@ class NotificationServiceImp(
                     .build()
             )
             .putAllData(data)
+            .apply { badge?.let { setApnsConfig(apnsBadgeConfig(it)) } }
             .build()
 
         val response = FirebaseMessaging.getInstance().sendEachForMulticast(message)
@@ -387,7 +393,8 @@ class NotificationServiceImp(
         userId: UUID,
         title: String,
         body: String,
-        data: Map<String, String>
+        data: Map<String, String>,
+        badge: Int?
     ) {
         val tokens = deviceRepository.getActiveFcmTokensByUserId(userId).distinct()
         if (tokens.isEmpty()) {
@@ -397,7 +404,7 @@ class NotificationServiceImp(
 
         if (tokens.size == 1) {
             try {
-                sendToToken(tokens.first(), title, body, data)
+                sendToToken(tokens.first(), title, body, data, badge)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -410,7 +417,7 @@ class NotificationServiceImp(
             }
         } else {
             try {
-                sendToTokens(tokens, title, body, data)
+                sendToTokens(tokens, title, body, data, badge)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -433,6 +440,28 @@ class NotificationServiceImp(
             }
         }
     }
+
+    /**
+     * The app icon badge for a push: the player inbox's unread count, read after the
+     * new row is saved so it includes it. Other inboxes return null and leave the
+     * icon as it is. A failed read must not block the push itself.
+     */
+    private suspend fun playerBadgeCount(userId: UUID, inbox: NotificationInbox): Int? {
+        if (inbox != NotificationInbox.PLAYER) return null
+        return try {
+            notificationRepository.getUnreadCount(userId, NotificationInbox.PLAYER).toInt()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn("Could not read unread count for push badge (user=$userId)", e)
+            null
+        }
+    }
+
+    private fun apnsBadgeConfig(badge: Int): ApnsConfig =
+        ApnsConfig.builder()
+            .setAps(Aps.builder().setBadge(badge.coerceAtLeast(0)).build())
+            .build()
 
     private fun buildFcmErrorSummary(throwable: Throwable?): String {
         val fcmException = throwable as? FirebaseMessagingException
@@ -468,7 +497,7 @@ class NotificationServiceImp(
 
             val pushData = if (inbox == NotificationInbox.PLAYER) metadata ?: emptyMap()
                 else (metadata ?: emptyMap()) + ("inbox" to inbox.name)
-            notifyUser(userId, title, body, pushData)
+            notifyUser(userId, title, body, pushData, playerBadgeCount(userId, inbox))
 
             AppResult.Success(notificationId)
         } catch (_: Exception) {
