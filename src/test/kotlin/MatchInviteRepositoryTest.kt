@@ -131,17 +131,17 @@ class MatchInviteRepositoryTest {
     private fun invite(userId: UUID) = MatchInviteNotification(userId, "Title", "Body", "{}")
 
     @Test
-    fun `candidates are active opted-in players and admins with an active push token`() = withDb { db ->
+    fun `candidates are active opted-in users of any role with an active push token`() = withDb { db ->
         val player = db.user()
         val admin = db.user(role = UserRole.ADMIN)
+        val organizer = db.user(role = UserRole.ORGANIZER)
         db.user(invitesEnabled = false)
         db.user(token = null)
         db.user(deviceActive = false)
-        db.user(role = UserRole.ORGANIZER)
         db.user(status = UserStatus.BLOCKED)
 
         val candidates = MatchInviteRepositoryImpl().getInviteCandidates()
-        assertEquals(setOf(player, admin), candidates.map { it.userId }.toSet())
+        assertEquals(setOf(player, admin, organizer), candidates.map { it.userId }.toSet())
         assertTrue(candidates.all { it.localeTag == "es-MX" })
     }
 
@@ -324,7 +324,6 @@ class MatchInviteRepositoryTest {
         assertNull(repo.getMatchState(UUID.randomUUID()))
 
         val adminInfo = assertNotNull(repo.getUserEligibility(admin))
-        assertEquals(UserRole.ADMIN, adminInfo.role)
         assertFalse(adminInfo.hasPushToken)
         assertNull(adminInfo.lastInviteAt)
 

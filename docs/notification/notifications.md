@@ -313,7 +313,7 @@ milestone to the config never re-invites for matches already past a smaller one.
 A full match keeps its milestone pending, so the invite still goes out if a spot frees
 up before the next milestone.
 
-**Who receives it.** Users with role `PLAYER` or `ADMIN`, status `ACTIVE`, at least one active
+**Who receives it.** Users of any role (`PLAYER`, `ADMIN`, `ORGANIZER`) with status `ACTIVE`, at least one active
 device with a push token, `is_notifications_enabled = true` and the match-invite
 preference on. It skips players already `RESERVED`/`JOINED`, the match admin and
 supervisor, and matches the user can't see because of gender or level (same rules as
@@ -377,7 +377,6 @@ returns `eligible` and a list of checks, each with `passed` and a `detail`:
 | `match_scheduled` / `match_upcoming` / `match_has_spots` | Match not `SCHEDULED`, already started, or full |
 | `milestone_pending` | Every milestone for this match was already used |
 | `user_found` | Unknown `userId` |
-| `role_allowed` | The user is `ORGANIZER`: only `PLAYER` and `ADMIN` accounts get invites |
 | `status_active`, `notifications_enabled`, `match_invites_enabled` | The account is blocked, or it opted out |
 | `has_push_token` | No active device with an FCM token (sign in again on the device) |
 | `not_match_admin` / `not_match_supervisor` | The user runs this match |

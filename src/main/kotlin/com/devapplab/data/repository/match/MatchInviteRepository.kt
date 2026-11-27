@@ -16,7 +16,7 @@ interface MatchInviteRepository {
     /** RESERVED/JOINED players per match. */
     suspend fun getActivePlayerIds(matchIds: List<UUID>): Map<UUID, Set<UUID>>
 
-    /** Active players and admins who opted in to invites and have at least one active push token. */
+    /** Active users of any role who opted in to invites and have at least one active push token. */
     suspend fun getInviteCandidates(): List<MatchInviteCandidate>
 
     /** Users that already got a MATCH_INVITE at or after [since]. */

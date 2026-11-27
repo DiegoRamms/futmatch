@@ -2,7 +2,6 @@ package com.devapplab.model.match
 
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerLevel
-import com.devapplab.model.user.UserRole
 import com.devapplab.model.user.UserStatus
 import java.util.*
 
@@ -40,7 +39,6 @@ data class MatchInviteNotification(
 /** Everything that decides whether one user can receive invites (used by the admin diagnosis). */
 data class MatchInviteUserEligibility(
     val userId: UUID,
-    val role: UserRole,
     val status: UserStatus,
     val notificationsEnabled: Boolean,
     val matchInvitesEnabled: Boolean,

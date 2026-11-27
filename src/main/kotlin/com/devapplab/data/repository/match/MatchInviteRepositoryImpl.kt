@@ -17,7 +17,6 @@ import com.devapplab.model.match.MatchPlayerStatus
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.notification.NotificationInbox
 import com.devapplab.model.notification.NotificationType
-import com.devapplab.service.match.MatchInvitePlanner
 import com.devapplab.model.user.UserStatus
 import com.devapplab.utils.LocaleTag
 import org.jetbrains.exposed.v1.core.*
@@ -53,7 +52,7 @@ class MatchInviteRepositoryImpl : MatchInviteRepository {
     override suspend fun getUserEligibility(userId: UUID): MatchInviteUserEligibility? = dbQuery {
         val row = UserTable
             .select(
-                UserTable.id, UserTable.role, UserTable.status, UserTable.isNotificationsEnabled,
+                UserTable.id, UserTable.status, UserTable.isNotificationsEnabled,
                 UserTable.matchInviteNotificationsEnabled, UserTable.gender, UserTable.level
             )
             .where { UserTable.id eq userId }
@@ -74,7 +73,6 @@ class MatchInviteRepositoryImpl : MatchInviteRepository {
             ?.get(lastInvite)
         MatchInviteUserEligibility(
             userId = userId,
-            role = row[UserTable.role],
             status = row[UserTable.status],
             notificationsEnabled = row[UserTable.isNotificationsEnabled],
             matchInvitesEnabled = row[UserTable.matchInviteNotificationsEnabled],
@@ -132,7 +130,6 @@ class MatchInviteRepositoryImpl : MatchInviteRepository {
             .select(UserTable.id, UserTable.locale, UserTable.gender, UserTable.level)
             .where {
                 (UserTable.status eq UserStatus.ACTIVE) and
-                    (UserTable.role inList MatchInvitePlanner.INVITE_ROLES) and
                     (UserTable.isNotificationsEnabled eq true) and
                     (UserTable.matchInviteNotificationsEnabled eq true) and
                     (UserTable.id inSubQuery usersWithPushToken)
