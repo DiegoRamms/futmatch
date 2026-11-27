@@ -260,6 +260,12 @@ no schema migration or separately stored counter is required.
    reconcile new arrivals and activity from other devices. The PATCH response gives
    the number of rows changed, not a guaranteed current unread count.
 
+4. Every push for a PLAYER-inbox notification carries the player's unread count
+   (including the new one) as `apns.payload.aps.badge`, so iOS updates the app icon
+   while the app is closed. Pushes for ORGANIZER/ADMIN inboxes and topic pushes carry
+   no badge and leave the icon unchanged. Match invites are sent as one multicast
+   per locale, so they carry no badge either; the app corrects the icon when opened.
+
 The count is intentionally separate from `/user/home`, so the client can refresh
 just the badge without reloading profile and match data. Home's response is unchanged.
 
