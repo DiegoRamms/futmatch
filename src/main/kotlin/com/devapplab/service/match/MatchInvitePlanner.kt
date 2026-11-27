@@ -5,7 +5,6 @@ import com.devapplab.model.match.MatchInviteInfo
 import com.devapplab.model.match.MatchInviteUserEligibility
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.match.response.MatchInviteCheck
-import com.devapplab.model.user.UserRole
 import com.devapplab.model.user.UserStatus
 import java.util.*
 import kotlin.time.Duration.Companion.hours
@@ -14,9 +13,6 @@ import kotlin.time.Duration.Companion.hours
  * Pure decisions for match invites, kept apart from I/O so they are easy to test.
  */
 internal object MatchInvitePlanner {
-
-    /** Roles that receive invites. Admins are still skipped for matches they run or supervise. */
-    val INVITE_ROLES = listOf(UserRole.PLAYER, UserRole.ADMIN)
 
     /**
      * Milestones (in hours before kick-off) that are due and not yet processed.
@@ -80,7 +76,6 @@ internal object MatchInvitePlanner {
         }
         val nextInviteAllowedAt = user.lastInviteAt?.plus(dailyWindowMs)
         checks += listOf(
-            MatchInviteCheck("role_allowed", user.role in INVITE_ROLES, "role=${user.role} allowed=$INVITE_ROLES"),
             MatchInviteCheck("status_active", user.status == UserStatus.ACTIVE, "status=${user.status}"),
             MatchInviteCheck("notifications_enabled", user.notificationsEnabled),
             MatchInviteCheck("match_invites_enabled", user.matchInvitesEnabled),

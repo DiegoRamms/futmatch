@@ -6,7 +6,6 @@ import com.devapplab.model.match.MatchInviteUserEligibility
 import com.devapplab.model.match.MatchStatus
 import com.devapplab.model.user.Gender
 import com.devapplab.model.user.PlayerLevel
-import com.devapplab.model.user.UserRole
 import com.devapplab.model.user.UserStatus
 import com.devapplab.service.match.MatchInvitePlanner
 import com.devapplab.utils.StringResourcesKey
@@ -132,14 +131,13 @@ class MatchInvitePlannerTest {
         val m = match(inHours(47.0), genderType = GenderType.FEMALE_ONLY)
         val user = eligibility(
             userId = m.adminId,
-            role = UserRole.ORGANIZER,
             hasPushToken = false,
             lastInviteAt = now - 2.hours.inWholeMilliseconds,
         )
         val failed = diagnose(m, user, activePlayers = setOf(m.adminId)).filterNot { it.passed }.map { it.name }
         assertEquals(
             listOf(
-                "role_allowed", "has_push_token", "not_match_admin", "not_in_match",
+                "has_push_token", "not_match_admin", "not_in_match",
                 "gender_and_level_visible", "no_invite_last_24h"
             ),
             failed
@@ -147,8 +145,8 @@ class MatchInvitePlannerTest {
     }
 
     @Test
-    fun `an admin who doesn't run the match is eligible`() {
-        val checks = diagnose(match(inHours(47.0)), eligibility(role = UserRole.ADMIN))
+    fun `an admin or organizer who doesn't run the match is eligible`() {
+        val checks = diagnose(match(inHours(47.0)), eligibility())
         assertTrue(checks.all { it.passed }, checks.filterNot { it.passed }.toString())
     }
 
@@ -181,12 +179,10 @@ class MatchInvitePlannerTest {
 
     private fun eligibility(
         userId: UUID = UUID.randomUUID(),
-        role: UserRole = UserRole.PLAYER,
         hasPushToken: Boolean = true,
         lastInviteAt: Long? = null,
     ) = MatchInviteUserEligibility(
         userId = userId,
-        role = role,
         status = UserStatus.ACTIVE,
         notificationsEnabled = true,
         matchInvitesEnabled = true,
